@@ -1,0 +1,243 @@
+---
+title: "Phototrophy analysis"
+author: "Julia Golebiowska"
+date: "2024-03-14"
+output: pdf_document
+---
+ 
+```{r include=FALSE}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+setwd("~/IGB_phd/phototrophy")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
+```
+
+```{r read , eval=FALSE, include=FALSE}
+##Loading files
+#gene_cluster_table
+'''
+clstr <- read.csv(paste0(path,"/GROS22.clstr"), sep="\t", skip=0, header = F)
+colnames(clstr) <- c("gene_cluster", "mem", "gene", "length", "pos")
+#annotation
+annot <- read.csv(paste0(path,"/GROS22.kegg-annotations.tsv"), sep="\t", skip=0, header = TRUE, quote="")
+#abundance
+geneabund <- read.csv(paste0(path,"/BICEST_cellabund.tsv"), sep="\t", skip=1, header = TRUE, row.names = 1)
+#prepare geneabund for merging  
+geneabund <- geneabund %>% 
+  rownames_to_column("gene_cluster")
+#prepare metadata from merging
+metadata_sim <- read.csv(paste0(path,"/SAMEAID_SampleID_simplified.csv"), header=TRUE, sep=";") 
+#select the needed columns to avoid doubling computations
+metadata_sim <-metadata_sim[,c("BioSample", "ProjectID")]
+#read simplified metadata, as it has a ProjectID 
+metadata <- read.csv(paste0(path,"/SAMEAID_SampleID.csv"), header=TRUE, sep=";") %>% 
+  left_join(metadata_sim, by = "BioSample")  %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAT.genecount.profile")) %>%
+  mutate(data_type="METAT")
+
+metadata2 <- read.csv(paste0(path, "/SAMEAID_SampleID.csv"), header=TRUE, sep=";") %>% 
+  left_join(metadata_sim, by = "BioSample")  %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAG.genecount.profile")) %>%
+  mutate(data_type="METAG")
+
+metadata <- rbind(metadata, metadata2)
+save.image(file="phototrophy.RData")
+
+'''
+```
+
+```{r load}
+#or just load prepared initial data
+load(file="phototrophy.RData")
+```
+# 1. Rhodopsins analysis
+
+## 1.1. Find rhodopsins genes
+```{r, echo=FALSE}
+#let's find rhodopsins using KO
+#here the ids from KEGG database
+#K00909 GRK1_7; rhodopsin kinase [EC:2.7.11.14]
+#K04641 bop; bacteriorhodopsin
+#K04642 hop; halorhodopsin
+#K04643 sop; sensory rhodopsin
+rhd_clust <- annot %>%  
+  filter(KO %in% c("K00909","K04641","K04642","K04643")) %>% 
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+#not enough to do meaningful analysis 
+#interestigly all rhodopsins were found in viral scaffolds ?
+#only sensory rhodopsins - so rather not realy responsible for phototrophy
+unique(rhd_clust[,"KO"])
+```
+## 1.2. Explore rhodopsins spatial and temporal distribution
+```{r}
+#prepare the table with matadata for plot
+meta_rhd_clust <- rhd_clust %>% 
+  pivot_longer(!c("QUERY", "KO", "BRITE", "CAZY", "COG", "DISEASE", "DRUG", "ENZYME", "GO", "MODULE", "NETWORK", "PATHWAY", "PUBMED", "RCLASS", "REACTION", "TC", "VP", "DESCRIPTION", "length"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  merge(metadata)
+meta_rhd_clust$Stromkilometer <- sub(",", ".", meta_rhd_clust$Stromkilometer)
+meta_rhd_clust$Stromkilometer <- as.double(meta_rhd_clust$Stromkilometer)
+
+#plot it!
+meta_rhd_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  mutate(counts=counts/1000) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
+  geom_tile() + facet_wrap(~data_type *Sample_date) + ggtitle("Rhd counts across different seasons, river sites and data types") + geom_smooth(method = lm)
+#not enough to do meaningful analysis 
+#interestigly all rhodopsins were found in viral scaffolds ?
+#usually the highest variance in the last station
+```
+## 1.3. Check different fractions
+```{r}
+#check different fractions
+#plot it!
+meta_rhd_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  mutate(counts=counts/1000) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
+  geom_tile()  + facet_wrap(~ Sample_type) 
+#higher variance in free living
+```
+## 1.4. Check correlations
+```{r}
+#explore correlations for METAT counts
+numeric_col <-  c("counts","Stromkilometer", "Sat_O2_TBDHereon","Turbidity_TBDHereon", "SPM_mgperL", "DOC_mg.L","DIC_mg.L","Temperature_TBDHereon", "pH_TBDHereon", "Silicate_mg.L", "Nitrite_mg.L", "TotalDissolvedPhosphate_mg.L", "RespirationRate_O2ug.L.h",  "Phosphate_µM", "O2_TBDHereon", "TN_mg.L", "DIC_uM.L", "DOC_uM.L",  "POC_mgperL", "PTH_mgperL", "Ammonium_mg.L", "SRP_µM", "Salinity_TBDHereon", "PTH_mgperL", "POC_mgperL", "PTC_mgperL", "PTN_mgperL")
+meta_rhd_clust_df <-  meta_rhd_clust  %>% filter(data_type == "METAT") %>%
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>% 
+  filter(data_type == 'METAT') %>% 
+  select(numeric_col) 
+ 
+meta_rhd_clust_df[ meta_rhd_clust_df == ""] <- NA 
+
+for (i in c(3:length(meta_rhd_clust_df[1,]))){
+  meta_rhd_clust_df[,i] <-  as.numeric(sub(",", ".", meta_rhd_clust_df[,i])) #replace , to . to get a string which can be converted to double 
+}
+meta_rhd_clust_df[is.na(meta_rhd_clust_df)] <- 0 
+head(meta_rhd_clust_df)
+#to numeric 
+meta_rhd_clust_matrix <- matrix(apply(meta_rhd_clust_df,2, as.numeric), ncol=ncol(meta_rhd_clust_df), dimnames=list(c(),colnames(meta_rhd_clust_df)))
+
+meta_rhd_clust_matrix[is.na(meta_rhd_clust_matrix)] <- 0 
+res <- cor(meta_rhd_clust_matrix)
+res[ is.na(res)] <- 0 
+heatmap(round(res, 2), cexRow = 0.5, cexCol = 0.5)
+```
+Very strong correlation between "DOC_mg.L", "TN_mg.L". Quite strong between  "TN_mg.L", "DIC_mg.L"
+## 1.5. Try to make a model
+```{r}
+
+#lets plot two parameters agains rhodopsins counts
+#salinity
+salinitymodel <- lm(counts ~ Salinity_TBDHereon, data = meta_rhd_clust_df) # didn't work
+
+meta_rhd_clust_df %>% 
+ggplot(aes(x=Salinity_TBDHereon, y=counts)) + geom_point() + geom_line(aes(x= Salinity_TBDHereon , y = Salinity_TBDHereon*salinitymodel$coefficients[2]+salinitymodel$coefficients[1] )) 
+
+#pH
+ggplot(meta_rhd_clust_df[meta_rhd_clust_df["pH_TBDHereon"]>0,], aes(x=pH_TBDHereon, y=log(counts))) + geom_point() + geom_smooth() #ommit rows with zero - artifact from NA <= 0
+```
+Very subtle tendency
+## 1.6. Explore variance
+```{r}
+#explore the variance as it looks like is different across stations
+var_meta_rhd_clust_station <- meta_rhd_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>% 
+  group_by(Station) %>% 
+  summarise(var = var(counts))
+
+#variance across stations (similarly the variance is lower n the brakish water)
+rhd_var_station <- var_meta_rhd_clust_station  %>% arrange(factor(Station, levels =c("Muehlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund")))
+
+rhd_var_station #change the order
+```
+
+# 2. PsbA analysis 
+## 2.1 Find PsbA gene and check its spatial and temporal distribution
+
+```{r}
+#find psbA genes 
+psbA_clust <- annot %>%  
+  filter(KO %in% c("K02703")) %>% 
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+
+#prepare the table with matadata for plot
+meta_psbA_clust <- psbA_clust %>% 
+  pivot_longer(!c("QUERY", "KO", "BRITE", "CAZY", "COG", "DISEASE", "DRUG", "ENZYME", "GO", "MODULE", "NETWORK", "PATHWAY", "PUBMED", "RCLASS", "REACTION", "TC", "VP", "DESCRIPTION", "length"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  merge(metadata)
+meta_psbA_clust$Stromkilometer <- sub(",", ".", meta_psbA_clust$Stromkilometer)
+meta_psbA_clust$Stromkilometer <- as.double(meta_psbA_clust$Stromkilometer)
+
+#plot it!
+meta_psbA_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  mutate(counts=counts/1000) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + ggtitle("psbA counts across different seasons and river sites") + geom_point() + 
+  geom_tile() + facet_wrap(~data_type *Sample_date) + geom_smooth() 
+#usually the highest variance in the beginning and at the end of the estuary 
+#but very similar across  the samples
+```
+## 2.2 Check different fractions 
+```{r}
+#check different fractions
+#plot it!
+meta_psbA_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  mutate(counts=counts/1000) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
+  geom_tile() + facet_wrap(~ Sample_type) + geom_smooth()
+
+#higher variance in particle associated - interesting opposite to the rhodopsins 
+```
+
+```{r}
+#explore correlations
+meta_psbA_clust_df <-  meta_psbA_clust  %>%  
+  filter(data_type == "METAT") %>%
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>% 
+  select(numeric_col) 
+
+meta_psbA_clust_df[ meta_psbA_clust_df == ""] <- NA 
+
+for (i in c(3:length(meta_psbA_clust_df[1,]))){
+  meta_psbA_clust_df[,i] <-  sub(",", ".", meta_psbA_clust_df[,i]) #replace , to . to get a string which can be converted to double 
+}
+
+head(meta_psbA_clust_df)
+#to numeric 
+meta_psbA_clust_matrix <- matrix(apply(meta_psbA_clust_df,2, as.numeric), ncol=ncol(meta_psbA_clust_df), dimnames=list(c(),colnames(meta_rhd_clust_df)))
+meta_psbA_clust_matrix[ is.na(meta_psbA_clust_matrix)] <- 0 
+res <- cor(meta_psbA_clust_matrix)
+res[ is.na(res)] <- 0 
+round(res, 2)
+
+heatmap(round(res, 2))
+#no interresting correlations for PsbA counts
+```
+## 2.3 Variance analysis 
+```{r}
+#variance analysis 
+var_meta_psbA_clust <- meta_psbA_clust  %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>% 
+  group_by(Station, Sample_date) %>% 
+  summarise(var = var(counts))
+
+var_meta_psbA_clust_station <- meta_psbA_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>% 
+  group_by(Station) %>% 
+  summarise(var = var(counts))
+
+#variance across stations (similarly the variance is lower n the brakish water)
+var_meta_psbA_clust_station  %>% arrange(factor(Station, levels = c("Muehlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund"))) #change the order 
+```
+
+The variance is increasing with a station order 
