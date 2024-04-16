@@ -232,13 +232,16 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marke
 load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_genes_taxa.RData")
 host_prediction_genus_counts_metadata <- host_prediction_genus_counts_metadata %>% 
   mutate(sampleid=str_replace(sampleid, pattern="GROS22.[0-9]_", "")) %>% 
-  mutate(sampleid=str_replace(sampleid, ".genecount.profile", ""))
+  mutate(sampleid=str_replace(sampleid, ".genecount.profile", "")) %>% 
+  filter(Station != 'BunthausSpitze') %>% #remove 21 Nov and Buntspitze as we dont have this station for all
+  filter(Sample_date != "Nov 21")
+
 host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_metadata  %>%
   select(phylum, sampleid, counts) %>%
   group_by(phylum, sampleid) %>% 
   summarise(across(everything(), ~ sum(., na.rm = TRUE))) %>% 
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
-saveRDS(host_prediction_genus_counts_metadata_mantel, file="host_prediction_genus_counts_metadata_mantel.RDS")
+saveRDS(host_prediction_genus_counts_metadata_mantel, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genus_counts_metadata_mantel.RDS")
 
 #prepare matrix for mantel test 
 host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_metadata[, c("phylum", "Virus", "counts", "sampleid")] %>%

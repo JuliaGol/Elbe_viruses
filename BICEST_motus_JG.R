@@ -824,8 +824,8 @@ motus_metadata_metag_pa %>%
 
 ##For now I will remove them
 
-motus_final_taxa_metadata <- motus_final_taxa_metadata %>% 
-  filter(!grepl("Feb 22", date)) #sample_date to date
+#motus_final_taxa_metadata <- motus_final_taxa_metadata %>%  ### Do no remove for mentel test
+#  filter(!grepl("Feb 22", date)) #sample_date to date
 
 motus_metadata_metag_fl <- motus_final_taxa_metadata %>% 
   filter(data_type == "METAG" & sample_type == "Free_living")
@@ -1202,9 +1202,35 @@ motus_hosts_taxa_metadata = motus_final_taxa_metadata[motus_final_taxa_metadata$
 #And then you can take the counts of the motu
 #group by phylum
 motus_hosts_taxa_metadata_wide <- motus_hosts_taxa_metadata %>%
+  filter(station != 'BunthausSpitze') %>% 
+  filter(date != "Nov 21") %>%
   select(phylum, sampleid, counts) %>%
   group_by(phylum, sampleid) %>% 
   summarise(across(everything(), ~ sum(., na.rm = TRUE))) %>% 
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
 #read viruses data counts
 host_prediction_genus_counts_metadata_mantel <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genus_counts_metadata_mantel.RDS")
+samples_diff <- colnames(motus_hosts_taxa_metadata_wide)[!(colnames(motus_hosts_taxa_metadata_wide) %in% colnames(host_prediction_genus_counts_metadata_mantel))]
+samples_diff #zero check if the same
+colnames(motus_hosts_taxa_metadata_wide) == colnames(host_prediction_genus_counts_metadata_mantel) #there are equal
+motus_hosts_taxa_metadata_wide$phylum == host_prediction_genus_counts_metadata_mantel$phylum 
+#there are different lets take subset 
+motus_hosts_taxa_metadata_wide$phylum[!(motus_hosts_taxa_metadata_wide$phylum %in% host_prediction_genus_counts_metadata_mantel$phylum)] #motus phyla should be subset - check
+#different check taxonomy from two files host_prediction_genome, host_prediction_genus
+#now take subset 
+subsetphylum = motus_hosts_taxa_metadata_wide$phylum[(motus_hosts_taxa_metadata_wide$phylum %in% host_prediction_genus_counts_metadata_mantel$phylum)] #motus phyla should be subset - check
+#take only phyla rom subset now
+motus_hosts_taxa_metadata_wide <- motus_hosts_taxa_metadata_wide[motus_hosts_taxa_metadata_wide$phylum %in% subsetphylum,]
+host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_metadata_mantel[host_prediction_genus_counts_metadata_mantel$phylum %in% subsetphylum,]
+#distance for each 
+library("vegan")
+saveRDS(motus_hosts_taxa_metadata_wide, file="motus_hosts_taxa_metadata_wide.RDS")
+saveRDS(host_prediction_genus_counts_metadata_mantel, file="host_prediction_genus_counts_metadata_mantel.RDS")
+
+host_prediction_genus_counts_metadata_mantel
+motus.dist <- vegdist(motus_hosts_taxa_metadata_wide[, 2:length(colnames(motus_hosts_taxa_metadata_wide))], "euclidean")
+virus.dist <- vegdist(host_prediction_genus_counts_metadata_mantel[, 2:length(colnames(motus_hosts_taxa_metadata_wide))], "euclidean")
+#mantel test!!!!
+mantel(motus.dist, virus.dist, method = "spearman", permutations = 9999, na.rm = TRUE)#non significant
+#check out other phyla 
+
