@@ -291,3 +291,16 @@ load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_gene
 #conclusion between driving diversity of viruses and hosts    
 #for differently obtained hosts matrixes we can try - 1st distance between samples 
 #then mantel test or just mantel test but  it have to be for non quatratic matrixes
+#check if the same taxonomy host_prediction_genus and host_prediction_genome
+host_prediction_genus$Host.genus 
+host_prediction_genome <- host_prediction_genome %>% 
+  separate(Host.taxonomy, c("domain", "phylum", "class", "order", "family",  "genus", "species"), ";")
+host_prediction_genome$lineage_genus <- paste(host_prediction_genome$domain, host_prediction_genome$phylum, host_prediction_genome$class, host_prediction_genome$order, host_prediction_genome$family,  host_prediction_genome$genus, host_prediction_genome$species, sep=";")
+#save for motus code analysis
+saveRDS(host_prediction_genome, file = "host_prediction_genome.RDS")
+host_prediction_genome$lineage_genus == host_prediction_genus$Host.genus 
+length(host_prediction_genome$lineage_genus)
+length(host_prediction_genus$Host.genus)
+length(unique(host_prediction_genus$Host.genus))
+length(unique(host_prediction_genome$lineage_genus))### I they are different genus use only hosts-based tools and genome use host-based and phage-based tools
+#lets stick with host_prediction_genus as this was used before  

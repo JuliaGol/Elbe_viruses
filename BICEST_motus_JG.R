@@ -1194,11 +1194,16 @@ tern_table %>%
 ##Now this is quite different. We have few examples where there are mOTUs common to all sites. Nitrospirota is strictly oligohaline(freshwater)
 #JG edit:
 #What you will need to do is to link 3-4 things
-#You need to link a virus with a mag (iphop) - done, but taxonomy
+#You need to link a virus with a mag (iphop) - done, but taxonomy use genus file to be consistent with previous analysis!!!!
 host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genome_m90.csv")#You need to link a mag with a motu 
+host_prediction_genus = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genus_m90.csv")#You need to link a mag with a motu 
 #made lineage for search 
 motus_final_taxa_metadata$lineage <- paste(motus_final_taxa_metadata$domain, motus_final_taxa_metadata$phylum, motus_final_taxa_metadata$class, motus_final_taxa_metadata$order, motus_final_taxa_metadata$family,  motus_final_taxa_metadata$genus, motus_final_taxa_metadata$species, sep=";")
 motus_hosts_taxa_metadata = motus_final_taxa_metadata[motus_final_taxa_metadata$lineage %in% host_prediction_genome$Host.taxonomy,]
+
+motus_final_taxa_metadata$lineage <- paste(motus_final_taxa_metadata$domain, motus_final_taxa_metadata$phylum, motus_final_taxa_metadata$class, motus_final_taxa_metadata$order, motus_final_taxa_metadata$family,  motus_final_taxa_metadata$genus, sep=";")
+motus_hosts_genus_taxa_metadata = motus_final_taxa_metadata[motus_final_taxa_metadata$lineage %in% host_prediction_genus$Host.genus,]
+
 #And then you can take the counts of the motu
 #group by phylum
 motus_hosts_taxa_metadata_wide <- motus_hosts_taxa_metadata %>%
@@ -1226,11 +1231,15 @@ host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_met
 library("vegan")
 saveRDS(motus_hosts_taxa_metadata_wide, file="motus_hosts_taxa_metadata_wide.RDS")
 saveRDS(host_prediction_genus_counts_metadata_mantel, file="host_prediction_genus_counts_metadata_mantel.RDS")
+motus_hosts_taxa_metadata_wide <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/motus_hosts_taxa_metadata_wide.RDS")
+host_prediction_genus_counts_metadata_mantel <- readRDS(, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/host_prediction_genus_counts_metadata_mantel.RDS")
 
-host_prediction_genus_counts_metadata_mantel
+motus_hosts_taxa_metadata_wide$phylum == host_prediction_genus_counts_metadata_mantel$phylum #no there are the same - needed taxonomy from  genus file  
 motus.dist <- vegdist(motus_hosts_taxa_metadata_wide[, 2:length(colnames(motus_hosts_taxa_metadata_wide))], "euclidean")
 virus.dist <- vegdist(host_prediction_genus_counts_metadata_mantel[, 2:length(colnames(motus_hosts_taxa_metadata_wide))], "euclidean")
 #mantel test!!!!
 mantel(motus.dist, virus.dist, method = "spearman", permutations = 9999, na.rm = TRUE)#non significant
 #check out other phyla 
+motus_final_taxa_metadata$lineage <- paste(motus_final_taxa_metadata$domain, motus_final_taxa_metadata$phylum, motus_final_taxa_metadata$class, motus_final_taxa_metadata$order, motus_final_taxa_metadata$family,  motus_final_taxa_metadata$genus, motus_final_taxa_metadata$species, sep=";")
 
+#check other taxonomy assignment from genome files - produce hosts assignment based on "genome" output from iphop - check out why different lines number?   
