@@ -104,12 +104,28 @@ geneabund_drep_marker_taxa_plots %>%
 ###interfere with Iphop data
 host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genome_m90.csv")
 host_prediction_genus = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genus_m90.csv")
-
+#host_prediction_genus 5 times less observations
+length(host_prediction_genome$Virus)
+# 5424
+length(unique(host_prediction_genome$Virus)) 
+# 2043 #more different hosts - more specific taxonomy
+length(host_prediction_genus$Virus)
+# 1119
+length(unique(host_prediction_genus$Virus)) 
+# 1036
+#check - there is a difference in viruses lists - longer in host_prediction_genome
+#is host_prediction_genus$Virus  a subset of host_prediction_genome$Virus
+host_prediction_genus$Virus %in% host_prediction_genome$Virus #no 
 #add cluster number to each virus
 host_prediction_genus <- merge(host_prediction_genus, drep_clusters,  by.x = "Virus", by.y = "genome")
-
+#the same with genome file - hosts obtained differently 
+host_prediction_genome <- merge(host_prediction_genome, drep_clusters,  by.x = "Virus", by.y = "genome")
 save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_genes_taxa.RData")
 load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_genes_taxa.RData")
+#prepare lineage to genus only host_prediction_genome and division to different taxa in the column
+host_prediction_genome <- host_prediction_genome %>% 
+  separate(Host.taxonomy, c("domain", "phylum", "class", "order", "family",  "genus", "species"), ";")
+host_prediction_genome$lineage_genus <- paste(host_prediction_genome$domain, host_prediction_genome$phylum, host_prediction_genome$class, host_prediction_genome$order, host_prediction_genome$family,  host_prediction_genome$genus, host_prediction_genome$species, sep=";")
 
 #how many host carry each cluster
 host_prediction_genus %>% 
@@ -117,19 +133,34 @@ host_prediction_genus %>%
   summarise(count_hosts = n_distinct(Host.genus)) %>%
   filter(count_hosts > 1)  %>% nrow
 #52  
+
+host_prediction_genome %>% 
+  group_by(primary_cluster) %>% 
+  summarise(count_hosts = n_distinct(lineage_genus)) %>%
+  filter(count_hosts > 1)  %>% nrow
+#257
 host_prediction_genus %>% 
   group_by(primary_cluster) %>% 
   summarise(count_hosts = n_distinct(Host.genus)) %>%
   filter(count_hosts == 1)  %>% nrow
 #373
+host_prediction_genome %>% 
+  group_by(primary_cluster) %>% 
+  summarise(count_hosts = n_distinct(lineage_genus)) %>%
+  filter(count_hosts == 1)  %>% nrow
+#427 
+#in host_prediction_genome more observation, thats why we have higher number 
+
 #most of the clusters has one host genus!!!!!
 #use only clusters with marker genes and reevaluate 
 #merge dataframes to get the virus genome name (Vibrant) and counts of marker gene in the same table 
 vibrant_annot_drep_marker_counts <- left_join(vibrant_annot_drep_marker, geneabund_marker_gene_cluster, by = "gene_cluster")
 #using the viral genomes names we can interefere the results with iphop 
 host_prediction_genus_counts <- left_join(host_prediction_genus, vibrant_annot_drep_marker_counts, by=c("Virus" = "genome"))
-#check how many host in primary cluster now (some are filtered out as they did not have marker gene)
+#the same for genome file 
+host_prediction_genome_counts <- left_join(host_prediction_genome, vibrant_annot_drep_marker_counts, by=c("Virus" = "genome"))
 
+#check how many host in primary cluster now (some are filtered out as they did not have marker gene)
 host_prediction_genus_counts  %>%
   group_by(primary_cluster.x) %>% 
   select(c("Virus", "primary_cluster.x", "Host.genus"))  %>%
@@ -180,14 +211,22 @@ host_prediction_genus_counts  %>%
 # 969
 # most specialist?
 
-# how to deal in hte plot with different hosts coming from the same virus
-# focus on virus, so use counts even there are redundant, as we want to know how many viruses have particular host, not how many viruses are in total we want to see dynamic
+# how to deal in the plot with different hosts coming from the same virus
+# focus on virus, so use counts even they are redundant, as we want to know how many viruses have particular host, not how many viruses are in total we want to see dynamic
 host_prediction_genus_counts_metadata <- host_prediction_genus_counts %>% 
   pivot_longer(col = !colnames(host_prediction_genus_counts)[1:16], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  merge(metadata, by = "sampleid") 
+# the same for genome counts 
+host_prediction_genome_counts_metadata <- host_prediction_genome_counts %>% 
+  pivot_longer(col = !colnames(host_prediction_genome_counts)[1:24], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
   merge(metadata, by = "sampleid") 
 host_prediction_genus_counts_metadata  %>% 
   ggplot(aes(x=Station, y=counts, fill=Host.genus)) + geom_bar( stat = "identity") +
   geom_tile() + facet_wrap(~data_type *Sample_date) + ggtitle("Virus count of particular hosts")  +
+  theme(legend.position = "none")
+host_prediction_genome_counts_metadata  %>% 
+  ggplot(aes(x=Station, y=counts, fill=lineage_genus)) + geom_bar( stat = "identity") +
+  geom_tile() + facet_wrap(~data_type *Sample_date) + ggtitle("Virus count of particular hosts - genome output iphop")  +
   theme(legend.position = "none")
 #consider phyla not genera
 host_prediction_genus_counts_metadata <- host_prediction_genus_counts_metadata %>%
@@ -201,13 +240,20 @@ host_prediction_genus_counts_metadata  %>%
 host_prediction_genus_counts_metadata <- host_prediction_genus_counts %>% 
   pivot_longer(col = !colnames(host_prediction_genus_counts)[1:16], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
   merge(metadata, by = "sampleid") 
+#the same for host_predction-genome ...
+host_prediction_genus_counts_metadata <- host_prediction_genus_counts %>% 
+  pivot_longer(col = !colnames(host_prediction_genome_counts)[1:23], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  merge(metadata, by = "sampleid") 
+
 host_prediction_genus_counts_metadata$Stations <- as.factor(host_prediction_genus_counts_metadata$Stations, levels = c("Muehlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund"))
+#host_prediction_genome_counts_metadata$Station <- as.factor(host_prediction_genome_counts_metadata$Station, levels = c("Muehlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund"))
+
 host_prediction_genus_counts_metadata  %>% 
   ggplot(aes(x=Station, y=counts, fill=Host.genus)) + geom_bar( stat = "identity") +
   geom_tile() + facet_wrap(~data_type *Sample_date) + ggtitle("Virus count of particular hosts")
 
 host_prediction_genus_counts_metadata$Sample_date <- factor(host_prediction_genus_counts_metadata$Sample_date, levels= c("Mai 21", "Jul 21", "Nov 21", "Feb 22", "Mai 22", "Jun 22", "Nov 22"))
-
+host_prediction_genome_counts_metadata$Sample_date <- factor(host_prediction_genome_counts_metadata$Sample_date, levels= c("Mai 21", "Jul 21", "Nov 21", "Feb 22", "Mai 22", "Jun 22", "Nov 22"))
 
 host_prediction_genus_counts_metadata  %>% 
 filter(Station != 'BunthausSpitze') %>% 
@@ -230,26 +276,40 @@ filter(Station != 'BunthausSpitze') %>%
     
 save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_genes_taxa.RData")
 load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_genes_taxa.RData")
-host_prediction_genus_counts_metadata <- host_prediction_genus_counts_metadata %>% 
-  mutate(sampleid=str_replace(sampleid, pattern="GROS22.[0-9]_", "")) %>% 
-  mutate(sampleid=str_replace(sampleid, ".genecount.profile", "")) %>% 
+host_prediction_genus_counts_metadata <- host_prediction_genus_counts_metadata %>%
+  mutate(sampleid=str_replace(sampleid, pattern="GROS22.[0-9]_", "")) %>%
+  mutate(sampleid=str_replace(sampleid, ".genecount.profile", "")) %>%
   filter(Station != 'BunthausSpitze') %>% #remove 21 Nov and Buntspitze as we dont have this station for all
   filter(Sample_date != "Nov 21")
+
+host_prediction_genome_counts_metadata <- host_prediction_genome_counts_metadata %>%
+  mutate(sampleid=str_replace(sampleid, pattern="GROS22.[0-9]_", "")) %>%
+  mutate(sampleid=str_replace(sampleid, ".genecount.profile", "")) %>%
+  filter(Station != 'BunthausSpitze') %>% #remove 21 Nov and Buntspitze as we dont have this station for all
+  filter(Sample_date != "Nov 21")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_genes_taxa.RData")
+#lets save it now and continue in the Motus script - as it needs too much computational power
+#we will filter out not necessery phylla there which are subset of those from motus and iphop file
+saveRDS(host_prediction_genome_counts_metadata, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genome_counts_metadata.RDS") 
 
 host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_metadata  %>%
   select(phylum, sampleid, counts) %>%
   group_by(phylum, sampleid) %>% 
   summarise(across(everything(), ~ sum(., na.rm = TRUE))) %>% 
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+
 saveRDS(host_prediction_genus_counts_metadata_mantel, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genus_counts_metadata_mantel.RDS")
+host_prediction_genome_counts_metadata_mantel = readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genome_counts_metadata_mantel.RDS")
 
 #prepare matrix for mantel test 
 host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_metadata[, c("phylum", "Virus", "counts", "sampleid")] %>%
   pivot_wider(names_from = sampleid, values_from = counts) 
 #host_prediction_genus_counts_metadata_mantel <- as.dataframe(host_prediction_genus_counts_metadata_mantel)
 #rownames(host_prediction_genus_counts_metadata_mantel) <- host_prediction_genus_counts_metadata_mantel[,1] 
+host_prediction_genome_counts_metadata_mantel <- host_prediction_genome_counts_metadata[, c("phylum", "Virus", "counts", "sampleid")] %>%
+  pivot_wider(names_from = sampleid, values_from = counts)
 
-host_prediction_genus_counts_mantel <- host_prediction_genus_counts %>%
+ host_prediction_genus_counts_mantel <- host_prediction_genus_counts %>%
   separate(Host.genus, c("domain", "phylum", "class", "order", "family",  "genus"), ";") %>%
   select(-c("domain", "class", "order", "family",  "genus"))  %>%  filter(!is.na(phylum)) %>% 
   group_by(phylum) %>% head()
@@ -292,10 +352,6 @@ load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/marker_gene
 #for differently obtained hosts matrixes we can try - 1st distance between samples 
 #then mantel test or just mantel test but  it have to be for non quatratic matrixes
 #check if the same taxonomy host_prediction_genus and host_prediction_genome
-host_prediction_genus$Host.genus 
-host_prediction_genome <- host_prediction_genome %>% 
-  separate(Host.taxonomy, c("domain", "phylum", "class", "order", "family",  "genus", "species"), ";")
-host_prediction_genome$lineage_genus <- paste(host_prediction_genome$domain, host_prediction_genome$phylum, host_prediction_genome$class, host_prediction_genome$order, host_prediction_genome$family,  host_prediction_genome$genus, host_prediction_genome$species, sep=";")
 #save for motus code analysis
 saveRDS(host_prediction_genome, file = "host_prediction_genome.RDS")
 host_prediction_genome$lineage_genus == host_prediction_genus$Host.genus 

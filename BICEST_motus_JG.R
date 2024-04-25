@@ -1213,8 +1213,9 @@ motus_hosts_taxa_metadata_wide <- motus_hosts_taxa_metadata %>%
   group_by(phylum, sampleid) %>% 
   summarise(across(everything(), ~ sum(., na.rm = TRUE))) %>% 
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+saveRDS(motus_hosts_taxa_metadata_wide, file ="motus_hosts_taxa_metadata_wide.RDS")
 #read viruses data counts
-host_prediction_genus_counts_metadata_mantel <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genus_counts_metadata_mantel.RDS")
+motus_hosts_taxa_metadata_wide <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/motus_hosts_taxa_metadata_wide.RDS")
 samples_diff <- colnames(motus_hosts_taxa_metadata_wide)[!(colnames(motus_hosts_taxa_metadata_wide) %in% colnames(host_prediction_genus_counts_metadata_mantel))]
 samples_diff #zero check if the same
 colnames(motus_hosts_taxa_metadata_wide) == colnames(host_prediction_genus_counts_metadata_mantel) #there are equal
@@ -1224,22 +1225,48 @@ motus_hosts_taxa_metadata_wide$phylum[!(motus_hosts_taxa_metadata_wide$phylum %i
 #different check taxonomy from two files host_prediction_genome, host_prediction_genus
 #now take subset 
 subsetphylum = motus_hosts_taxa_metadata_wide$phylum[(motus_hosts_taxa_metadata_wide$phylum %in% host_prediction_genus_counts_metadata_mantel$phylum)] #motus phyla should be subset - check
-#take only phyla rom subset now
-motus_hosts_taxa_metadata_wide <- motus_hosts_taxa_metadata_wide[motus_hosts_taxa_metadata_wide$phylum %in% subsetphylum,]
+#take only phyla subset now
+motus_hosts_taxa_metadata_wide_genus <- motus_hosts_taxa_metadata_wide[motus_hosts_taxa_metadata_wide$phylum %in% subsetphylum,]
 host_prediction_genus_counts_metadata_mantel <- host_prediction_genus_counts_metadata_mantel[host_prediction_genus_counts_metadata_mantel$phylum %in% subsetphylum,]
 #distance for each 
+host_prediction_genome_counts_metadata = readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genome_counts_metadata.RDS") 
+host_prediction_genome_counts_metadata_mantel <- host_prediction_genome_counts_metadata  %>%
+  separate(Host.taxonomy, c("domain", "phylum", "class", "order", "family",  "genus", "species"), ";")
+saveRDS(host_prediction_genome_counts_metadata_mantel, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genome_counts_metadata_mantel.RDS")
+motus_hosts_taxa_metadata_wide <- readRDS(file ="motus_hosts_taxa_metadata_wide.RDS")
+#take subset of phylla from iphop genome file 
+subsetphylum_genome = motus_hosts_taxa_metadata_wide$phylum[motus_hosts_taxa_metadata_wide$phylum %in% unique(host_prediction_genome_counts_metadata_mantel$phylum)] 
+
+host_prediction_genome_counts_metadata_mantel <- host_prediction_genome_counts_metadata_mantel  %>%
+  filter(phylum %in% subsetphylum_genome)
+
+host_prediction_genome_counts_metadata_mantel <- host_prediction_genome_counts_metadata_mantel  %>%
+  select(phylum, sampleid, counts) %>%
+  group_by(phylum, sampleid) %>%
+  summarise(across(everything(), ~ sum(., na.rm = TRUE))) %>%
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+
+saveRDS(host_prediction_genome_counts_metadata_mantel, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genome_counts_metadata_mantel.RDS")
+
 library("vegan")
-saveRDS(motus_hosts_taxa_metadata_wide, file="motus_hosts_taxa_metadata_wide.RDS")
+saveRDS(motus_hosts_taxa_metadata_wide_genus, file="motus_hosts_taxa_metadata_wide_genus.RDS")
 saveRDS(host_prediction_genus_counts_metadata_mantel, file="host_prediction_genus_counts_metadata_mantel.RDS")
 motus_hosts_taxa_metadata_wide <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/motus_hosts_taxa_metadata_wide.RDS")
-host_prediction_genus_counts_metadata_mantel <- readRDS(, file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/host_prediction_genus_counts_metadata_mantel.RDS")
+host_prediction_genus_counts_metadata_mantel <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/host_prediction_genus_counts_metadata_mantel.RDS")
+host_prediction_genome_counts_metadata_mantel <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/host_prediction_genome_counts_metadata_mantel.RDS")
 
-motus_hosts_taxa_metadata_wide$phylum == host_prediction_genus_counts_metadata_mantel$phylum #no there are the same - needed taxonomy from  genus file  
-motus.dist <- vegdist(motus_hosts_taxa_metadata_wide[, 2:length(colnames(motus_hosts_taxa_metadata_wide))], "euclidean")
+motus_hosts_taxa_metadata_wide_genus$phylum == host_prediction_genus_counts_metadata_mantel$phylum #no there are the same - needed taxonomy from  genus file  
+motus.dist <- vegdist(motus_hosts_taxa_metadata_wide_genus[, 2:length(colnames(motus_hosts_taxa_metadata_wide_genus))], "euclidean")
 virus.dist <- vegdist(host_prediction_genus_counts_metadata_mantel[, 2:length(colnames(motus_hosts_taxa_metadata_wide))], "euclidean")
 #mantel test!!!!
 mantel(motus.dist, virus.dist, method = "spearman", permutations = 9999, na.rm = TRUE)#non significant
 #check out other phyla 
 motus_final_taxa_metadata$lineage <- paste(motus_final_taxa_metadata$domain, motus_final_taxa_metadata$phylum, motus_final_taxa_metadata$class, motus_final_taxa_metadata$order, motus_final_taxa_metadata$family,  motus_final_taxa_metadata$genus, motus_final_taxa_metadata$species, sep=";")
-
 #check other taxonomy assignment from genome files - produce hosts assignment based on "genome" output from iphop - check out why different lines number?   
+#check for genome file
+motus_hosts_taxa_metadata_wide_genome <- motus_hosts_taxa_metadata_wide[motus_hosts_taxa_metadata_wide$phylum %in% subsetphylum_genome,]
+motus.dist <- vegdist(motus_hosts_taxa_metadata_wide)genome[, 2:length(colnames(motus_hosts_taxa_metadata_wide_genome))], "euclidean")
+virus.dist <- vegdist(host_prediction_genome_counts_metadata_mantel[, 2:length(colnames(host_prediction_genome_counts_metadata_mantel))], "euclidean")
+#mantel test!!!!
+mantel(motus.dist, virus.dist, method = "spearman", permutations = 9999, na.rm = TRUE)#non significant
+###Significance: 0.0352 woo hoo!
