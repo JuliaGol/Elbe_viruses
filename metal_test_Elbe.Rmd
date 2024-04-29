@@ -1,0 +1,157 @@
+---
+title: "mental_test_Elbe"
+author: "Julia Golebiowska"
+date: "2024-04-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(vegan)
+setwd("~/IGB_phd/virus/viral_abundances")
+```
+```{r load metaadata}
+##Load Metadata for later
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog/"
+
+#prepare metadata from merging
+metadata_sim <- read.csv(paste0(path,"/SAMEAID_SampleID_simplified.csv"), header=TRUE, sep=";") 
+#select the needed columns to avoid doubling computations
+metadata_sim <-metadata_sim[,c("BioSample", "ProjectID")]
+#read simplified metadata, as it has a ProjectID 
+metadata <- read.csv(paste0(path,"/SAMEAID_SampleID.csv"), header=TRUE, sep=";") %>% 
+  left_join(metadata_sim, by = "BioSample")  %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAT.genecount.profile")) %>%
+  mutate(data_type="METAT")
+
+metadata2 <- read.csv(paste0(path, "/SAMEAID_SampleID.csv"), header=TRUE, sep=";") %>% 
+  left_join(metadata_sim, by = "BioSample")  %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAG.genecount.profile")) %>%
+  mutate(data_type="METAG")
+
+metadata <- rbind(metadata, metadata2)
+
+metadata <- rbind(metadata, metadata2)
+metadata <-metadata %>% 
+  mutate(sample=str_remove(sampleid, ".genecount.profile")) %>%
+  mutate(sample=str_replace(sample, "[.]", "-"))
+```
+
+```{r metadata to parameters}
+list.param.df.METAT <- list()
+list.param.df.METAG <- list()
+for (i in c(10:40)) { #vector of columns with parameters
+  metadata[,i] <- as.numeric(sub(",", ".", metadata[,i])) #to double
+  tmetadata <- metadata[, c(colnames(metadata)[i], "sampleid")] %>% 
+    distinct() %>% pivot_wider(names_from = "sampleid", values_from = colnames(metadata)[i])
+  tmetadata_METAG <- tmetadata %>% #select metagenome data only 
+  select(contains("METAG"))
+  tmetadata_METAT <- tmetadata %>% #select metatranscriptome data only
+  select(contains("METAT"))
+  list.param.df.METAG[[i-9]] <-  tmetadata_METAG #append to list of df
+  list.param.df.METAT[[i-9]] <-  tmetadata_METAT #append to list of df
+}
+
+```
+
+```{r load motus}
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/"
+motus_final_taxa_metadata <- readRDS(file=paste0(path,"motus_final_taxa_metadata.RDS"))
+```
+```{r edit motus}
+motus_final_taxa_metadata <- motus_final_taxa_metadata %>% 
+  filter(!grepl("Bunthaus|Kollmar|Seemans", station), !grepl("Nov 21", date))
+# only metagenomes
+motus_df_METAG <- motus_final_taxa_metadata %>%
+  filter(data_type == "METAG") %>%
+#once again distinct to make it works
+  select(mOTU, sampleid, counts) %>%
+  distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) %>% 
+  as.data.frame()
+# only metatranscriptomes
+motus_df_METAT <- motus_final_taxa_metadata %>%
+  filter(data_type == "METAT") %>%
+#once again distinct to make it works
+  select(mOTU, sampleid, counts) %>%
+  distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) %>% 
+  as.data.frame()
+```
+
+```{r hosts motus }
+# select motus which are assigned hosts
+#load hosts assignment
+host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genome_m90.csv")
+#join Motus by MAGs which were assigned as hosts with iphop
+motus_MAGS_METAG <- motus_final_taxa_metadata %>%
+  filter(data_type == "METAG") %>%
+  left_join(motu_stats, by = "mOTU")
+host_motus <- host_prediction_genome %>% left_join(motus_MAGS_METAG, by =c("Host.genome" = "user_genome"))
+#reformat so distances can be calculated
+host_motus_wide <-  host_motus %>%
+  filter(!is.na(mOTU))  %>%
+  select(mOTU, sampleid, counts) %>%
+   distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+
+```
+
+
+```{r load viral diversity and activity with iphop results}
+#read counts according to gene markers 
+geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/geneabund_drep_marker_taxa.RDS")
+
+viral_diversity <- geneabund_drep_marker_taxa %>%
+  select(contains("METAG"))
+viral_activity <- geneabund_drep_marker_taxa %>%
+  select(contains("METAT"))
+
+```
+
+```{r distances}
+motus_df_METAG.dist <- vegdist(motus_df_METAG, "euclidean")
+motus_df_METAT.dist <- vegdist(motus_df_METAT, "euclidean")
+virus_cluster.dist <- vegdist(vibrant_genecluster_drep, "euclidean")
+virus_cluster.dist <- vegdist(vibrant_genecluster_drep, "euclidean")
+
+virus_iphop_hosts.dist <- vegdist(vibrant_genecluster_drep, "euclidean")
+list.dists <- list(motus.dist, virus_cluster.dist, virus_iphop.dist)
+```
+```{r run mental test}
+list.dist.length <-length(list.dists)
+matrix_res <- matrixmatrix(, nrow = list.dist.length, ncol = list.dist.length)
+for (i in length(list.dist.length)) {
+  for (j in length(list.dist.length)) {
+    if (j == p ) {
+      break
+    }
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
+    matrix_res[i,j] <- res
+  }
+  p <- list.dist.length-i # do not calculate all, abut each time compare one less (this way we have half compuations)
+}
+
+```
+# R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
