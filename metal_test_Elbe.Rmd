@@ -181,7 +181,7 @@ colnames(matrix_res_stat_METAT) <- c(names(list.METAT.dists))
 matrix_res_sig_METAG <- matrix(nrow = list.METAG.dists.length, ncol = list.METAG.dists.length)
 colnames(matrix_res_sig_METAG) <- c(names(list.METAG.dists))
 matrix_res_sig_METAT <- matrix(nrow = list.METAT.dists.length, ncol = list.METAT.dists.length)
-colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists.length))
+colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists))
 
 for (i in c(1:list.dist.length)) {
   for (j in c(1:list.dist.length)) {
@@ -218,4 +218,37 @@ for (i in c(1:list.dist.length)) {
 
 save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 
+```
+Plot it! 
+```{r}
+#Reduce matrixes to rows where at least one R value is greater then 0.2 0 tiles color by significance 
+#add colnames to rows to read them easier 
+rownames(matrix_res_stat_METAT) <- colnames(matrix_res_stat_METAT)
+rownames(matrix_res_sig_METAT) <- colnames(matrix_res_stat_METAT)
+rownames(matrix_res_stat_METAG) <- colnames(matrix_res_stat_METAG)
+rownames(matrix_res_sig_METAG) <- colnames(matrix_res_sig_METAG)
+#we have reformat to long version
+#but first lets filter all with R statistic higher then 0.2
+exist_greater_02 <- function(vec) {
+ sum(vec>0.2, na.rm=TRUE)>0
+}
+rows_for_plot_METAT <- apply(matrix_res_stat_METAT,1,exist_greater_02)
+#and take last 3 columns
+matrix_res_stat_METAT_plot <- matrix_res_stat_METAT[rows_for_plot_METAT,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
+matrix_res_sig_METAT_plot <- matrix_res_sig_METAT[rows_for_plot_METAT,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
+library(reshape2)
+
+matrix_res_stat_METAT_plot <- melt(matrix_res_stat_METAT_plot, value.name = "R_statistic" )
+matrix_res_sig_METAT_plot <- melt(matrix_res_sig_METAT_plot, value.name = "p_value" )
+#to highlight
+matrix_res_stat_METAT_plot[matrix_res_stat_METAT_plot$p_value<0.05, "Var1"]
+matrix_res_stat_METAT_plot[matrix_res_stat_METAT_plot$p_value<0.05, "Var2"]
+
+matrix_res_stat_METAT_plot <- left_join(matrix_res_stat_METAT_plot, matrix_res_sig_METAT_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+ggplot(matrix_res_stat_METAT_plot, aes(x=Var1, y=Var2)) + 
+    geom_tile(aes(fill = p_value)) + 
+  scale_fill_gradient(low = "white", high = "steelblue") +
+    geom_text(aes(label=round(R_statistic,3))) +
+    geom_tile(data = matrix_res_stat_METAT_plot[which(matrix_res_stat_METAT_plot$p_value<0.05),], aes(x=Var1, y=Var2), color = "black", size = 2) + 
+theme_minimal()
 ```
