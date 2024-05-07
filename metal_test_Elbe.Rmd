@@ -25,13 +25,6 @@ metadata_sim <-metadata_sim[,c("BioSample", "ProjectID")]
 metadata <- read.csv(paste0(path,"/SAMEAID_SampleID.csv"), header=TRUE, sep=";") %>% 
   left_join(metadata_sim, by = "BioSample")  
 
-# '''
-# not needed
-# metadata_METAG <- metadata %>% 
-#   filter(data_type =="METAG")
-# metadata_METAT <- metadata %>% 
-#   filter(data_type == "METAT")
-# '''
 ```
 
 ```{r load motus}
@@ -42,20 +35,7 @@ motus_final_taxa_metadata <- readRDS(file=paste0(path,"motus_final_taxa_metadata
 ```{r edit motus}
 motus_final_taxa_metadata <- motus_final_taxa_metadata %>% 
   filter(!grepl("Bunthaus|Kollmar|Seemans", station), !grepl("Nov 21", date))
-#'''
-# #####ignore
-# #merge with more detailed metadata to he all parameters related to each data type
-# motus_final_taxa_metadata <- motus_final_taxa_metadata %>%
-#   left_join(metadata, by = "sampleid", suffix=c("",".y"))%>%
-#   select(-ends_with(".y"))
-# #remove duplicated columns using distinct() function on transposed matrix 
-# #convert tibble to data frame
-# motus_final_taxa_metadata_df <- as.data.frame(motus_final_taxa_metadata)
-# tmotus_final_taxa_metadata <- as_tibble(t(motus_final_taxa_metadata_df)) %>% distinct(.keep_all = TRUE) 
-# #transpose back
-# motus_final_taxa_metadata <- t(tmotus_final_taxa_metadata)
-# '''
-# only metagenomes
+
 motus_df_METAG <- motus_final_taxa_metadata %>%
   filter(data_type == "METAG") %>%
 #once again distinct to make it works
@@ -123,44 +103,45 @@ viral_activity <- geneabund_drep_marker_taxa %>%
 #calculate distance matrixes for all samples
 #param distances
 #store in a list of distances 
-list.param.df.dist.METAT <- list()
-list.param.df.dist.METAG <- list()
 
-# no need to have data frame #environmental vector - euclidean distance
-#just separate according to METAT and METAG samples  
-#use otu tables here 
-#paramcols = colnames(motus_df_METAG)
-#motus_final_taxa_metadata %>%
-#  filter(data_type == "METAG") %>% 
-#paramcolnames = c("o2_sat", "wtemp", "salinity", "turbidty", "ph", "o2_conc", "spm_mg_l", "doc_mg_l", "tn_mg_l", "dic_mg_l", "si_mg_l", "nh4_mg_l", "no2_mg_l","no3_mg_l")
-#paramsMETAG <- motus_final_taxa_metadata %>% 
-#  filter(data_type = "METAG")
-#take samples Id for METAG and METAT 
+list.param.df.dist.METAG <- list()
+list.param.df.dist.METAT <- list()
+
 
 metadata_METAG <- metadata %>%
   filter(AccessionNumber_TBDSven %in% sampleid_METAG$BioSample)
 metadata_METAT <- metadata %>%
   filter(AccessionNumber_TBDSven %in% sampleid_METAT$BioSample) 
-
+j=0
+z=0
 for (i in c(10:39)) { 
-  
   metadata_METAG[,i] <- as.numeric(sub(",", ".", metadata_METAG[,i])) #to double
-  metadata_METAT[,i] <- as.numeric(sub(",", ".", metadata_METAT[,i])) #to double
-  dist_METAG <- dist(motus_df_METAG[,i], method = "euclidean")
-  dist_METAT <- dist(motus_df_METAT[,i], method = "euclidean")
-  list.param.df.dist.METAG[[i-9]] <- dist_METAG  #append to list of df
-  names(list.param.df.dist.METAG)[i-9] <- colnames(metadata_METAG)[i]
-  list.param.df.dist.METAT[[i-9]] <-  dist_METAT #append to list of df
-  names(list.param.df.dist.METAT)[i-9] <- colnames(metadata_METAG)[i]
-  
-} 
 
-motus_df_METAG.dist <- vegdist(motus_df_METAG[,-1], "euclidean")
-motus_df_METAT.dist <- vegdist(motus_df_METAT[,-1], "euclidean")
-host_motus_METAG_wide.dist <- vegdist(host_motus_METAG_wide[,-1], "euclidean")
-host_motus_METAT_wide.dist <- vegdist(host_motus_METAT_wide[,-1], "euclidean")
-viral_diversity.dist <- vegdist(viral_diversity, "euclidean")
-viral_activity.dist <- vegdist(viral_activity, "euclidean")
+    if (sum(!is.na(metadata_METAG[,i]))>0){ #if only NA do not calculate distance matrixes
+  j=j+1
+  dist_METAG <- dist(metadata_METAG[,i], method = "euclidean")
+  list.param.df.dist.METAG[[j]] <- dist_METAG  #append to list of df
+  names(list.param.df.dist.METAG)[j] <- colnames(metadata_METAG)[i]
+   }
+
+  metadata_METAT[,i] <- as.numeric(sub(",", ".", metadata_METAT[,i])) #to double
+
+  if (sum(!is.na(metadata_METAT[,i]))>0){#if only NA do not calculate distance matrixes
+  z=z+1
+  dist_METAT <- dist(metadata_METAT[,i], method = "euclidean")
+  list.param.df.dist.METAT[[z]] <-  dist_METAT #append to list of df
+  names(list.param.df.dist.METAT)[z] <- colnames(metadata_METAT)[i]
+  
+  }
+ 
+} 
+#we have to transpose matrixes as vegdist calculates distances between columns 
+motus_df_METAG.dist <- vegdist(t(motus_df_METAG[,-1]), "euclidean")
+motus_df_METAT.dist <- vegdist(t(motus_df_METAT[,-1]), "euclidean")
+host_motus_METAG_wide.dist <- vegdist(t(host_motus_METAG_wide[,-1]), "euclidean")
+host_motus_METAT_wide.dist <- vegdist(t(host_motus_METAT_wide[,-1]), "euclidean")
+viral_diversity.dist <- vegdist(t(viral_diversity), "euclidean")
+viral_activity.dist <- vegdist(t(viral_activity), "euclidean")
 #put all distance matrixes into two lists for METAG and METAT respectively
 list.METAG.dists <- list()
 list.METAG.dists <- append(list.METAG.dists, list.param.df.dist.METAG)
@@ -181,81 +162,60 @@ names(list.METAT.dists)[length(list.METAT.dists)] <- "viral_activity"
 list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_wide.dist
 names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_MOTUs"
 
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 ```
+
 ```{r run mental test}
 #check how many METAG and METAT samples
 #find a file with sampleid and type (METAG or METAT)
 #check it this agrees with number of columns in distance matrixes
+list.METAG.dists.length <- length(list.METAG.dists)
+list.METAT.dists.length <- length(list.METAT.dists)
+
 list.dist.length <- length(list.METAG.dists)
-matrix_res_stat_METAG <- matrix(nrow = list.dist.length, ncol = list.dist.length)
+matrix_res_stat_METAG <- matrix(nrow = list.METAG.dists.length, ncol = list.METAG.dists.length)
 colnames(matrix_res_stat_METAG) <- c(names(list.METAG.dists))
-matrix_res_stat_METAT <- matrix(nrow = list.dist.length, ncol = list.dist.length)
+matrix_res_stat_METAT <- matrix(nrow = list.METAT.dists.length, ncol = list.METAT.dists.length)
 colnames(matrix_res_stat_METAT) <- c(names(list.METAT.dists))
-matrix_res_sig_METAG <- matrix(nrow = list.dist.length, ncol = list.dist.length)
+matrix_res_sig_METAG <- matrix(nrow = list.METAG.dists.length, ncol = list.METAG.dists.length)
 colnames(matrix_res_sig_METAG) <- c(names(list.METAG.dists))
-matrix_res_sig_METAT <- matrix(nrow = list.dist.length, ncol = list.dist.length)
-colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists))
-testvec <-c()
+matrix_res_sig_METAT <- matrix(nrow = list.METAT.dists.length, ncol = list.METAT.dists.length)
+colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists.length))
+
 for (i in c(1:list.dist.length)) {
-  p <- list.dist.length-i + 1 # do not calculate all, abut each time compare one less (this way we have half computaions) # also we dont need to compare parameters between them 
-  print("i")
-  print(i)
-  print("p")
-  print(p)
   for (j in c(1:list.dist.length)) {
-    print("j")
-    print(j)
-    if (j > p ) {
-      print("break")
-      break
-    }
-  #we dont want to calculate mental between parameters or the same matrixes
-  if ((i <= 30 & j <= 30) | (i==j)){
-    print("next")
+    #we dont want to calculate mental between parameters or the same matrixes 
+
+      if ((i <= length(list.param.df.dist.METAG) & j <= length(list.param.df.dist.METAG)) | (i>=j)){
        next
-  }
-    i=1
-    j=31
+    }
+  
     dist.matrix <- list.METAG.dists[[i]]
     dist.matrix2 <- list.METAG.dists[[j]]
-    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 1, na.rm = TRUE)
-    print(res)
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
     matrix_res_sig_METAG[i,j] <- res$signif
     matrix_res_stat_METAG[i,j] <- res$statistic
+  }
+}
+
+for (i in c(1:list.dist.length)) {
+  for (j in c(1:list.dist.length)) {
+
+    #we dont want to calculate mental between parameters or the same matrixes 
+
+  if ((i <= length(list.param.df.dist.METAT) & j <= length(list.param.df.dist.METAT)) | (i>=j) | j>list.METAT.dists.length){
+       next
+    }
     dist.matrix <- list.METAT.dists[[i]]
     dist.matrix2 <- list.METAT.dists[[j]]
-    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 1, na.rm = TRUE)
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
     matrix_res_sig_METAT[i,j] <- res$signif
     matrix_res_stat_METAT[i,j] <- res$statistic
-    testvec <- cbind(testvec, res$signif)
   }
 }
 
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+
 ```
-# R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-for (i in c(1:length(list.dist.length))) {
-  p <- list.dist.length-i + 1 # do not calculate all, abut each time compare one less (this way we have half computaions) # also we dont need to compare parameters between them 
-  print(i)
-  print(p)
-  for (j in c(1:length(list.dist.length))) {
-   print(j)
-
-  }
-}
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
