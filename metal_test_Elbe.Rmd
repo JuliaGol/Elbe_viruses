@@ -25,13 +25,6 @@ metadata_sim <-metadata_sim[,c("BioSample", "ProjectID")]
 metadata <- read.csv(paste0(path,"/SAMEAID_SampleID.csv"), header=TRUE, sep=";") %>% 
   left_join(metadata_sim, by = "BioSample")  
 
-# '''
-# not needed
-# metadata_METAG <- metadata %>% 
-#   filter(data_type =="METAG")
-# metadata_METAT <- metadata %>% 
-#   filter(data_type == "METAT")
-# '''
 ```
 
 ```{r load motus}
@@ -42,20 +35,7 @@ motus_final_taxa_metadata <- readRDS(file=paste0(path,"motus_final_taxa_metadata
 ```{r edit motus}
 motus_final_taxa_metadata <- motus_final_taxa_metadata %>% 
   filter(!grepl("Bunthaus|Kollmar|Seemans", station), !grepl("Nov 21", date))
-#'''
-# #####ignore
-# #merge with more detailed metadata to he all parameters related to each data type
-# motus_final_taxa_metadata <- motus_final_taxa_metadata %>%
-#   left_join(metadata, by = "sampleid", suffix=c("",".y"))%>%
-#   select(-ends_with(".y"))
-# #remove duplicated columns using distinct() function on transposed matrix 
-# #convert tibble to data frame
-# motus_final_taxa_metadata_df <- as.data.frame(motus_final_taxa_metadata)
-# tmotus_final_taxa_metadata <- as_tibble(t(motus_final_taxa_metadata_df)) %>% distinct(.keep_all = TRUE) 
-# #transpose back
-# motus_final_taxa_metadata <- t(tmotus_final_taxa_metadata)
-# '''
-# only metagenomes
+
 motus_df_METAG <- motus_final_taxa_metadata %>%
   filter(data_type == "METAG") %>%
 #once again distinct to make it works
@@ -126,16 +106,7 @@ viral_activity <- geneabund_drep_marker_taxa %>%
 
 list.param.df.dist.METAG <- list()
 list.param.df.dist.METAT <- list()
-# no need to have data frame #environmental vector - euclidean distance
-#just separate according to METAT and METAG samples  
-#use otu tables here 
-#paramcols = colnames(motus_df_METAG)
-#motus_final_taxa_metadata %>%
-#  filter(data_type == "METAG") %>% 
-#paramcolnames = c("o2_sat", "wtemp", "salinity", "turbidty", "ph", "o2_conc", "spm_mg_l", "doc_mg_l", "tn_mg_l", "dic_mg_l", "si_mg_l", "nh4_mg_l", "no2_mg_l","no3_mg_l")
-#paramsMETAG <- motus_final_taxa_metadata %>% 
-#  filter(data_type = "METAG")
-#take samples Id for METAG and METAT 
+
 
 metadata_METAG <- metadata %>%
   filter(AccessionNumber_TBDSven %in% sampleid_METAG$BioSample)
@@ -191,6 +162,8 @@ names(list.METAT.dists)[length(list.METAT.dists)] <- "viral_activity"
 list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_wide.dist
 names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_MOTUs"
 
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 ```
 
 ```{r run mental test}
@@ -208,7 +181,7 @@ colnames(matrix_res_stat_METAT) <- c(names(list.METAT.dists))
 matrix_res_sig_METAG <- matrix(nrow = list.METAG.dists.length, ncol = list.METAG.dists.length)
 colnames(matrix_res_sig_METAG) <- c(names(list.METAG.dists))
 matrix_res_sig_METAT <- matrix(nrow = list.METAT.dists.length, ncol = list.METAT.dists.length)
-colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists.length))
+colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists))
 
 for (i in c(1:list.dist.length)) {
   for (j in c(1:list.dist.length)) {
@@ -221,11 +194,8 @@ for (i in c(1:list.dist.length)) {
     dist.matrix <- list.METAG.dists[[i]]
     dist.matrix2 <- list.METAG.dists[[j]]
     res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
-    print(res)
     matrix_res_sig_METAG[i,j] <- res$signif
     matrix_res_stat_METAG[i,j] <- res$statistic
-
-
   }
 }
 
@@ -245,31 +215,165 @@ for (i in c(1:list.dist.length)) {
   }
 }
 
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+
 ```
-# R Markdown
+```{r}
+load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-for (i in c(1:length(list.dist.length))) {
-  p <- list.dist.length-i + 1 # do not calculate all, abut each time compare one less (this way we have half computaions) # also we dont need to compare parameters between them 
-  print(i)
-  print(p)
-  for (j in c(1:length(list.dist.length))) {
-   print(j)
-
-  }
+#Reduce matrixes to rows where at least one R value is greater then 0.2 0 tiles color by significance 
+#add colnames to rows to read them easier 
+rownames(matrix_res_stat_METAT) <- colnames(matrix_res_stat_METAT)
+rownames(matrix_res_sig_METAT) <- colnames(matrix_res_stat_METAT)
+rownames(matrix_res_stat_METAG) <- colnames(matrix_res_stat_METAG)
+rownames(matrix_res_sig_METAG) <- colnames(matrix_res_sig_METAG)
+#we have reformat to long version
+#but first lets filter all with R statistic higher then 0.2
+exist_greater_02 <- function(vec) {
+ sum(vec>0.2, na.rm=TRUE)>0
 }
+#adjust p-values
+rows_for_plot_METAT <- apply(matrix_res_stat_METAT,1,exist_greater_02)
+#and take last 3 columns
+matrix_res_stat_METAT_plot <- matrix_res_stat_METAT[rows_for_plot_METAT,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
+matrix_res_sig_METAT_plot <- matrix_res_sig_METAT[rows_for_plot_METAT,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
+library(reshape2)
+
+matrix_res_stat_METAT_plot <- melt(matrix_res_stat_METAT_plot, value.name = "R_statistic" )
+matrix_res_sig_METAT_plot <- melt(matrix_res_sig_METAT_plot, value.name = "p_value" )
+
+matrix_res_stat_METAT_plot <- left_join(matrix_res_stat_METAT_plot, matrix_res_sig_METAT_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAT_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_plot[,1]))
+
+#prepare the same for METAG 
+#adjust p-values
+matrix_res_sig_METAG$p_value.adj <- p.adjust(matrix_res_sig_METAG$p_value, method="bonferroni")
+rows_for_plot_METAG <- apply(matrix_res_stat_METAG,1,exist_greater_02)
+#and take last 3 columns
+matrix_res_stat_METAG_plot <- matrix_res_stat_METAG[rows_for_plot_METAG,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
+matrix_res_sig_METAG_plot <- matrix_res_sig_METAG[rows_for_plot_METAG,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
+
+matrix_res_stat_METAG_plot <- melt(matrix_res_stat_METAG_plot, value.name = "R_statistic")
+matrix_res_sig_METAG_plot <- melt(matrix_res_sig_METAG_plot, value.name = "p_value")
+
+matrix_res_stat_METAG_plot <- left_join(matrix_res_stat_METAG_plot, matrix_res_sig_METAG_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAG_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_plot[,1]))
+
+
+matrix_res_stat_mental_plot <- rbind(matrix_res_stat_METAG_plot, matrix_res_stat_METAT_plot) 
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+
+```
+```{r}
+
+#Adjust_p_values
+#add colnames to rows to read them easier 
+rownames(matrix_res_stat_METAT) <- colnames(matrix_res_stat_METAT)
+rownames(matrix_res_sig_METAT) <- colnames(matrix_res_stat_METAT)
+rownames(matrix_res_stat_METAG) <- colnames(matrix_res_stat_METAG)
+rownames(matrix_res_sig_METAG) <- colnames(matrix_res_sig_METAG)
+#we have reformat to long version
+#but first lets filter all with R statistic higher then 0.2
+exist_greater_02 <- function(vec) {
+ sum(vec>0.2, na.rm=TRUE)>0
+}
+#adjust p-values
+#and take last 3 columns
+matrix_res_stat_METAT_plot <- matrix_res_stat_METAT[,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
+matrix_res_sig_METAT_plot <- matrix_res_sig_METAT[,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
+library(reshape2)
+
+matrix_res_stat_METAT_plot <- melt(matrix_res_stat_METAT_plot, value.name = "R_statistic" )
+matrix_res_sig_METAT_plot <- melt(matrix_res_sig_METAT_plot, value.name = "p_value" )
+matrix_res_sig_METAT_plot$p_value.adj <- p.adjust(matrix_res_sig_METAT_plot$p_value, method="hochberg")
+
+matrix_res_stat_METAT_plot <- left_join(matrix_res_stat_METAT_plot, matrix_res_sig_METAT_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAT_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_plot[,1]))
+
+#prepare the same for METAG 
+#adjust p-values
+#and take last 3 columns
+matrix_res_stat_METAG_plot <- matrix_res_stat_METAG[,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
+matrix_res_sig_METAG_plot <- matrix_res_sig_METAG[,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
+
+matrix_res_stat_METAG_plot <- melt(matrix_res_stat_METAG_plot, value.name = "R_statistic")
+matrix_res_sig_METAG_plot <- melt(matrix_res_sig_METAG_plot, value.name = "p_value")
+matrix_res_sig_METAG_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_plot$p_value, method="hochberg")
+
+matrix_res_stat_METAG_plot <- left_join(matrix_res_stat_METAG_plot, matrix_res_sig_METAG_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAG_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_plot[,1]))
+
+matrix_res_stat_mental_plot <- rbind(matrix_res_stat_METAG_plot, matrix_res_stat_METAT_plot) 
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+#common plot for both - quite hard to read - no significant when adjusted p-values
+  mental_test_plot <- matrix_res_stat_mental_plot %>%
+  filter(R_statistic != "NA") %>% 
+  ggplot(aes(x=Var1, y=Var2)) +
+  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
+  geom_point(aes(), shape=0, size = 8.5) + 
+  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
+  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
+  scale_size_continuous(guide="none") +
+  scale_x_discrete()+ theme_bw() +
+  scale_y_discrete(position = "right") +
+  facet_grid( scales = "free", rows = vars(data)) +
+ # coord_fixed(ratio = 1) +
+  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
+        strip.background = element_blank()) +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust=1.1, vjust=1.1), 
+        legend.position = "right") +
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value.adj) <= .05)+1], c("","")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+# plot for METAG - use normal p-values as significant 
+  mental_test_METAG_plot <- matrix_res_stat_mental_plot %>%
+  filter(R_statistic != "NA") %>% 
+  filter(data == "Metagenome") %>% 
+  filter(Var1 != "MOTUs") %>% 
+  ggplot(aes(x=Var1, y=Var2)) +
+  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
+  geom_point(aes(), shape=0, size = 8.5) + 
+  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
+  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
+  scale_size_continuous(guide="none") +
+  scale_x_discrete()+ theme_bw() +
+  scale_y_discrete(position = "right") +
+  coord_fixed(ratio = 1) +
+  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
+        strip.background = element_blank()) +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust=1.1, vjust=1.1), 
+        legend.position = "right") +
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value) <= .05)+1], c("","")[(abs(p_value) <= .001)+1], c("","*")[(abs(p_value) <= .001)+1])))
+
+```
+
+```{r}
+# plot for METAT - use normal p -values as significant 
+  mental_test_METAT_plot <- matrix_res_stat_mental_plot %>%
+  filter(R_statistic != "NA") %>% 
+  filter(data == "Metatranscriptome") %>% 
+  filter(Var1 != "MOTUs") %>% 
+  ggplot(aes(x=Var1, y=Var2)) +
+  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
+  geom_point(aes(), shape=0, size = 8.5) + 
+  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
+  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
+  scale_size_continuous(guide="none") +
+  scale_x_discrete()+ theme_bw() +
+  scale_y_discrete(position = "right") +
+  coord_fixed(ratio = 1) +
+  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
+        strip.background = element_blank()) +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust=1.1, vjust=1.1), 
+        legend.position = "right") +
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value) <= .05)+1], c("","")[(abs(p_value) <= .001)+1], c("","*")[(abs(p_value) <= .001)+1])))
+
+```
