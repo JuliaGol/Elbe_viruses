@@ -325,7 +325,7 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/menta
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust=1.1, vjust=1.1), 
+        axis.text.x = element_text(angle = 90, hjust=1.1, vjust=1.1), 
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value.adj) <= .05)+1], c("","")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
 ```
