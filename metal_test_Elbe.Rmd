@@ -247,8 +247,6 @@ matrix_res_stat_METAT_plot <- left_join(matrix_res_stat_METAT_plot, matrix_res_s
 matrix_res_stat_METAT_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_plot[,1]))
 
 #prepare the same for METAG 
-#adjust p-values
-matrix_res_sig_METAG$p_value.adj <- p.adjust(matrix_res_sig_METAG$p_value, method="bonferroni")
 rows_for_plot_METAG <- apply(matrix_res_stat_METAG,1,exist_greater_02)
 #and take last 3 columns
 matrix_res_stat_METAG_plot <- matrix_res_stat_METAG[rows_for_plot_METAG,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
@@ -309,7 +307,7 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/menta
 ```
 
 ```{r}
-#common plot for both - quite hard to read - no significant when adjusted p-values
+#common plot for both - quite hard to read -  when adjusted p-values
   mental_test_plot <- matrix_res_stat_mental_plot %>%
   filter(R_statistic != "NA") %>% 
   ggplot(aes(x=Var1, y=Var2)) +
@@ -327,7 +325,7 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/menta
   theme(rect = element_blank(),
         axis.text.x = element_text(angle = 90, hjust=1.1, vjust=1.1), 
         legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value.adj) <= .05)+1], c("","")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 ```
 
 ```{r}
@@ -348,9 +346,9 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/menta
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust=1.1, vjust=1.1), 
+        axis.text.x = element_text(angle = 90, hjust=1.1, vjust=1.1), 
         legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value) <= .05)+1], c("","")[(abs(p_value) <= .001)+1], c("","*")[(abs(p_value) <= .001)+1])))
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value) <= .05)+1], c("","*")[(abs(p_value) <= .001)+1], c("","*")[(abs(p_value) <= .0001)+1])))
 
 ```
 
@@ -372,8 +370,8 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/menta
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust=1.1, vjust=1.1), 
+        axis.text.x = element_text(angle = 90, hjust=1.1, vjust=1.1), 
         legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","")[(abs(p_value) <= .05)+1], c("","")[(abs(p_value) <= .001)+1], c("","*")[(abs(p_value) <= .001)+1])))
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value) <= .05)+1], c("","*")[(abs(p_value) <= .001)+1], c("","*")[(abs(p_value) <= .001)+1])))
 
 ```
