@@ -74,7 +74,7 @@ unique(rhd_clust[,"KO"])
 #prepare the table with matadata for plot
 meta_rhd_clust <- rhd_clust %>% 
   pivot_longer(!c("QUERY", "KO", "BRITE", "CAZY", "COG", "DISEASE", "DRUG", "ENZYME", "GO", "MODULE", "NETWORK", "PATHWAY", "PUBMED", "RCLASS", "REACTION", "TC", "VP", "DESCRIPTION", "length"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
-  merge(metadata)
+  left_join(metadata, by="sampleid" )
 meta_rhd_clust$Stromkilometer <- sub(",", ".", meta_rhd_clust$Stromkilometer)
 meta_rhd_clust$Stromkilometer <- as.double(meta_rhd_clust$Stromkilometer)
 
@@ -82,42 +82,6 @@ meta_rhd_clust$Stromkilometer <- as.double(meta_rhd_clust$Stromkilometer)
 
 #meta_rhd_clust[which(meta_rhd_clust$counts == 0), "counts"]
 
-meta_rhd_clust %>% 
-  filter(counts != 0)-> meta_rhd_clust_nonzero
-
-library(stats)
-  bartlett.test(log(counts)~ Station, data = meta_rhd_clust_nonzero)
-  
-meta_rhd_clust %>% 
-  ggplot(aes(Station, log(counts)))+
-  geom_violin()
-
-
-  hist(log(meta_rhd_clust$counts))
-
-  
-
-library(gam)
-library(mgcv)
-library(gratia)
-library(tidyverse)
-  
-  
-  ###NO POISSON!!!!!
-gam.counts<-gam(counts ~ s(Stromkilometer, k = ), family=nb(theta=NULL, link="log"),  data= meta_rhd_clust)
-
-summary(gam.counts)
-
-k.check(gam.counts)
-
-#The EDF are much smaller than k, which means this model fits the data better with additional wiggliness. We can replace our previous model with this wigglier version:
-
-gam.check(gam.counts)
-
-gratia::appraise(gam.counts)
-gratia::draw(gam.counts)
-
-#https://stats.stackexchange.com/questions/624061/use-a-glm-gam-model-with-gamma-family-identity-link-despite-warning
 
 
 
@@ -131,10 +95,6 @@ meta_rhd_clust %>%
   summarise(counts=sum(counts)) %>%
   ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
   geom_tile() + facet_wrap(~data_type *Sample_date, scales= "free_y") + ggtitle("Rhd counts across different seasons, river sites and data types") + scale_y_log10() + geom_smooth(method = 'loess', formula= y ~ x)
-  #geom_smooth( formula = y ~ splines::ns(x,2), se=FALSE)
-#method='gam', formula = y ~ s(x, bs = "cs"))
-#not enough to do meaningful analysis
-#interestigly all rhodopsins were found in viral scaffolds ?
 #usually the highest variance in the last station
 
 ########
@@ -142,6 +102,23 @@ mutate(counts=counts/1000) %>%
 #group_by(sampleid, Stromkilometer, Sample_date) %>% 
 #summarise(counts=sum(counts)) %>%
 ```
+There is visible trend with more rhodopsin close to sea with exception in Feb22. Lets check salinity which should be the source of this trend.
+```{r}
+meta_rhd_clust$Salinity_TBDHereon <- sub(",", ".", meta_rhd_clust$Salinity_TBDHereon)
+meta_rhd_clust$Salinity_TBDHereon <- as.double(meta_rhd_clust$Salinity_TBDHereon)
+#plot it!
+meta_rhd_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  mutate(counts=counts/1000) %>%
+  group_by(sampleid,Sample_date,Salinity_TBDHereon, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Salinity_TBDHereon, y=counts)) + geom_point() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scales= "free_y") + ggtitle("Rhd counts across different seasons, salinity and data types") + scale_y_log10() + geom_smooth(method = 'loess', formula= y ~ x)
+
+```
+Less clear pattern - November - salinity NA
+
 ## 1.3. Check different fractions
 ```{r}
 #check different fractions
@@ -155,7 +132,17 @@ meta_rhd_clust %>%
   ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
   geom_tile() + facet_wrap(~ Sample_type, scales="free_y")  + geom_smooth(method = 'loess', formula= y ~ x)
 #higher variance in free living
+# and salinity
+meta_rhd_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  mutate(counts=counts/1000) %>%
+  group_by(sampleid, Salinity_TBDHereon, Sample_date, Sample_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Salinity_TBDHereon, y=counts)) + geom_point() +
+  geom_tile() + facet_wrap(~ Sample_type, scales="free_y")  + geom_smooth(method = 'loess', formula= y ~ x)
 ```
+Similar trend in all fractions: higher abundance of rhodopsins with in closer proximity to Nord sea - higher salinity what is raported in literature. But if we check salinity we can abserve slope when salinity has very  high values - not much of them high variance?
 ## 1.4. Check correlations
 ```{r}
 #explore correlations for METAT counts
@@ -180,53 +167,59 @@ res <- cor(meta_rhd_clust_matrix)
 res[ is.na(res)] <- 0 
 heatmap(round(res, 2), cexRow = 0.5, cexCol = 0.5)
 ```
-Very strong correlation between "DOC_mg.L", "TN_mg.L". Quite strong between  "TN_mg.L", "DIC_mg.L"
-## 1.5. Try to make a model
+Very strong correlation between "DOC_mg.L", "TN_mg.L". Quite strong between  "TN_mg.L", "DIC_mg.L" Between Stromkilometer and salinity lower then expected
+## 1.5. Check the trends of rhodopsins counts across probable determinants
 ```{r}
 
 #lets plot two parameters agains rhodopsins counts
-#salinity
+#salinity ensure is double
+meta_rhd_clust$Salinity_TBDHereon <- sub(",", ".", meta_rhd_clust$Salinity_TBDHereon)
+meta_rhd_clust$Salinity_TBDHereon <- as.double(meta_rhd_clust$Salinity_TBDHereon)
 
-meta_rhd_clust_df[which(meta_rhd_clust_df$Salinity_TBDHereon>0),] %>% 
+meta_rhd_clust %>% 
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
-  mutate(counts=counts/1000) %>%
-  group_by(sampleid,Stromkilometer, Sample_date, Sample_type) %>% 
+  group_by(sampleid, Stromkilometer, Sample_date, data_type) %>% 
   summarise(counts=sum(counts), Salinity_TBDHereon) %>%
-ggplot(aes(x=Salinity_TBDHereon, y=log(counts))) + geom_point() + geom_smooth(method = 'loess', formula= y ~ x) +# geom_line(aes(x= Salinity_TBDHereon , y = Salinity_TBDHereon*salinitymodel$coefficients[2]+salinitymodel$coefficients[1] )) 
-
+  ggplot(aes(x=Salinity_TBDHereon, y=counts)) + geom_point() + geom_smooth(method = 'lm', formula= y ~ x) + 
+ facet_wrap(~ data_type, scales="free_y")
 #pH
-  meta_rhd_clust_df[which(meta_rhd_clust_df$Salinity_TBDHereon>0),] %>% 
+
+meta_rhd_clust$pH_TBDHereon <- sub(",", ".", meta_rhd_clust$pH_TBDHereon)
+meta_rhd_clust$pH_TBDHereon <- as.double(meta_rhd_clust$pH_TBDHereon)
+  meta_rhd_clust %>% 
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
-  mutate(counts=counts/1000) %>%
-  group_by(sampleid,Stromkilometer, Sample_date, Sample_type) %>% 
+  group_by(sampleid,Stromkilometer, Sample_date, data_type) %>% 
   summarise(counts=sum(counts), pH_TBDHereon ) %>%
-ggplot( aes(x=pH_TBDHereon, y=log(counts))) + geom_point() + geom_smooth() #ommit rows with zero - artifact from NA <= 0- artifact from NA <= 0
+ggplot( aes(x=pH_TBDHereon, y=counts)) + geom_point()  + geom_smooth(method = 'lm', formula= y ~ x) +
+    facet_wrap(~ data_type, scales="free_y") #ommit rows with zero - artifact from NA <= 0- artifact from NA <= 0
 #tubidity
-meta_rhd_clust_df%>% 
+  meta_rhd_clust$Turbidity_TBDHereon <- sub(",", ".", meta_rhd_clust$Turbidity_TBDHereon)
+meta_rhd_clust$Turbidity_TBDHereon <- as.double(meta_rhd_clust$Turbidity_TBDHereon)
+meta_rhd_clust %>% 
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
-  mutate(counts=counts/1000) %>%
-  group_by(sampleid,Stromkilometer, Sample_date, Sample_type) %>% 
+  group_by(sampleid, Stromkilometer, Sample_date, data_type) %>% 
   summarise(counts=sum(counts), Turbidity_TBDHereon) %>%
-ggplot(aes(x=Turbidity_TBDHereon, y=log(counts))) + geom_point() + geom_smooth() #ommit rows with zero 
+ggplot(aes(x=Turbidity_TBDHereon, y=counts)) + geom_point()  + geom_smooth(method = 'lm', formula= y ~ x) +
+    facet_wrap(~ data_type, scales="free_y")  #ommit rows with zero 
 
 ```
-Very subtle tendency
+All checked parameters shows correlation between them and rhodopsins counts - pH and salinity positive and turbidity negative. Unfortunately no transcriptomic data - expected  positive correlation with turbidity
 ## 1.6. Explore variance
 ```{r}
 #explore the variance as it looks like is different across stations
 var_meta_rhd_clust_station <- meta_rhd_clust %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>% 
-  group_by(Station) %>% 
+  group_by(Station, data_type) %>% 
   summarise(var = var(counts))
 
-#variance across stations (similarly the variance is lower n the brakish water)
-rhd_var_station <- var_meta_rhd_clust_station  %>% arrange(factor(Station, levels=c("Muehlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund")))
-
-rhd_var_station #change the order
+#variance across stations ( the variance is lower in brackish water)
+rhd_var_station <- var_meta_rhd_clust_station %>% arrange(factor(Station, levels=c("Mühlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund")))
+rhd_var_station %>% filter(data_type == "METAG")
+rhd_var_station %>% filter(data_type == "METAT")
 ```
 
 # 2. PsbA analysis 
@@ -235,13 +228,14 @@ rhd_var_station #change the order
 ```{r}
 #find psbA genes 
 psbA_clust <- annot %>%  
-  filter(KO %in% c("K02703")) %>% 
-  left_join(geneabund,  join_by(QUERY == gene_cluster))
+  filter(KO %in% c("K02703")) %>%
+  left_join(geneabund, by = c(QUERY == gene_cluster))
 
 #prepare the table with matadata for plot
 meta_psbA_clust <- psbA_clust %>% 
-  pivot_longer(!c("QUERY", "KO", "BRITE", "CAZY", "COG", "DISEASE", "DRUG", "ENZYME", "GO", "MODULE", "NETWORK", "PATHWAY", "PUBMED", "RCLASS", "REACTION", "TC", "VP", "DESCRIPTION", "length"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
-  merge(metadata)
+  pivot_longer(!c("QUERY", "KO", "BRITE", "CAZY", "COG", "DISEASE", "DRUG", "ENZYME", "GO", "MODULE", "NETWORK", "PATHWAY", "PUBMED", "RCLASS", "REACTION", "TC", "VP", "DESCRIPTION", "length"), names_to = "sampleid", values_to = "counts", values_drop_na = 0)
+%>% left_join(metadata, by="sampleid")
+
 meta_psbA_clust$Stromkilometer <- sub(",", ".", meta_psbA_clust$Stromkilometer)
 meta_psbA_clust$Stromkilometer <- as.double(meta_psbA_clust$Stromkilometer)
 
@@ -257,43 +251,57 @@ meta_psbA_clust %>%
 #usually the highest variance in the beginning and at the end of the estuary 
 #but very similar across  the samples
 ```
+No common trend 
 ## 2.2 Check different fractions 
 ```{r}
+meta_psbA_clust$Stromkilometer <- sub(",", ".", meta_psbA_clust$Stromkilometer)
+meta_psbA_clust$Stromkilometer <- as.double(meta_psbA_clust$Stromkilometer)
 #check different fractions
 #plot it!
 meta_psbA_clust %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
-  mutate(counts=counts/1000) %>%
-  group_by(sampleid,Stromkilometer, Sample_date, Sample_type) %>% 
+  group_by(sampleid, Stromkilometer, Sample_date, Sample_type, data_type) %>% 
   summarise(counts=sum(counts)) %>%
   ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
-  geom_tile() + facet_wrap(~ Sample_type) + geom_smooth()
+  geom_tile() + facet_wrap(~ data_type * Sample_type , scale = "free_y") + geom_smooth()
 
 #higher variance in particle associated - interesting opposite to the rhodopsins 
 #turbidity
+meta_psbA_clust$Turbidity_TBDHereon <- sub(",", ".", meta_psbA_clust$Turbidity_TBDHereon)
+meta_psbA_clust$Turbidity_TBDHereon <- as.double(meta_psbA_clust$Turbidity_TBDHereon)
 meta_psbA_clust %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
-  mutate(counts=counts/1000) %>%
-  group_by(sampleid, Stromkilometer, Sample_date, Sample_type) %>% 
+  group_by(Stromkilometer, data_type, Sample_type, Sample_date) %>% 
   summarise(counts=sum(counts), Turbidity_TBDHereon) %>%
-ggplot(aes(x=Turbidity_TBDHereon, y=log(counts))) + geom_point() + geom_smooth() #ommit rows with zero 
-```
+ggplot(aes(x=Turbidity_TBDHereon, y=counts)) + geom_point() + facet_wrap(~ data_type, scale = "free_y") + geom_smooth(method='lm') #omit rows with zero 
 
+#Salinity
+meta_psbA_clust$Salinity_TBDHereon <- sub(",", ".", meta_psbA_clust$Salinity_TBDHereon)
+meta_psbA_clust$Salinity_TBDHereon <- as.double(meta_psbA_clust$Salinity_TBDHereon)
+meta_psbA_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  group_by(Stromkilometer, data_type, Sample_type, Sample_date) %>% 
+  summarise(counts=sum(counts), Salinity_TBDHereon) %>%
+ggplot(aes(x=Salinity_TBDHereon, y=counts)) + geom_point() + facet_wrap(~ data_type, scale = "free_y") + geom_smooth(method='lm') #omit rows with zero 
+```
+Cannot really compare fractions - PsbA genes have more transcripts in fractions then in free-living - more transcriptomic activity at the end of the estuary on particles, when no spatial difference in free living fraction. Highest photosynthetic potential on particles - (once again similar trends between two types), then free living. Quite suprising - as phytoplankton usually is considered to be > 5um. Hypothesis: Particles harbour great photosynthetic potential in the Elbe estuary. High photosynthetic potential at the beginning of the estuary is not utilized - urban influence? Negative correlation with turbidity - no surprise. Vague positive trend with salinty. 
+
+No really a trend in METAG
 ```{r}
 #explore correlations
 meta_psbA_clust_df <-  meta_psbA_clust  %>%  
   filter(data_type == "METAT") %>%
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>% 
+  distinct() %>%
+  mutate_all(funs(str_replace(., ",", "."))) %>%
   select(numeric_col) 
 
 meta_psbA_clust_df[ meta_psbA_clust_df == ""] <- NA 
 
-for (i in c(3:length(meta_psbA_clust_df[1,]))){
-  meta_psbA_clust_df[,i] <-  sub(",", ".", meta_psbA_clust_df[,i]) #replace , to . to get a string which can be converted to double 
-}
 
 head(meta_psbA_clust_df)
 #to numeric 
@@ -303,7 +311,7 @@ res <- cor(meta_psbA_clust_matrix)
 res[ is.na(res)] <- 0 
 round(res, 2)
 
-heatmap(round(res, 2))
+heatmap(round(res, 2), cexRow = 0.5, cexCol = 0.5)
 #no interresting correlations for PsbA counts
 ```
 ## 2.3 Variance analysis 
@@ -322,7 +330,59 @@ var_meta_psbA_clust_station <- meta_psbA_clust %>%
   summarise(var = var(counts))
 
 #variance across stations (similarly the variance is lower n the brakish water)
-var_meta_psbA_clust_station  %>% arrange(factor(Station, levels = c("Muehlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuettel","Meedem Grund"))) #change the order 
+var_meta_psbA_clust_station  %>% arrange(factor(Station, levels = c("Mühlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbüttel","Meedem Grund"))) #change the order 
 ```
 
 The variance is increasing with a station order 
+
+
+Lets compare counts of rhodopsins and PsbA genes
+```{r}
+colnames(meta_psbA_clust)[which(names(meta_psbA_clust) == "counts")] <- "PsbA"
+colnames(meta_rhd_clust)[which(names(meta_rhd_clust) == "counts")] <- "rhd"
+#merge together by counts
+meta_all_counts <- meta_psbA_clust %>% left_join(meta_rhd_clust[, c("rhd", "sampleid")], by = "sampleid")
+#check temporal data
+meta_all_counts %>% 
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(sampleid,Stromkilometer, Sample_date, data_type) %>% 
+  summarise(sum_rhd=sum(rhd), sum_PsbA=sum(PsbA)) %>%
+  ggplot(aes(x=sum_rhd, y=sum_PsbA)) + ggtitle(" Phototrophic genes and transcript counts  different seasons") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free") + geom_smooth(method = "lm") 
+  
+meta_all_counts %>% 
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(sampleid,Stromkilometer, Sample_date, data_type) %>% 
+  summarise(sum_rhd=sum(rhd), sum_PsbA=sum(PsbA)) %>%
+  ggplot(aes(x=sum_rhd, y=sum_PsbA)) + ggtitle(" Phototrophic genes and transcript counts  different  river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Stromkilometer, scale = "free") + geom_smooth(method = "lm") 
+  
+
+ #Lets check all - with devision on data types.
+meta_all_counts %>% 
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(sampleid,Stromkilometer, Sample_date, data_type) %>% 
+  summarise(sum_rhd=sum(rhd), sum_PsbA=sum(PsbA)) %>%
+  ggplot(aes(x=sum_rhd, y=sum_PsbA)) + ggtitle(" Phototrophic genes and transcript counts  different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type, scale = "free") + geom_smooth(method = "lm") 
+  
+
+```
+No really a trend on temporal data. Vague negative correlation for METAG and vague positive correlation for METAT. More negative trends for spatial data.
+```{r}
+calcor=function(da){
+data.frame(cor.test(da$sum_rhd,da$sum_PsbA)[c("estimate","p.value")])
+}
+meta_all_counts %>%  group_by(sampleid, Stromkilometer, Sample_date, data_type) %>% 
+  summarise(sum_rhd=sum(rhd), sum_PsbA=sum(PsbA)) %>%  group_by(data_type)  %>% do(calcor(.))
+meta_all_counts %>%  group_by(sampleid, Stromkilometer, Sample_date, data_type) %>% 
+  summarise(sum_rhd=sum(rhd), sum_PsbA=sum(PsbA)) %>%  group_by(data_type, Stromkilometer)  %>% do(calcor(.)) %>% filter(p.value < 0.05)
+meta_all_counts %>%  group_by(sampleid, Stromkilometer, Sample_date, data_type) %>% 
+  summarise(sum_rhd=sum(rhd), sum_PsbA=sum(PsbA)) %>%  group_by(data_type, Sample_date)  %>% do(calcor(.)) %>% filter(p.value < 0.05)
+
+
+```
+For spatial - if correlation significant is always very negative, but for temporal few significant are quite positiv. Season drives increase of phototrophic genes ans positive correlation, but they are negative correlated spatialy - they dependance on microscale - coherent with litraterature  
