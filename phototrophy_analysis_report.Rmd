@@ -3,6 +3,7 @@ title: "Phototrophy analysis"
 author: "Julia Golebiowska"
 date: "2024-03-14"
 output: pdf_document
+#only METAT data makes sens as they how expession ber cell - when METAG shouw counts pers cell - what whould be more interesting to have total abundance - multiply by MoTu? Where is original file??????????
 ---
  
 ```{r include=FALSE}
@@ -229,7 +230,7 @@ rhd_var_station %>% filter(data_type == "METAT")
 #find psbA genes 
 psbA_clust <- annot %>%  
   filter(KO %in% c("K02703")) %>%
-  left_join(geneabund, by = c(QUERY == gene_cluster))
+  left_join(geneabund, join_by(QUERY == gene_cluster))
 
 #prepare the table with matadata for plot
 meta_psbA_clust <- psbA_clust %>% 
@@ -385,4 +386,87 @@ meta_all_counts %>%  group_by(sampleid, Stromkilometer, Sample_date, data_type) 
 
 
 ```
-For spatial - if correlation significant is always very negative, but for temporal few significant are quite positiv. Season drives increase of phototrophic genes ans positive correlation, but they are negative correlated spatialy - they dependance on microscale - coherent with litraterature  
+For spatial - if correlation significant is always very negative, but for temporal few significant are quite positiv. Season drives increase of phototrophic genes ans positive correlation, but they are negative correlated spatialy - they dependance on microscale - coherent with litraterature 
+
+Check other phototrophy genes: listed in sunegawa paper - Gene Expression Changes and Community Turnover
+Differentially Shape the Global Ocean
+psaA - K02689
+
+Photosynthetic reaction center 
+(petC - K02636, petE - K02638, and petH - K02641) and the cyanobacteria-specific antenna proteins
+(apcA - K02092, apcF - K02097, cpcA - K02284, cpeA - K05376, and cpeT - K05383)
+denitrification:
+napA - K02567, nirS - K15864, norB - K04561, and nosZ - K00376
+Transcripts of nitrogen fixation marker genes - nifK,
+nifH - K02588, and nifD - K02586
+```{r}
+#Check if they are present  the data:
+  #find psbA genes 
+psaA_clust <- annot %>%  
+  filter(KO %in% c("K02689")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+
+
+#Photosynthetic reaction center 
+#(petC - K02636, petE - K02638, and petH - K02641) and the cyanobacteria-specific antenna proteins
+petC_clust <- annot %>%  
+  filter(KO %in% c("K02636")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+petE_clust <- annot %>%  
+  filter(KO %in% c("K02638")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+petH_clust <- annot %>%  
+  filter(KO %in% c("K02641")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+#(apcA - K02092, apcF - K02097, cpcA - K02284, cpeA - K05376, and cpeT - K05383)
+apcA_clust <- annot %>%  
+  filter(KO %in% c("K02092")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+apcF_clust <- annot %>%  
+  filter(KO %in% c("K02097")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+cpcA_clust <- annot %>%  
+  filter(KO %in% c("K02284")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+cpeA_clust <- annot %>%  
+  filter(KO %in% c("K05376")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+cpeT_clust <- annot %>%  
+  filter(KO %in% c("K05383")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+#nitrification pathways
+#nitrogen fixation
+nifH_clust <- annot %>%  
+  filter(KO %in% c("K02588")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+nifD_clust <- annot %>%  
+  filter(KO %in% c("K02586")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+#denitrification:
+napA_clust <- annot %>%  
+  filter(KO %in% c("K02567")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+nirS_clust <- annot %>%  
+  filter(KO %in% c("K15864")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+norB_clust <- annot %>%  
+  filter(KO %in% c("K04561")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+nosZ_clust <- annot %>%  
+  filter(KO %in% c("K00376")) %>%
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+```
+Explore spatial and temporal changes 
+```{r}
+psaA_clust <- psaA_clust %>% 
+  pivot_longer(!c("QUERY", "KO", "BRITE", "CAZY", "COG", "DISEASE", "DRUG", "ENZYME", "GO", "MODULE", "NETWORK", "PATHWAY", "PUBMED", "RCLASS", "REACTION", "TC", "VP", "DESCRIPTION", "length"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  left_join(metadata, by="sampleid" )
+psaA_clust %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(data_type == "METAT") %>%
+  group_by(sampleid, Stromkilometer, Sample_date, Sample_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + geom_point() +
+  geom_tile() + facet_wrap(~ Sample_date, *Stromkilometer, scale = "free_y") + geom_smooth()
+```
