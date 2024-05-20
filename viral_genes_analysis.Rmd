@@ -1,0 +1,52 @@
+---
+title: "viral_genes"
+author: "Julia Golebiowska"
+date: "2024-05-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+The Analysis of axuliary genes carried by Viruses in the Elbe Estuary. Metagenomic data from 2021-22.   
+
+```{r load}
+#lets load the viral data 
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+setwd("~/IGB_phd/virus/viral_genes")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
+##Loading files
+#gene_cluster_table
+clstr <- read.csv(paste0(path,"/GROS22.clstr"), sep="\t", skip=0, header = F)
+colnames(clstr) <- c("gene_cluster", "mem", "gene", "length", "pos")
+#viral genes annotated
+vibrant_annot <- read.csv("BICEST.phages.annot",  sep = "\t", header = T)
+colnames(vibrant_annot) <- c("genome", "range", "KO", "DESCRIPTION")
+vibrant_annot[,"genome"] = sub(">", "", vibrant_annot[,"genome"])
+metadata <- read.csv("SAMEAID_SampleID_simplified.csv", header=TRUE, sep=";") %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAT.genecount.profile")) %>%
+  mutate(data_type="METAT")
+
+
+metadata2 <- read.csv("SAMEAID_SampleID_simplified.csv", header=TRUE, sep=";") %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAG.genecount.profile"))%>%
+  mutate(data_type="METAG")
+
+metadata <- rbind(metadata, metadata2)
+metadata <-metadata %>% 
+  mutate(sample=str_remove(sampleid, ".genecount.profile")) %>%
+  mutate(sample=str_replace(sample, "[.]", "-"))
+#chlorophyll data 
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
