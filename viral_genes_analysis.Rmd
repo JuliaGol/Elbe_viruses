@@ -100,7 +100,7 @@ rhd_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00909","K04641","K04642"
 psbA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02703")) #found
 #find psaA genes photosytem 
 psaA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02689")) #not found
-
+psbD_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02706")) #found
 #Photosynthetic reaction center 
 #(petC - K02636, petE - K02638, and petH - K02641) and the cyanobacteria-specific antenna proteins
 petC_vir <- vir_genecluster_annot %>%  filter(KO %in% c("K02636")) #not_found
@@ -137,8 +137,8 @@ norB_vir <- vir_genecluster_annot %>% filter(KO %in% c("K04561"))
  
 nosZ_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00376")) #1 found
  
-
 ```
+
 ```{r analysis}
 #prepare psbA for analysis
 psbA_vir_plot <- psbA_vir %>% 
@@ -360,4 +360,49 @@ Not enough data points
 Other interesting genes
 ```{r}
 unique(vibrant_annot$hypothetical.protein)
+```
+Normalise transcription by genes copy numbers 
+
+```{r normalise}
+#group by gene_cluster to optimise calculations
+#chose only columns which we need
+#select columns with metat 
+metat_cols <- colnames(vir_genecluster_annot)[which(grepl("METAT", colnames(vir_genecluster_annot)))]
+#find paired metag
+paired_METAG <- sort(gsub("METAT", "METAG", metat_cols)) 
+#check and save those which are existing
+paired_METAG <- sort(paired_METAG[which(paired_METAG %in% colnames(vir_genecluster_annot))])
+#save respected METAT columns 
+paired_METAT <- sort(gsub("METAG", "METAT", paired_METAG))
+#check if the same order
+sum(gsub("METAG", "METAT", colnames(paired_METAG)) == colnames(paired_METAT)) == length(colnames(paired_METAT))
+#select only needed columns and summurise by gene cluster 
+vir_genecluster_annot_sum <- vir_genecluster_annot[, c("gene_cluster", paired_METAG, paired_METAT)] %>% 
+  group_by(gene_cluster) %>% summarise_at(c(paired_METAG, paired_METAT), sum)
+
+vir_metag <- vir_genecluster_annot_sum %>% select(contains("METAG"))
+vir_metat <- vir_genecluster_annot_sum %>% select(contains("METAT"))
+#find respective metagenomes for metatranscriptomes vir_metat
+paired_METAG <- sort(gsub("METAT", "METAG", colnames(vir_metat))) 
+colnames_vir_metag <- sort(colnames(vir_metag))
+paired_vir_metag <- vir_metag %>% select(contains(paired_METAG)) #strange some METAT do not have 
+#METAG
+#then select metat which has paired METAG
+paired_METAT <- sort(gsub("METAG", "METAT", colnames(paired_vir_metag)))
+paired_vir_metat <- vir_metat[,paired_METAT]
+#check the order 
+#sort it
+#== sub("METAT", "METAG", colnames(vir_metat))
+#log transform both
+#add small pseudocount avoid problems wth NaN values coming from zeros
+log_paired_vir_metag <- log(paired_vir_metag + 0.0001)
+log_paired_vir_metat <- log(paired_vir_metat + 0.0001)
+#normalization interpreted as gene expression
+norm_expression_paired_vir <- log_paired_vir_metat - log_paired_vir_metag
+#transform to long format and combine with metatranscriptome
+#add dummy column as is needed for reformating  
+#norm_expression_paired_vir$dummy <- rep (c(1), times=length(norm_expression_paired_vir[,1])) 
+norm_expression_paired_vir_long <- norm_expression_paired_vir %>%
+  pivot_longer(colnames(norm_expression_paired_vir),  names_to = "sampleid", values_to = "counts") %>% left_join(metadata, by = "sampleid")
+
 ```
