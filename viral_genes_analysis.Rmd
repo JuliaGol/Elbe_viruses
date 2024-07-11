@@ -46,10 +46,14 @@ metadata2 <- read.csv(paste0(path, "/SAMEAID_SampleID.csv"), header=TRUE, sep=",
   mutate(data_type="METAG")
 
 metadata <- rbind(metadata, metadata2)
-
+#remove not consequent date style (remove -)  
 metadata <-metadata %>% 
   mutate(sample=str_remove(sampleid, ".genecount.profile")) %>%
   mutate(sample=str_replace(sample, "[.]", "-"))
+
+metadata <-metadata %>% mutate(Sample_date = str_replace(Sample_date, "-"," "))
+#unify station names
+metadata$Station[metadata$Station=="Meedem Grund"] <- "Medemgrund"
 #chlorophyll data 
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
@@ -73,6 +77,8 @@ metadata_more$Cruise_[metadata_more$Cruise_=="LP221107"]<-"Nov 22"
 #put the same name as in metadata
 colnames(metadata_more)[1] <- "Sample_date"
 colnames(metadata_more)[5] <- "Station"
+#unify station names
+metadata_more$Station[metadata_more$Station=="Medem Grund"] <- "Medemgrund"
 #remove another meassurement from the same station and date
 metadata_more <- metadata_more[-5,]
 #update enumeration
@@ -231,27 +237,39 @@ psbA_vir_plot %>%
   filter(Sample_date != "Nov 21") %>%
   filter(!is.na(counts)) %>%
   mutate(counts=counts/1000) %>%
-    group_by(sampleid, Chlorophyll, data_type) %>% 
+    group_by(sampleid, Chlorophyll, data_type, Sample_type) %>% 
   summarise(counts=sum(counts)) %>%
   ggplot(aes(x=Chlorophyll, y=counts)) + ggtitle("viral psbA counts across different Chlorophyl values across different data sets") + geom_point()  + scale_y_log10() +
-  geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth() 
+  geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth() 
 
 ```
-
+Split values by FL and PA
 ```{r CO2}
 psbA_vir_plot %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
   filter(!is.na(counts)) %>%
   mutate(counts=counts/1000) %>%
-    group_by(sampleid, dCO2_uM, data_type) %>% 
+    group_by(sampleid, dCO2_uM, data_type, Sample_type) %>% 
   summarise(counts=sum(counts)) %>%
-  ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("viral psbA counts across different CO2 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth() 
+  ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("viral psbA counts across different CO2 values for different data sets") + geom_point() + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth() 
 dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CO2.jpg")
 dev.off ()
 
 ```
+```{r CO2}
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCO2_uM, data_type, Sample_date) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("viral psbA counts across different CO2 values for different data sets") + geom_point() + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CO2.jpg")
+dev.off ()
 
+```
 ```{r CO2}
 psbA_prok_plot %>%  
   filter(Station != 'BunthausSpitze') %>% 
@@ -271,9 +289,9 @@ psbA_vir_plot %>%
   filter(Sample_date != "Nov 21") %>%
   filter(!is.na(counts)) %>%
   mutate(counts=counts/1000) %>%
-    group_by(sampleid, dCH4_nM, data_type) %>% 
+    group_by(sampleid, dCH4_nM, data_type, Sample_type) %>% 
   summarise(counts=sum(counts)) %>%
-  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("viral psbA counts across different CH4 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth(method = "lm") 
+  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("viral psbA counts across different CH4 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth(method = "lm") 
 dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CH4.jpg")
 dev.off ()
 
@@ -288,7 +306,7 @@ psbA_prok_plot %>%
   mutate(counts=counts/1000) %>%
     group_by(sampleid, dCH4_nM, data_type) %>% 
   summarise(counts=sum(counts)) %>%
-  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("Prokaryotic psbA counts across different CO2 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth(method = "lm") 
+  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("Prokaryotic psbA counts across different CH2 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth(method = "lm") 
 dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CH4.jpg")
 dev.off ()
 
@@ -386,13 +404,12 @@ psbA_vir_plot["origin"] <- rep("virus", times=length(psbA_vir[1]))
 ```
 
 ```{r}
-
-psbA_all_plot <- left_join(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "Chla_ug/l")], psbA_vir_plot[, c("AccessionNumber_TBDSven", "counts")], by = "AccessionNumber_TBDSven")
+psbA_all_plot <- left_join(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "Chlorophyll")], psbA_vir_plot[, c("AccessionNumber_TBDSven", "counts")], by = "AccessionNumber_TBDSven")
 #plot viral against bacterial
-colnames(psbA_all_plot)[5] <- "prokaryotic" 
-colnames(psbA_all_plot)[8] <- "viral" 
+colnames(psbA_all_plot)[which(colnames(psbA_all_plot)=="counts.x")] <- "prokaryotic" 
+colnames(psbA_all_plot)[which(colnames(psbA_all_plot)=="counts.y")] <- "viral" 
 
-psbA_all_plot_origin <- rbind(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin", "Chla_ug/l")], psbA_vir_plot[,  c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin",  "Chla_ug/l")])
+psbA_all_plot_origin <- rbind(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin", "Chlorophyll")], psbA_vir_plot[,  c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin",  "Chlorophyll")])
 #change problematic column name
 
 #colnames(psbA_all_plot_origin)[which(colnames(psbA_all_plot_origin) == "Chla_ug/l")] <- "Chlorophyll"
@@ -403,18 +420,17 @@ psbA_all_plot_origin %>%
   filter(Sample_date != "Nov 21") %>%
     group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
   summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
-  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, colour=as.factor(origin)))  + geom_point()  + geom_smooth() + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites")  +
-  scale_y_log10() + 
-  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") 
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
+  ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + labs(fill="Origin")
 
 ```
 ```{r}
 psbA_all_plot_origin %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
-    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin, Chlorophyll) %>% 
   summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
-  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, colour=as.factor(origin)))  + geom_point() + geom_smooth() + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites with Chlorophyll values")  +
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin)))  + geom_point() + geom_smooth() + geom_point(aes(x=as.numeric(Stromkilometer), y=Chlorophyll), fill="green", colour="green") + geom_smooth(aes(x=as.numeric(Stromkilometer), y=Chlorophyll), colour="green") + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites with Chlorophyll values")  +
   scale_y_log10() + 
   geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") 
 ```
