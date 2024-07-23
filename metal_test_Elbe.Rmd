@@ -45,6 +45,14 @@ metadata_more$Cruise_[metadata_more$Cruise_=="LP221107"]<-"Nov 22"
 #put the same name as in metadata
 colnames(metadata_more)[1] <- "Sample_date"
 colnames(metadata_more)[5] <- "Station"
+#unify station names
+metadata_more$Station[metadata_more$Station=="Medem Grund"] <- "Medemgrund"
+#unify date names (remove '-')
+metadata <-metadata %>% mutate(Sample_date = str_replace(Sample_date, "-"," "))
+#unify station names
+metadata$Station[metadata$Station=="Meedem Grund"] <- "Medemgrund"
+metadata_more$Station[metadata_more$Station=="Medem Grund"] <- "Medemgrund"
+
 #remove another meassurement from the same station and date
 metadata_more <- metadata_more[-5,]
 #update enumeration
@@ -127,6 +135,27 @@ motus_MAGS_METAG <- motus_final_taxa_metadata %>%
   filter(data_type == "METAG") %>%
   left_join(motu_stats, by = "mOTU")
 host_motus_METAG <- host_prediction_genome %>% left_join(motus_MAGS_METAG, by =c("Host.genome" = "user_genome"))
+#FL for METAG
+motus_MAGS_METAG_FL <- motus_final_taxa_metadata %>%
+  filter(data_type == "METAG") %>%
+  filter(sample_type == "Free_living") %>%
+  left_join(motu_stats, by = "mOTU")
+#find hosts from MOTUs
+host_motus_METAG <- host_prediction_genome %>% left_join(motus_MAGS_METAG, by =c("Host.genome" = "user_genome"))
+host_motus_METAG_FL <- host_prediction_genome %>% left_join(motus_MAGS_METAG_FL, by =c("Host.genome" = "user_genome"))
+#reformat so distances can be calculated
+host_motus_METAG_wide <-  host_motus_METAG %>%
+  filter(!is.na(mOTU))  %>%
+  select(mOTU, sampleid, counts) %>%
+   distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+#FL
+host_motus_METAG_FL_wide <-  host_motus_METAG_FL %>%
+  filter(!is.na(mOTU))  %>%
+  select(mOTU, sampleid, counts) %>%
+   distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0)
+
 #reformat so distances can be calculated
 host_motus_METAG_wide <-  host_motus_METAG %>%
   filter(!is.na(mOTU))  %>%
@@ -192,7 +221,12 @@ viral_diversity <- geneabund_drep_marker_taxa %>%
   select(contains("METAG")) %>% select(contains(sampleid_METAG$BioSample)) #some METAG excluded from analysis - further selection by vector with metagenomes samples from otus tables (where samples were preselected)
 viral_activity <- geneabund_drep_marker_taxa %>%
   select(contains("METAT"))
-
+FL_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Free_living")] 
+viral_diversity_FL <- geneabund_drep_marker_taxa %>%
+  select(contains("METAG")) %>% select(contains(sampleid_METAG$BioSample)) %>% select(contains(FL_accnum))#some METAG excluded from analysis - further selection by vector with metagenomes samples from otus tables (where samples were preselected) and by sampleid od the FL fraction 
+#why only 55 - ? would it be ok later? when accnum vector has length of 65 - what are mission columns
+viral_activity_FL <- geneabund_drep_marker_taxa %>%
+  select(contains("METAT")) %>% select(contains(FL_accnum)) #select by the accession number of the fl samples
 ```
 
 ```{r distances}
@@ -202,6 +236,96 @@ viral_activity <- geneabund_drep_marker_taxa %>%
 
 list.param.df.dist.METAG <- list()
 list.param.df.dist.METAT <- list()
+
+
+metadata_METAG <- metadata %>%
+  filter(AccessionNumber_TBDSven %in% sampleid_METAG$BioSample)
+metadata_METAT <- metadata %>%
+  filter(AccessionNumber_TBDSven %in% sampleid_METAT$BioSample) 
+j=0
+z=0
+for (i in c(10:39, 43:45)) { #columns with parameters
+  metadata_METAG[,i] <- as.numeric(sub(",", ".", metadata_METAG[,i])) #to double
+
+    if (sum(!is.na(metadata_METAG[,i]))>0){ #if most is NA do not calculate distance matrixes #we can later tray with most NA (sum(!is.na(metadata_METAG[,i]))/length(metadata_METAG[,i]))>0.5 
+  j=j+1
+  dist_METAG <- dist(metadata_METAG[,i], method = "euclidean")
+  list.param.df.dist.METAG[[j]] <- dist_METAG  #append to list of df
+  names(list.param.df.dist.METAG)[j] <- colnames(metadata_METAG)[i]
+   }
+
+  metadata_METAT[,i] <- as.numeric(sub(",", ".", metadata_METAT[,i])) #to double
+
+  if (sum(!is.na(metadata_METAT[,i]))>0){#if only NA do not calculate distance matrixes
+  z=z+1
+  dist_METAT <- dist(metadata_METAT[,i], method = "euclidean")
+  list.param.df.dist.METAT[[z]] <-  dist_METAT #append to list of df
+  names(list.param.df.dist.METAT)[z] <- colnames(metadata_METAT)[i]
+  
+  }
+} 
+#we have to transpose matrixes as vegdist calculates distances between columns 
+motus_df_METAG.dist <- vegdist(t(motus_df_METAG[,-1]), "euclidean")
+motus_df_METAT.dist <- vegdist(t(motus_df_METAT[,-1]), "euclidean")
+motus_df_METAT_FL.dist <- vegdist(t(motus_df_METAT_FL[,-1]), "euclidean")
+motus_df_METAT_LF.dist <- vegdist(t(motus_df_METAT_LF[,-1]), "euclidean")
+motus_df_METAT_HF.dist <- vegdist(t(motus_df_METAT_HF[,-1]), "euclidean")
+
+host_motus_METAG_wide.dist <- vegdist(t(host_motus_METAG_wide[,-1]), "euclidean")
+host_motus_METAT_wide.dist <- vegdist(t(host_motus_METAT_wide[,-1]), "euclidean")
+host_motus_METAT_FL_wide.dist <- vegdist(t(host_motus_METAT_FL_wide[,-1]), "euclidean")
+host_motus_METAT_LF_wide.dist <- vegdist(t(host_motus_METAT_LF_wide[,-1]), "euclidean")
+host_motus_METAT_HF_wide.dist <- vegdist(t(host_motus_METAT_HF_wide[,-1]), "euclidean")
+
+
+viral_diversity.dist <- vegdist(t(viral_diversity), "euclidean")
+viral_activity.dist <- vegdist(t(viral_activity), "euclidean")
+#put all distance matrixes into two lists for METAG and METAT respectively
+list.METAG.dists <- list()
+list.METAG.dists <- append(list.METAG.dists, list.param.df.dist.METAG)
+list.METAG.dists[[length(list.METAG.dists)+1]] <- motus_df_METAG.dist
+names(list.METAG.dists)[length(list.METAG.dists)] <- "MOTUs"
+list.METAG.dists[[length(list.METAG.dists)+1]] <- viral_diversity.dist
+names(list.METAG.dists)[length(list.METAG.dists)] <- "viral_diversity"
+list.METAG.dists[[length(list.METAG.dists)+1]] <- host_motus_METAG_wide.dist
+names(list.METAG.dists)[length(list.METAG.dists)] <- "hosts_MOTUs"
+
+
+#the same for METAT
+list.METAT.dists <- list()
+list.METAT.dists <- append(list.METAT.dists,list.param.df.dist.METAT)
+list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT.dist
+names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs"
+
+
+list.METAT.dists[[length(list.METAT.dists)+1]] <- viral_activity.dist
+names(list.METAT.dists)[length(list.METAT.dists)] <- "viral_activity"
+list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_wide.dist
+names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_MOTUs"
+#different number of samples - needs to be added to another sistance list - individual for each fraction -start from FL
+# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_FL.dist
+# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_FL"
+# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_LF.dist
+# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_LF"
+# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_HF.dist
+# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_HF"
+# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_FL_wide.dist
+# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_FL_MOTUs"
+# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_LF_wide.dist
+# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_LF_MOTUs"
+# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_HF_wide.dist
+# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_HF_MOTUs"
+
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+```{r distances FL}
+#calculate distance matrixes for all samples
+#param distances
+#store in a list of distances 
+
+list.param.df.dist.METAG.FL <- list()
+list.param.df.dist.METAT.FL <- list()
 
 
 metadata_METAG <- metadata %>%
