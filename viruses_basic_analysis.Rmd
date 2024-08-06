@@ -1,0 +1,106 @@
+---
+title: "Viruses_basic_analysis"
+author: "Julia Golebiowska"
+date: "2024-08-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+In this Rmarkdown we are going to expolore viral dataset to have bettter understanding of the data. 
+```{r setup and loading}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+setwd("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances")
+vibrant_annot <- read.csv("BICEST.phages.annot",  sep = "\t", header = F)
+colnames(vibrant_annot) <- c("gene", "range", "KO", "DESCRIPTION")
+##lets load the viral data 
+vir_genecluster_annot <- readRDS(file = "vir_genecluster_annot.RDS")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r statistic, echo=FALSE}
+#8188834
+#number of contigs
+#divide into METAG
+vibrant_annot_METAG <- vibrant_annot %>% filter(grepl("METAG" , gene))
+
+#divide into METAT 
+vibrant_annot_METAT <- vibrant_annot %>% filter(grepl("METAT" , gene))
+#for each generate contig column
+#METAG
+vibrant_annot_METAG <- vibrant_annot_METAG %>% 
+  mutate(contig=str_remove(gene, ">GROS.*_SAMEA.*_METAG-scaffold_")) %>%
+  mutate(contig=str_remove(contig, "_length=.*_orig=NODE_.*_length_.*_cov_.*"))
+#how many contigs
+contigs_counts_METAG <- vibrant_annot_METAG %>% select("contig") %>% unique() %>% nrow()
+#205611
+#METAT
+vibrant_annot_METAT <- vibrant_annot_METAT %>% 
+  mutate(contig=str_remove(gene, ">GROS.*_SAMEA.*_METAT-transcript_")) %>%
+  mutate(contig=str_remove(contig, "_length=.*_orig=NODE_.*_length_.*_cov_.*"))
+#how many contigs
+contigs_counts_METAT <- vibrant_annot_METAT %>% select("contig") %>% unique() %>% nrow()
+#1985
+contigs_counts_METAG + contigs_counts_METAT
+#207596
+
+#sizes of contigs METAG
+vibrant_annot_METAG <- vibrant_annot_METAG %>% 
+  mutate(length=str_remove(gene, ">GROS.*_SAMEA.*_METAG-scaffold_.*_length=.*_orig=NODE_.*_length_")) %>%
+  mutate(length=str_remove(length, "_cov_.*"))
+#check how many lengths and id they number equals contigs
+vibrant_annot_METAG %>% select("length") %>% unique() %>% nrow()
+
+#sizes of contigs METAG
+vibrant_annot_METAT <- vibrant_annot_METAT %>% 
+  mutate(length=str_remove(gene, ">GROS22-2_SAMEA.*_METAT-transcript_.*_length=.*_orig=NODE_.*_length_")) %>%
+  mutate(length=str_remove(length, "_cov_.*"))
+#check how many lengths and id they number equals contigs
+vibrant_annot_METAT %>% select("length") %>% unique() %>% nrow()
+#not at all
+#size distribution METAG
+vibrant_annot_METAG$length <- as.numeric(vibrant_annot_METAG$length)
+hist(vibrant_annot_METAG$length, breaks=100)
+#size distribution METAT
+```
+
+```{r}
+vibrant_annot_METAT$length <- as.numeric(vibrant_annot_METAT$length)
+hist(vibrant_annot_METAT$length, breaks=100)
+#how many viral genomes proteins axuliary gens
+#number of genes
+vibrant_annot_METAG %>% select("gene") %>% unique() %>% nrow()
+#number of transcribed genes
+vibrant_annot_METAT %>% select("gene") %>% unique() %>% nrow()
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r more advanced statistic, echo=FALSE}
+#number of assigned to host
+```
+
+```{r nature of the data, echo=FALSE}
+#ds DNA
+#classes of viruses 
+#eukaryotic viuses 
+#pufM gene but not here
+#also not here variable genes according to single copy number 
+#litic and lysigenic 
+#viruses associted with fraction
+#viruses vs  env param
+```
+
+```{r PCA, echo=FALSE}
+#pseudo counts be careful
+#aggregate by gene clsuter 
+```
