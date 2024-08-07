@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-In this Rmarkdown we are going to expolore viral dataset to have bettter understanding of the data. 
+In this Rmarkdown we are going to expolore viral dataset to have better understanding of the data. 
 ```{r setup and loading}
 library(dplyr)
 library(tidyverse)
@@ -71,10 +71,10 @@ vibrant_annot_METAT %>% select("length") %>% unique() %>% nrow()
 #size distribution METAG
 vibrant_annot_METAG$length <- as.numeric(vibrant_annot_METAG$length)
 hist(vibrant_annot_METAG$length, breaks=100)
-#size distribution METAT
 ```
 
 ```{r}
+#size distribution METAT
 vibrant_annot_METAT$length <- as.numeric(vibrant_annot_METAT$length)
 hist(vibrant_annot_METAT$length, breaks=100)
 #how many viral genomes proteins axuliary gens
@@ -86,7 +86,6 @@ vibrant_annot_METAT %>% select("gene") %>% unique() %>% nrow()
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 ```{r more advanced statistic, echo=FALSE}
-#number of assigned to host
 ```
 
 ```{r nature of the data, echo=FALSE}
@@ -95,12 +94,61 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 #eukaryotic viuses 
 #pufM gene but not here
 #also not here variable genes according to single copy number 
-#litic and lysigenic 
+#lytic and lysogenic 
 #viruses associted with fraction
-#viruses vs  env param
+#viruses vs env param
 ```
 
-```{r PCA, echo=FALSE}
-#pseudo counts be careful
-#aggregate by gene clsuter 
+
+Data transformation
+"log-transformation, the expression profiles were computed as the difference between the log2-transformed metatranscriptomic profile and the log2-transformed metagenomic profile" 
+
+Gene Expression Changes and Community Turnover
+Differentially Shape the Global Ocean Metatranscriptome
+
+Normalise transcription by genes copy numbers 
+
+```{r normalise}
+#read virus data
+vir_genecluster_annot <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/vir_genecluster_annot.RDS")
+
+#group by gene_cluster to optimise calculations
+#chose only columns which we need
+#select columns with metat 
+metat_cols <- colnames(vir_genecluster_annot)[which(grepl("METAT", colnames(vir_genecluster_annot)))]
+#find paired metag
+paired_METAG <- sort(gsub("METAT", "METAG", metat_cols)) 
+#check and save those which are existing
+paired_METAG <- sort(paired_METAG[which(paired_METAG %in% colnames(vir_genecluster_annot))])
+#save respected METAT columns 
+paired_METAT <- sort(gsub("METAG", "METAT", paired_METAG))
+#check if the same order
+sum(gsub("METAG", "METAT", colnames(paired_METAG)) == colnames(paired_METAT)) == length(colnames(paired_METAT))
+#select only needed columns and summarise by gene cluster 
+vir_genecluster_annot_sum <- vir_genecluster_annot[, c("gene_cluster", paired_METAG, paired_METAT)] %>% 
+  group_by(gene_cluster) %>% summarise_at(c(paired_METAG, paired_METAT), sum)
+vir_metag <- vir_genecluster_annot_sum %>% select(contains("METAG"))
+vir_metat <- vir_genecluster_annot_sum %>% select(contains("METAT"))
+#find respective metagenomes for metatranscriptomes vir_metat
+paired_METAG <- sort(gsub("METAT", "METAG", colnames(vir_metat))) 
+colnames_vir_metag <- sort(colnames(vir_metag))
+paired_vir_metag <- vir_metag %>% select(contains(paired_METAG)) #strange some METAT do not have 
+#METAG
+#then select metat which has paired METAG
+paired_METAT <- sort(gsub("METAG", "METAT", colnames(paired_vir_metag)))
+paired_vir_metat <- vir_metat[,paired_METAT]
+#check the order 
+#sort it
+#== sub("METAT", "METAG", colnames(vir_metat))
+#log transform both
+#add small pseudocount avoid problems wth NaN values coming from zeros
+log_paired_vir_metag <- log(paired_vir_metag + 0.000001)
+log_paired_vir_metat <- log(paired_vir_metat + 0.000001)
+#normalization interpreted as gene expression
+norm_expression_paired_vir <- log_paired_vir_metat - log_paired_vir_metag
+#transform to long format and combine with metatranscriptome
+#add dummy column as is needed for reformating  
+#norm_expression_paired_vir$dummy <- rep (c(1), times=length(norm_expression_paired_vir[,1])) 
+norm_expression_paired_vir_long <- norm_expression_paired_vir %>%
+  pivot_longer(colnames(norm_expression_paired_vir),  names_to = "sampleid", values_to = "counts") %>% left_join(metadata, by = "sampleid")
 ```

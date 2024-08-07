@@ -22,14 +22,17 @@ path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
 ```{r loading}
 ##Loading files
 #gene_cluster_table
-clstr <- read.csv(paste0(path,"/GROS22.clstr"), sep="\t", skip=0, header = F)
-colnames(clstr) <- c("gene_cluster", "mem", "gene", "length", "pos")
+#long to load - used one from the saved object
+#clstr <- read.csv(paste0(path,"/GROS22.clstr"), sep="\t", skip=0, header = F)
+#colnames(clstr) <- c("gene_cluster", "mem", "gene", "length", "pos")
 #gene abundance (in fact gene copy number per cell and transcription per cell)
-geneabund <- read.csv(paste0(path,"/BICEST_cellabund.tsv"), sep="\t", skip=1, header = TRUE, row.names = 1)
+#big file - avoid loading multiple times
+#geneabund <- read.csv(paste0(path,"/BICEST_cellabund.tsv"), sep="\t", skip=1, header = TRUE, row.names = 1)
 #viral genes annotated
-vibrant_annot <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/BICEST.phages.annot",  sep = "\t", header = T)
-colnames(vibrant_annot) <- c("genome", "range", "KO", "DESCRIPTION")
-vibrant_annot[,"genome"] = sub(">", "", vibrant_annot[,"genome"])
+#big file avoid loading multiple times
+#vibrant_annot <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/BICEST.phages.annot",  sep = "\t", header = T)
+#colnames(vibrant_annot) <- c("genome", "range", "KO", "DESCRIPTION")
+#vibrant_annot[,"genome"] = sub(">", "", vibrant_annot[,"genome"])
 #metadata
 metadata_sim <- read.csv(paste0(path,"/SAMEAID_SampleID_simplified.csv"), header=TRUE, sep=";") 
 #select the needed columns to avoid doubling computations
@@ -50,10 +53,11 @@ metadata <- rbind(metadata, metadata2)
 metadata <-metadata %>% 
   mutate(sample=str_remove(sampleid, ".genecount.profile")) %>%
   mutate(sample=str_replace(sample, "[.]", "-"))
-
+#unify date names (remove '-')
 metadata <-metadata %>% mutate(Sample_date = str_replace(Sample_date, "-"," "))
 #unify station names
 metadata$Station[metadata$Station=="Meedem Grund"] <- "Medemgrund"
+
 #chlorophyll data 
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
@@ -88,7 +92,7 @@ colnames(metadata_more)[which(colnames(metadata_more)=="Chla_µg/l")] <- "Chla_u
 colnames(metadata_more)[which(colnames(metadata_more)=="dCO2_µM")] <- "dCO2_uM"
 #left_join with the CO2 CH4 Chlorophyll values from  metadata_more by Sample date
 metadata <- metadata %>% merge(metadata_more[, c("Sample_date", "Station", "dCH4_nM", "Chla_ug/l","dCO2_uM")], by = c("Sample_date", "Station"), all.x = T)
-#change problematic column name
+#change problematic column names
 colnames(metadata)[which(colnames(metadata) == "Chla_ug/l")] <- "Chlorophyll"
 metadata$Chlorophyll <- as.numeric(metadata$Chlorophyll)
 metadata$dCH4_nM <- as.numeric(metadata$dCH4_nM)
@@ -112,11 +116,6 @@ Prepare metadata with Chlorophyll
 
 
 
-Data transformation
-"log-transformation, the expression profiles were computed as the difference between the log2-transformed metatranscriptomic profile and the log2-transformed metagenomic profile" 
-
-Gene Expression Changes and Community Turnover
-Differentially Shape the Global Ocean Metatranscriptome
 
 ```{r pressure, echo=FALSE}
 
@@ -174,7 +173,36 @@ nirS_vir <- vir_genecluster_annot %>% filter(KO %in% c("K15864"))
 norB_vir <- vir_genecluster_annot %>% filter(KO %in% c("K04561"))  
  
 nosZ_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00376")) #1 found
- 
+#Calvin cycle
+#rbcL
+ #K01601
+rbcL_vir <- vir_genecluster_annot %>% filter(KO %in% c("K01601")) #90!
+#rbcS
+#K01602
+rbcS_vir <- vir_genecluster_annot %>% filter(KO %in% c("K01602")) #no
+#phosphoribulokinase - prkB
+#	K00855   
+prkB_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00855")) #2
+#glyceraldehyde-3-phosphate dehydrogenase gapN
+#K00131
+gapN_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00131")) #0
+#gltA citrate synthase
+#K01647
+gltA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K01647")) #0
+#isocitrate dehydrogenase IDH3
+#K00030  
+idh3_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00030")) #2
+#malate dehydrogenase
+#K00024       
+md_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00024")) #388
+#methyl-coenzyme M reductase alpha subunit
+#K00399 #methane pathway 
+mcrA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00399")) #0
+#phycobilisome rod-core linker protein
+#K02290
+prc <- vir_genecluster_annot %>% filter(KO %in% c("K02290")) #0
+#K08929 - pufM photosynthetic reaction center M subunit
+pufM <- vir_genecluster_annot %>% filter(KO %in% c("K08929")) #0
 
 ```
 ```{r analysis}
@@ -239,7 +267,7 @@ psbA_vir_plot %>%
   mutate(counts=counts/1000) %>%
     group_by(sampleid, Chlorophyll, data_type, Sample_type) %>% 
   summarise(counts=sum(counts)) %>%
-  ggplot(aes(x=Chlorophyll, y=counts)) + ggtitle("viral psbA counts across different Chlorophyl values across different data sets") + geom_point()  + scale_y_log10() +
+  ggplot(aes(x=Chlorophyll, y=counts)) + ggtitle("viral psbA counts across different chlorophyll values across different data sets") + geom_point()  + scale_y_log10() +
   geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth() 
 
 ```
@@ -441,7 +469,7 @@ psbA_all_plot_origin %>%
   filter(Sample_date != "Nov 21") %>%
     group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
   summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
-  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, colour=as.factor(origin))) + geom_point() + geom_smooth() + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites")  +
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(fill=as.factor(origin)) + geom_smooth() + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites")  +
   scale_y_log10() + 
   geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") 
 ```
@@ -492,3 +520,56 @@ Other interesting genes
 ```{r}
 unique(vibrant_annot$hypothetical.protein)
 ```
+```{r}
+unique(vibrant_annot$hypothetical.protein)
+```
+Data transformation
+"log-transformation, the expression profiles were computed as the difference between the log2-transformed metatranscriptomic profile and the log2-transformed metagenomic profile" 
+
+Gene Expression Changes and Community Turnover
+Differentially Shape the Global Ocean Metatranscriptome
+
+Normalise transcription by genes copy numbers 
+
+```{r normalise}
+#group by gene_cluster to optimise calculations
+#chose only columns which we need
+#select columns with metat 
+metat_cols <- colnames(vir_genecluster_annot)[which(grepl("METAT", colnames(vir_genecluster_annot)))]
+#find paired metag
+paired_METAG <- sort(gsub("METAT", "METAG", metat_cols)) 
+#check and save those which are existing
+paired_METAG <- sort(paired_METAG[which(paired_METAG %in% colnames(vir_genecluster_annot))])
+#save respected METAT columns 
+paired_METAT <- sort(gsub("METAG", "METAT", paired_METAG))
+#check if the same order
+sum(gsub("METAG", "METAT", colnames(paired_METAG)) == colnames(paired_METAT)) == length(colnames(paired_METAT))
+#select only needed columns and summurise by gene cluster 
+vir_genecluster_annot_sum <- vir_genecluster_annot[, c("gene_cluster", paired_METAG, paired_METAT)] %>% 
+  group_by(gene_cluster) %>% summarise_at(c(paired_METAG, paired_METAT), sum)
+vir_metag <- vir_genecluster_annot_sum %>% select(contains("METAG"))
+vir_metat <- vir_genecluster_annot_sum %>% select(contains("METAT"))
+#find respective metagenomes for metatranscriptomes vir_metat
+paired_METAG <- sort(gsub("METAT", "METAG", colnames(vir_metat))) 
+colnames_vir_metag <- sort(colnames(vir_metag))
+paired_vir_metag <- vir_metag %>% select(contains(paired_METAG)) #strange some METAT do not have 
+#METAG
+#then select metat which has paired METAG
+paired_METAT <- sort(gsub("METAG", "METAT", colnames(paired_vir_metag)))
+paired_vir_metat <- vir_metat[,paired_METAT]
+#check the order 
+#sort it
+#== sub("METAT", "METAG", colnames(vir_metat))
+#log transform both
+#add small pseudocount avoid problems wth NaN values coming from zeros
+log_paired_vir_metag <- log(paired_vir_metag + 0.000001)
+log_paired_vir_metat <- log(paired_vir_metat + 0.000001)
+#normalization interpreted as gene expression
+norm_expression_paired_vir <- log_paired_vir_metat - log_paired_vir_metag
+#transform to long format and combine with metatranscriptome
+#add dummy column as is needed for reformating  
+#norm_expression_paired_vir$dummy <- rep (c(1), times=length(norm_expression_paired_vir[,1])) 
+norm_expression_paired_vir_long <- norm_expression_paired_vir %>%
+  pivot_longer(colnames(norm_expression_paired_vir),  names_to = "sampleid", values_to = "counts") %>% left_join(metadata, by = "sampleid")
+```
+
