@@ -1,9 +1,12 @@
 ---
-title: "mentel_test_Elbe"
+title: "mantel_test_Elbe"
 author: "Julia Golebiowska"
 date: "2024-04-29"
 output: html_document
 ---
+#Introduction
+In this script we will calculate distances between samples using environmental parameters, MOTUs, hosts MOTUs and viruses abundances and expression data to finally get mantel test results which will be visualise. 
+This procedure will be applied for each fraction: free-living, light fraction and heavy fraction and each dataset metag and expression data - metatranscriptomic data normalised by gene counts using folowing formula: log(metat + pseudocounts) - log(metag + pseudocounts). 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -111,16 +114,6 @@ motus_df_METAG_paired <- motus_df_METAG[, paired_METAG]
 motus_df_METAT_paired <- motus_df_METAT[, paired_METAT]
 motus_expression <-  log(motus_df_METAT_paired + pseudocount) - log(motus_df_METAG_paired + pseudocount)
 
-#METAT FL
-motus_df_METAT_FL <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-   filter(sample_type == "Free_living") %>%
-#once again distinct to make it works
-  select(mOTU, sampleid, counts) %>%
-  distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) %>% 
-  as.data.frame()
-
 #METAG FL
 motus_df_METAG_FL <- motus_final_taxa_metadata %>%
   filter(data_type == "METAG") %>%
@@ -131,30 +124,10 @@ motus_df_METAG_FL <- motus_final_taxa_metadata %>%
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) %>% 
   as.data.frame()
 
-#METAT LF
-motus_df_METAT_LF <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-   filter(sample_type == "Light_fraction") %>%
-#once again distinct to make it works
-  select(mOTU, sampleid, counts) %>%
-  distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) %>% 
-  as.data.frame()
-
 #METAG LF
 motus_df_METAG_LF <- motus_final_taxa_metadata %>%
   filter(data_type == "METAG") %>%
    filter(sample_type == "Light_fraction") %>%
-#once again distinct to make it works
-  select(mOTU, sampleid, counts) %>%
-  distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) %>% 
-  as.data.frame()
-
-#METAT HF
-motus_df_METAT_HF <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-   filter(sample_type == "Heavy_fraction") %>%
 #once again distinct to make it works
   select(mOTU, sampleid, counts) %>%
   distinct() %>% 
@@ -178,7 +151,7 @@ motus_expression_LF <- motus_expression[, colnames(motus_expression) %in% colnam
 #expression HF
 motus_expression_HF <- motus_expression[, colnames(motus_expression) %in% colnames(motus_df_METAT_HF)]  
 
-## for later keep names of samples which were used for metagenomes and metatranscriptomes and finaly use for th analysis  
+## for later keep names of samples which were used for metagenomes and metatranscriptomes and finally use for the analysis  
 sampleid_METAG <- unique(motus_final_taxa_metadata[which(motus_final_taxa_metadata$data_type=="METAG"), "BioSample"])
 sampleid_METAT <- unique(motus_final_taxa_metadata[which(motus_final_taxa_metadata$data_type=="METAT"), "BioSample"])
 ```
@@ -244,39 +217,11 @@ host_motus_METAG_wide <-  host_motus_METAG %>%
   select(mOTU, sampleid, counts) %>%
    distinct() %>% 
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
-
-
-##### for METAT
-#join Motus by MAGs which were assigned as hosts with iphop
-motus_MAGS_METAT <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-  left_join(motu_stats, by = "mOTU")
-#check out free-living fraction
-motus_MAGS_METAT_FL <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-  filter(sample_type == "Free_living") %>%
-  left_join(motu_stats, by = "mOTU")
-
-#check out light fraction
-motus_MAGS_METAT_LF <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-  filter(sample_type == "Light_fraction") %>%
-  left_join(motu_stats, by = "mOTU")
-#check out heavy fraction
-motus_MAGS_METAT_HF <- motus_final_taxa_metadata %>%
-  filter(data_type == "METAT") %>%
-  filter(sample_type == "Heavy_fraction") %>%
-  left_join(motu_stats, by = "mOTU")
-
-
-host_motus_METAT <- host_prediction_genome %>% left_join(motus_MAGS_METAT, by =c("Host.genome" = "user_genome"))
-# host_motus_METAT_FL <- host_prediction_genome %>% left_join(motus_MAGS_METAT_FL, by =c("Host.genome" = "user_genome"))
-# host_motus_METAT_LF <- host_prediction_genome %>% left_join(motus_MAGS_METAT_LF, by =c("Host.genome" = "user_genome"))
-# host_motus_METAT_HF <- host_prediction_genome %>% left_join(motus_MAGS_METAT_HF, by =c("Host.genome" = "user_genome"))
 #the same for expression - host expression
-#is it expression?????
 motus_expression_long <- cbind(motus_df_METAT$mOTU, motus_expression) %>%
    pivot_longer(cols = starts_with("SAMEA"), names_to = "sampleid", values_to = "counts")
+#change mOTU column name for compatibility
+colnames(motus_expression_long)[1] <- "mOTU"
 #keep only sampleids
 motus_expression_long$sampleid <-gsub("_METAT", "", motus_expression_long$sampleid)
 host_motus_METAT$sampleid <-gsub("_METAT", "", host_motus_METAT$sampleid)
@@ -284,11 +229,10 @@ host_motus_METAT$sampleid <-gsub("_METAT", "", host_motus_METAT$sampleid)
 #FL
 motus_expression_long_FL <- motus_expression_long %>% filter(sampleid %in% FL_accnum)
 #LF
-host_motus_expression_long_LF <- host_motus_expression_long %>% filter(sample_type == "Light_fraction") 
-#HF
-host_motus_expression_long_HF <- host_motus_expression_long %>% filter(sample_type == "Heavy_fraction") 
-#change mOTU column name for compatibility
-colnames(motus_expression_long)[1] <- "mOTU"
+motus_expression_long_LF <- motus_expression_long %>% filter(sampleid %in% LF_accnum)
+#LF
+motus_expression_long_HF <- motus_expression_long %>% filter(sampleid %in% HF_accnum)
+
 #change format for long one
 # add metadata from analogous dataset for METAT without original counts 
 host_motus_expression_long <- host_motus_METAT[, colnames(host_motus_METAT)[which(colnames(host_motus_METAT)!="counts")]] %>% inner_join(motus_expression_long, by=c("mOTU", "sampleid"))
@@ -299,6 +243,7 @@ host_motus_expression_long_LF <- host_motus_expression_long %>% filter(sample_ty
 #HF
 host_motus_expression_long_HF <- host_motus_expression_long %>% filter(sample_type == "Heavy_fraction") 
 #after selecting hosts reformat to wide
+#hosta
 #FL
 host_motus_expression_FL_wide <-  host_motus_expression_long_FL %>%
   filter(!is.na(mOTU))  %>%
@@ -307,6 +252,23 @@ host_motus_expression_FL_wide <-  host_motus_expression_long_FL %>%
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
 ncol(host_motus_expression_FL_wide) #19 18 samples and mOTU - good!
 
+#LF
+host_motus_expression_LF_wide <-  host_motus_expression_long_LF %>%
+  filter(!is.na(mOTU))  %>%
+  select(mOTU, sampleid, counts) %>%
+   distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+ncol(host_motus_expression_FL_wide) #19 18 samples and mOTU - good! 
+
+#HF
+host_motus_expression_HF_wide <-  host_motus_expression_long_HF %>%
+  filter(!is.na(mOTU))  %>%
+  select(mOTU, sampleid, counts) %>%
+   distinct() %>% 
+  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
+ncol(host_motus_expression_FL_wide) #19 18 samples and mOTU - good! 
+
+#motus
 #FL
 motus_expression_FL_wide <-  motus_expression_long_FL %>%
   filter(!is.na(mOTU))  %>%
@@ -327,28 +289,6 @@ motus_expression_HF_wide <-  motus_expression_long_HF %>%
   select(mOTU, sampleid, counts) %>%
    distinct() %>% 
   pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
-#reformat so distances can be calculated
-host_motus_METAT_wide <-  host_motus_METAT %>%
-  filter(!is.na(mOTU))  %>%
-  select(mOTU, sampleid, counts) %>%
-   distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0) 
-host_motus_METAT_FL_wide <-  host_motus_METAT_FL %>%
-  filter(!is.na(mOTU))  %>%
-  select(mOTU, sampleid, counts) %>%
-   distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0)
-host_motus_METAT_LF_wide <-  host_motus_METAT_LF %>%
-  filter(!is.na(mOTU))  %>%
-  select(mOTU, sampleid, counts) %>%
-   distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0)
-host_motus_METAT_HF_wide <-  host_motus_METAT_HF %>%
-  filter(!is.na(mOTU))  %>%
-  select(mOTU, sampleid, counts) %>%
-   distinct() %>% 
-  pivot_wider(names_from="sampleid", values_from="counts", values_fill=0)
-
 ```
 
 
@@ -367,16 +307,7 @@ viral_expression <- log(viral_activity_paired + pseudocount) - log(viral_diversi
 FL_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Free_living")] 
 LF_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Light_fraction")] 
 HF_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Heavy_fraction")] 
-# viral_diversity_FL <- geneabund_drep_marker_taxa %>%
-#   select(contains("METAG")) %>% select(contains(sampleid_METAG$BioSample)) %>% select(contains(FL_accnum))
-# viral_diversity_LF <- geneabund_drep_marker_taxa %>%
-#   select(contains("METAG")) %>% select(contains(sampleid_METAG$BioSample)) %>% select(contains(LF_accnum))
-# viral_diversity_HF <- geneabund_drep_marker_taxa %>%
-#   select(contains("METAG")) %>% select(contains(sampleid_METAG$BioSample)) %>% select(contains(HF_accnum))
-# #some METAG excluded from analysis - further selection by vector with metagenomes samples from otus tables (where samples were preselected) and by sampleid od the FL fraction 
-# #why only 55 - ? would it be ok later? when accnum vector has length of 65 - what are mission columns
-# viral_activity_FL <- geneabund_drep_marker_taxa %>%
-#   select(contains("METAT")) %>% select(contains(FL_accnum)) #select by the accession number of the fl samples
+
 #FL
 viral_expression_FL <- viral_expression %>% select(contains(FL_accnum)) #select by the accession number of the fl samples
 #LF
@@ -393,100 +324,10 @@ viral_expression_FL_samplesid <-gsub(".genecount.profile", "", viral_expression_
 colnames(motus_df_METAT_FL) == colnames(host_motus_METAT_FL_wide) #yes
 viral_expression_FL_samplesid %in% colnames(motus_df_METAT_FL) #all from viruses are present in motus
 #which samples are not present in motus
-absent <- colnames(motus_df_METAT_FL)[which(!(colnames(motus_df_METAT_FL) %in% viral_expression_FL_samplesid))] absent %in% paired_METAT #motus and host probably not expression but transcription we have to fix that!!!
+absent <- colnames(motus_df_METAT_FL)[which(!(colnames(motus_df_METAT_FL) %in% viral_expression_FL_samplesid))] 
+absent %in% paired_METAT #motus and host probably not expression but transcription we have to fix that!!!
 ```
-
-```{r distances}
-#calculate distance matrixes for all samples
-#param distances
-#store in a list of distances 
-
-list.param.df.dist.METAG <- list()
-list.param.df.dist.METAT <- list()
-
-
-metadata_METAG <- metadata %>%
-  filter(AccessionNumber_TBDSven %in% sampleid_METAG$BioSample)
-metadata_METAT <- metadata %>%
-  filter(AccessionNumber_TBDSven %in% sampleid_METAT$BioSample) 
-j=0
-z=0
-for (i in c(10:39, 43:45)) { #columns with parameters
-  metadata_METAG[,i] <- as.numeric(sub(",", ".", metadata_METAG[,i])) #to double
-
-    if (sum(!is.na(metadata_METAG[,i]))>0){ #if most is NA do not calculate distance matrixes #we can later tray with most NA (sum(!is.na(metadata_METAG[,i]))/length(metadata_METAG[,i]))>0.5 
-  j=j+1
-  dist_METAG <- dist(metadata_METAG[,i], method = "euclidean")
-  list.param.df.dist.METAG[[j]] <- dist_METAG  #append to list of df
-  names(list.param.df.dist.METAG)[j] <- colnames(metadata_METAG)[i]
-   }
-
-  metadata_METAT[,i] <- as.numeric(sub(",", ".", metadata_METAT[,i])) #to double
-
-  if (sum(!is.na(metadata_METAT[,i]))>0){#if only NA do not calculate distance matrixes
-  z=z+1
-  dist_METAT <- dist(metadata_METAT[,i], method = "euclidean")
-  list.param.df.dist.METAT[[z]] <-  dist_METAT #append to list of df
-  names(list.param.df.dist.METAT)[z] <- colnames(metadata_METAT)[i]
-  
-  }
-} 
-#we have to transpose matrixes as vegdist calculates distances between columns 
-motus_df_METAG.dist <- vegdist(t(motus_df_METAG[,-1]), "euclidean")
-motus_df_METAT.dist <- vegdist(t(motus_df_METAT[,-1]), "euclidean")
-motus_df_METAT_FL.dist <- vegdist(t(motus_df_METAT_FL[,-1]), "euclidean")
-motus_df_METAT_LF.dist <- vegdist(t(motus_df_METAT_LF[,-1]), "euclidean")
-motus_df_METAT_HF.dist <- vegdist(t(motus_df_METAT_HF[,-1]), "euclidean")
-
-
-host_motus_METAG_wide.dist <- vegdist(t(host_motus_METAG_wide[,-1]), "euclidean")
-host_motus_METAT_wide.dist <- vegdist(t(host_motus_METAT_wide[,-1]), "euclidean")
-host_motus_METAT_FL_wide.dist <- vegdist(t(host_motus_METAT_FL_wide[,-1]), "euclidean")
-host_motus_METAT_LF_wide.dist <- vegdist(t(host_motus_METAT_LF_wide[,-1]), "euclidean")
-host_motus_METAT_HF_wide.dist <- vegdist(t(host_motus_METAT_HF_wide[,-1]), "euclidean")
-
-
-viral_diversity.dist <- vegdist(t(viral_diversity), "euclidean")
-viral_activity.dist <- vegdist(t(viral_activity), "euclidean")
-#put all distance matrixes into two lists for METAG and METAT respectively
-list.METAG.dists <- list()
-list.METAG.dists <- append(list.METAG.dists, list.param.df.dist.METAG)
-list.METAG.dists[[length(list.METAG.dists)+1]] <- motus_df_METAG.dist
-names(list.METAG.dists)[length(list.METAG.dists)] <- "MOTUs"
-list.METAG.dists[[length(list.METAG.dists)+1]] <- viral_diversity.dist
-names(list.METAG.dists)[length(list.METAG.dists)] <- "viral_diversity"
-list.METAG.dists[[length(list.METAG.dists)+1]] <- host_motus_METAG_wide.dist
-names(list.METAG.dists)[length(list.METAG.dists)] <- "hosts_MOTUs"
-
-
-#the same for METAT
-list.METAT.dists <- list()
-list.METAT.dists <- append(list.METAT.dists,list.param.df.dist.METAT)
-list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT.dist
-names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs"
-
-
-list.METAT.dists[[length(list.METAT.dists)+1]] <- viral_activity.dist
-names(list.METAT.dists)[length(list.METAT.dists)] <- "viral_activity"
-list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_wide.dist
-names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_MOTUs"
-#different number of samples - needs to be added to another sistance list - individual for each fraction -start from FL
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_FL.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_FL"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_LF.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_LF"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_HF.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_HF"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_FL_wide.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_FL_MOTUs"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_LF_wide.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_LF_MOTUs"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_HF_wide.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_HF_MOTUs"
-
-
-#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
-```
+##1. Free-living
 ```{r distances FL}
 #calculate distance matrixes for all samples
 #param distances
@@ -525,26 +366,16 @@ for (i in vec_param) { #columns with parameters
   }
 } 
 #we have to transpose matrixes as vegdist calculates distances between columns 
-#motus_df_METAG.dist <- vegdist(t(motus_df_METAG_FL[,-1]), "euclidean")
-#motus_df_METAT.dist <- vegdist(t(motus_df_METAT_FL[,-1]), "euclidean")
+
 motus_df_METAG_FL.dist <- vegdist(t(motus_df_METAG_FL[,-1]), "euclidean")
-motus_df_METAT_FL.dist <- vegdist(t(motus_df_METAT_FL[,-1]), "euclidean")
-motus_df_METAT_LF.dist <- vegdist(t(motus_df_METAT_LF[,-1]), "euclidean")
-motus_df_METAT_HF.dist <- vegdist(t(motus_df_METAT_HF[,-1]), "euclidean")
 motus_expression_FL_wide.dist <- vegdist(t(motus_expression_FL_wide[,-1]), "euclidean")
-#host_motus_METAG_wide.dist <- vegdist(t(host_motus_METAG_wide[,-1]), "euclidean")
-#host_motus_METAT_wide.dist <- vegdist(t(host_motus_METAT_wide[,-1]), "euclidean")
-host_motus_METAT_FL_wide.dist <- vegdist(t(host_motus_METAT_FL_wide[,-1]), "euclidean")
+
 host_motus_METAG_FL_wide.dist <- vegdist(t(host_motus_METAG_FL_wide[,-1]), "euclidean")
-host_motus_METAT_LF_wide.dist <- vegdist(t(host_motus_METAT_LF_wide[,-1]), "euclidean")
-host_motus_METAT_HF_wide.dist <- vegdist(t(host_motus_METAT_HF_wide[,-1]), "euclidean")
 host_motus_expression_FL_wide.dist <- vegdist(t(host_motus_expression_FL_wide[,-1]), na.rm = T, "euclidean")
 
-#viral_diversity.dist <- vegdist(t(viral_diversity), "euclidean")
-#viral_activity.dist <- vegdist(t(viral_activity), "euclidean")
 viral_diversity_FL.dist <- vegdist(t(viral_diversity_FL), "euclidean")
 viral_expression_FL.dist <- vegdist(t(viral_expression_FL), "euclidean")
-#viral_activity_FL.dist <- vegdist(t(viral_activity_FL), "euclidean")
+
 #put all distance matrixes into two lists for METAG and METAT respectively
 list.METAG_FL.dists <- list()
 list.METAG_FL.dists <- append(list.METAG_FL.dists, list.param.df.dist.METAG_FL)
@@ -559,12 +390,6 @@ names(list.METAG_FL.dists)[length(list.METAG_FL.dists)] <- "hosts_MOTUs"
 #the same for METAT
 list.METAT_FL.dists <- list()
 list.METAT_FL.dists <- append(list.METAT_FL.dists,list.param.df.dist.METAT_FL)
-#list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- motus_df_METAT_FL.dist
-#names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "MOTUs"
-# list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- viral_activity_FL.dist
-# names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "viral_activity"
-# list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- host_motus_METAT_FL_wide.dist
-# names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "hosts_MOTUs"
 list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- motus_expression_FL.dist
 names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "MOTUs"
 list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- viral_expression_FL.dist
@@ -572,74 +397,13 @@ names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "viral_expression"
 list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- host_motus_expression_FL_wide.dist
 names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "hosts_MOTUs"
 #different number of samples - needs to be added to another sistance list - individual for each fraction -start from FL
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_FL.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_FL"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_LF.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_LF"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- motus_df_METAT_HF.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "MOTUs_HF"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_FL_wide.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_FL_MOTUs"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_LF_wide.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_LF_MOTUs"
-# list.METAT.dists[[length(list.METAT.dists)+1]] <- host_motus_METAT_HF_wide.dist
-# names(list.METAT.dists)[length(list.METAT.dists)] <- "hosts_HF_MOTUs"
-
 
 #save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 ```
 
-```{r run mentel test}
-#check how many METAG and METAT samples
-#find a file with sampleid and type (METAG or METAT)
-#check it this agrees with number of columns in distance matrixes
-list.METAG.dists.length <- length(list.METAG.dists)
-list.METAT.dists.length <- length(list.METAT.dists)
 
-list.dist.length <- length(list.METAG.dists)
-matrix_res_stat_METAG <- matrix(nrow = list.METAG.dists.length, ncol = list.METAG.dists.length)
-colnames(matrix_res_stat_METAG) <- c(names(list.METAG.dists))
-matrix_res_stat_METAT <- matrix(nrow = list.METAT.dists.length, ncol = list.METAT.dists.length)
-colnames(matrix_res_stat_METAT) <- c(names(list.METAT.dists))
-matrix_res_sig_METAG <- matrix(nrow = list.METAG.dists.length, ncol = list.METAG.dists.length)
-colnames(matrix_res_sig_METAG) <- c(names(list.METAG.dists))
-matrix_res_sig_METAT <- matrix(nrow = list.METAT.dists.length, ncol = list.METAT.dists.length)
-colnames(matrix_res_sig_METAT) <- c(names(list.METAT.dists))
 
-for (i in c(1:list.dist.length)) {
-  for (j in c(1:list.dist.length)) {
-    #we dont want to calculate mentel between parameters or the same matrixes 
-      if ((i <= length(list.param.df.dist.METAG) & j <= length(list.param.df.dist.METAG)) | (i>=j)){
-       next
-    }
-    dist.matrix <- list.METAG.dists[[i]]
-    dist.matrix2 <- list.METAG.dists[[j]]
-    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
-    matrix_res_sig_METAG[i,j] <- res$signif
-    matrix_res_stat_METAG[i,j] <- res$statistic
-  }
-}
-
-for (i in c(1:list.dist.length)) {
-  for (j in c(1:list.dist.length)) {
-
-    #we dont want to calculate mentel between parameters or the same matrixes 
-
-  if ((i <= length(list.param.df.dist.METAT) & j <= length(list.param.df.dist.METAT)) | (i>=j) | j>list.METAT.dists.length){
-       next
-  }
-    dist.matrix <- list.METAT.dists[[i]]
-    dist.matrix2 <- list.METAT.dists[[j]]
-    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
-    matrix_res_sig_METAT[i,j] <- res$signif
-    matrix_res_stat_METAT[i,j] <- res$statistic
-  }
-}
-
-#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
-```
-
-```{r run mentel test FL}
+```{r run mantel test FL}
 #check how many METAG and METAT samples
 #find a file with sampleid and type (METAG or METAT)
 #check it this agrees with number of columns in distance matrixes
@@ -658,7 +422,7 @@ colnames(matrix_res_sig_METAT_FL) <- c(names(list.METAT_FL.dists))
 
 for (i in c(1:list.dist.length)) {
   for (j in c(1:list.dist.length)) {
-    #we dont want to calculate mentel between parameters or the same matrixes 
+    #we dont want to calculate mantel between parameters or the same matrixes 
       if ((i <= length(list.param.df.dist.METAG_FL) & j <= length(list.param.df.dist.METAG_FL)) | (i>=j)){
        next
     }
@@ -673,7 +437,7 @@ for (i in c(1:list.dist.length)) {
 for (i in c(1:list.dist.length)) {
   for (j in c(1:list.dist.length)) {
 
-    #we dont want to calculate mentel between parameters or the same matrixes 
+    #we dont want to calculate mantel between parameters or the same matrixes 
 
   if ((i <= length(list.param.df.dist.METAT_FL) & j <= length(list.param.df.dist.METAT_FL)) | (i>=j) | j>list.METAT_FL.dists.length){
        next
@@ -690,103 +454,6 @@ for (i in c(1:list.dist.length)) {
 save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 ```
 
-
-```{r}
-#load("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
-
-#Reduce matrixes to rows where at least one R value is greater then 0.2 0 tiles color by significance 
-#add colnames to rows to read them easier 
-rownames(matrix_res_stat_METAT) <- colnames(matrix_res_stat_METAT)
-rownames(matrix_res_sig_METAT) <- colnames(matrix_res_stat_METAT)
-rownames(matrix_res_stat_METAG) <- colnames(matrix_res_stat_METAG)
-rownames(matrix_res_sig_METAG) <- colnames(matrix_res_sig_METAG)
-#we have reformat to long version
-#but first lets filter all with R statistic higher then 0.2
-exist_greater_02 <- function(vec) {
- sum(vec>0.2, na.rm=TRUE)>0
-}
-#adjust p-values
-rows_for_plot_METAT <- apply(matrix_res_stat_METAT,1,exist_greater_02)
-#and take last 3 columns
-matrix_res_stat_METAT_plot <- matrix_res_stat_METAT[rows_for_plot_METAT,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
-matrix_res_sig_METAT_plot <- matrix_res_sig_METAT[rows_for_plot_METAT,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
-library(reshape2)
-
-matrix_res_stat_METAT_plot <- melt(matrix_res_stat_METAT_plot, value.name = "R_statistic" )
-matrix_res_sig_METAT_plot <- melt(matrix_res_sig_METAT_plot, value.name = "p_value" )
-
-matrix_res_stat_METAT_plot <- left_join(matrix_res_stat_METAT_plot, matrix_res_sig_METAT_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
-matrix_res_stat_METAT_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_plot[,1]))
-
-#prepare the same for METAG 
-rows_for_plot_METAG <- apply(matrix_res_stat_METAG,1,exist_greater_02)
-#and take last 3 columns
-matrix_res_stat_METAG_plot <- matrix_res_stat_METAG[rows_for_plot_METAG,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
-matrix_res_sig_METAG_plot <- matrix_res_sig_METAG[rows_for_plot_METAG,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
-
-matrix_res_stat_METAG_plot <- melt(matrix_res_stat_METAG_plot, value.name = "R_statistic")
-matrix_res_sig_METAG_plot <- melt(matrix_res_sig_METAG_plot, value.name = "p_value")
-
-matrix_res_stat_METAG_plot <- left_join(matrix_res_stat_METAG_plot, matrix_res_sig_METAG_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
-matrix_res_stat_METAG_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_plot[,1]))
-
-
-matrix_res_stat_mentel_plot <- rbind(matrix_res_stat_METAG_plot, matrix_res_stat_METAT_plot) 
-#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
-saveRDS(matrix_res_stat_mental_plot,"C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/matrix_res_stat_mental_plot.RDS")
-```
-
-```{r}
-
-#Adjust_p_values
-#add colnames to rows to read them easier 
-rownames(matrix_res_stat_METAT) <- colnames(matrix_res_stat_METAT)
-rownames(matrix_res_sig_METAT) <- colnames(matrix_res_sig_METAT)
-rownames(matrix_res_stat_METAG) <- colnames(matrix_res_stat_METAG)
-rownames(matrix_res_sig_METAG) <- colnames(matrix_res_sig_METAG)
-#we have reformat to long version
-#but first lets filter all with R statistic higher then 0.2
-
-#adjust p-values
-#and take last 3 columns
-matrix_res_stat_METAT_plot <- matrix_res_stat_METAT[,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
-matrix_res_sig_METAT_plot <- matrix_res_sig_METAT[,c((length(matrix_res_stat_METAT[1,])-2):length(matrix_res_stat_METAT[1,]))]
-
-library(reshape2)
-
-matrix_res_stat_METAT_plot <- melt(matrix_res_stat_METAT_plot, value.name = "R_statistic" )
-matrix_res_sig_METAT_plot <- melt(matrix_res_sig_METAT_plot, value.name = "p_value" )
-#filter out counfouded values - all which have Mol unit
-matrix_res_stat_METAT_plot <- matrix_res_stat_METAT_plot %>%  filter(!grepl("µM|uM", Var1)) 
-matrix_res_stat_METAT_plot <- matrix_res_stat_METAT_plot %>%  filter(!grepl("µM|uM", Var1)) 
-#now we can do p-value adjust
-matrix_res_sig_METAT_plot$p_value.adj <- p.adjust(matrix_res_sig_METAT_plot$p_value, method="hochberg")
-
-#p_value.adj_FL <- matrix_res_sig_METAT_plot %>% filter(Var2 =="MOTUs_FL") #p.adjust(matrix_res_sig_METAT_plot$p_value, method="hochberg")
-
-matrix_res_stat_METAT_plot <- left_join(matrix_res_stat_METAT_plot, matrix_res_sig_METAT_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
-matrix_res_stat_METAT_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_plot[,1]))
-
-#prepare the same for METAG 
-#adjust p-values
-#and take last 3 columns
-matrix_res_stat_METAG_plot <- matrix_res_stat_METAG[,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
-matrix_res_sig_METAG_plot <- matrix_res_sig_METAG[,c((length(matrix_res_stat_METAG[1,])-2):length(matrix_res_stat_METAG[1,]))]
-
-matrix_res_stat_METAG_plot <- melt(matrix_res_stat_METAG_plot, value.name = "R_statistic")
-matrix_res_sig_METAG_plot <- melt(matrix_res_sig_METAG_plot, value.name = "p_value")
-#filter out counfouded values - all which have Mol unit
-matrix_res_stat_METAG_plot <- matrix_res_stat_METAG_plot %>%  filter(!grepl("µM|uM", Var1)) 
-matrix_res_stat_METAG_plot <- matrix_res_stat_METAG_plot %>%  filter(!grepl("µM|uM", Var1)) 
-#now we can do p-value adjust
-matrix_res_sig_METAG_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_plot$p_value, method="hochberg")
-
-matrix_res_stat_METAG_plot <- left_join(matrix_res_stat_METAG_plot, matrix_res_sig_METAG_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
-matrix_res_stat_METAG_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_plot[,1]))
-
-matrix_res_stat_mentel_plot <- rbind(matrix_res_stat_METAG_plot, matrix_res_stat_METAT_plot) 
-#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
-```
 
 ```{r adjust p-values FL}
 
@@ -828,73 +495,35 @@ matrix_res_sig_METAG_FL_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_FL_plo
 matrix_res_stat_METAG_FL_plot <- left_join(matrix_res_stat_METAG_FL_plot, matrix_res_sig_METAG_FL_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
 matrix_res_stat_METAG_FL_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_FL_plot[,1]))
 
-matrix_res_stat_FL_mentel_plot <- rbind(matrix_res_stat_METAG_FL_plot, matrix_res_stat_METAT_FL_plot) 
+matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL_plot, matrix_res_stat_METAT_FL_plot) 
 #save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
 ```
 
 
-```{r}
-#common plot for both - quite hard to read -  when adjusted p-values
-  mentel_test_plot <- matrix_res_stat_mentel_plot %>%
-  filter(R_statistic != "NA") %>% 
-  ggplot(aes(x=Var1, y=Var2)) +
-  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
-  geom_point(aes(), shape=0, size = 8.5) + 
-  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
-  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
-  scale_size_continuous(guide="none") +
-  scale_x_discrete()+ theme_bw() +
-  scale_y_discrete(position = "right") +
-  facet_grid( scales = "free", rows = vars(data)) +
- # coord_fixed(ratio = 1) +
-  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
-        strip.background = element_blank()) +
-  theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=1.1, vjust=1.1), 
-        legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
-#show
-mentel_test_plot
-```
 
-```{r}
-# plot for METAG - use normal p-values as significant 
-  mentel_test_METAG_plot <- matrix_res_stat_mentel_plot %>%
-  filter(R_statistic != "NA") %>% 
-  filter(data == "Metagenome") %>% 
-  filter(Var1 != "MOTUs") %>% 
-  filter(!grepl("µM|uM", Var1)) %>% #this should be done earlier - confounding adjusting p-values 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=factor(Var1), y=Var2)) +
-  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
-  geom_point(aes(), shape=0, size = 8.5) + 
-  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
-  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
-  scale_size_continuous(guide="none") +
-  scale_x_discrete()+ theme_bw() +
-  scale_y_discrete(position = "right") +
-  coord_fixed(ratio = 1) +
-  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
-        strip.background = element_blank()) +
-  theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2), 
-        legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
-#show
-mentel_test_METAG_plot
-```
+
 ```{r METAG plot FL}
 # plot for METAG - use normal p-values as significant 
-  mentel_test_METAG_FL_plot <- matrix_res_stat_FL_mentel_plot %>%
+#this comparison is not meaningfull <- put NA so is not visible on the plot
+matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_FL_mantel_plot$Var2 == "hosts_MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+#Move value from MOTUs in var1 to MOTUs in var2
+#so the plot have better layout (MOTus and hosts motus only on "y axis")
+matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "viral_diversity" & matrix_res_stat_FL_mantel_plot$Var2 == "MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_FL_mantel_plot$Var2 == "viral_diversity"),c("R_statistic", "p_value", "p_value.adj")]
+ #and remove from the original place 
+matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_FL_mantel_plot$Var2 == "viral_diversity"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+  mantel_test_METAG_FL_plot <- matrix_res_stat_FL_mantel_plot %>%
   filter(R_statistic != "NA") %>% 
   filter(data == "Metagenome") %>% 
-  filter(Var1 != "MOTUs") %>% 
+ # filter(Var1 != "MOTUs") %>% 
  # filter(!grepl("µM|uM", Var1)) %>% 
   mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
   ggplot(aes(x=factor(Var1), y=Var2)) +
-  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
+  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
-  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
+  #scale_colour_gradient(low = "white", high = "darkgreen", ) +
+  scale_colour_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-0.7,0.7), space = "Lab", 
+   name="R statistic") +
   guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
   scale_size_continuous(guide="none") +
   scale_x_discrete()+ theme_bw() +
@@ -907,48 +536,32 @@ mentel_test_METAG_plot
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 #show
-mentel_test_METAG_FL_plot
+png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_METAG_FL_plot.png",width=570,height=300,units="px")
+mantel_test_METAG_FL_plot
+dev.off()
 ```
 
-```{r}
-# plot for METAT - use normal p -values as significant 
-  mentel_test_METAT_plot <- matrix_res_stat_mentel_plot %>%
-  filter(R_statistic != "NA") %>% 
-  filter(data == "Metatranscriptome") %>% 
-  filter(Var1 != "MOTUs") %>% 
-  filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_activity", "hosts_MOTUs")))) +
-  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
-  geom_point(aes(), shape=0, size = 8.5) + 
-  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
-  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
-  scale_size_continuous(guide="none") +
-  scale_x_discrete()+ theme_bw() +
-  scale_y_discrete(position = "right") +
-  coord_fixed(ratio = 1) +
-  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
-        strip.background = element_blank()) +
-  theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), 
-        legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
 
-```
 
 ```{r METAT plot FL}
+matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "viral_expression" & matrix_res_stat_FL_mantel_plot$Var2 == "MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_FL_mantel_plot$Var2 == "viral_expression"),c("R_statistic", "p_value", "p_value.adj")]
+ #and remove from the original place 
+matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_FL_mantel_plot$Var2 == "viral_expression"),c("R_statistic", "p_value", "p_value.adj")] <- NA
 # plot for METAT - use normal p -values as significant 
-  mentel_test_METAT_FL_plot <- matrix_res_stat_FL_mentel_plot %>%
+  mantel_test_METAT_FL_plot <- matrix_res_stat_FL_mantel_plot %>%
   filter(R_statistic != "NA") %>% 
   filter(data == "Metatranscriptome") %>% 
-  filter(Var1 != "MOTUs") %>% 
+# filter(Var1 != "MOTUs") %>% 
   filter(!grepl("µM|uM", Var1)) %>% 
   mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_activity", "hosts_MOTUs")))) +
-  geom_point(aes(size=R_statistic, colour=R_statistic, ), shape=15) +
+  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_expression", "hosts_MOTUs")))) +
+  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
-  scale_colour_gradient(low = "white", high = "darkgreen", ) + 
-  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
+  #scale_colour_gradient(low = "blue", high = "red",) + 
+  scale_colour_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-0.5,0.5), space = "Lab", 
+   name="R statistic") +
+ # guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) +    #title.theme = element_text(angle=90, vjust=1))) +
   scale_size_continuous(guide="none") +
   scale_x_discrete()+ theme_bw() +
   scale_y_discrete(position = "right") +
@@ -957,8 +570,471 @@ mentel_test_METAG_FL_plot
         strip.background = element_blank()) +
   theme(rect = element_blank(),
         axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), 
+        legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
+png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_expression_FL_plot.png")
+mantel_test_METAT_FL_plot
+dev.off()
+```
+##2. Light fraction
+```{r distances LF}
+#calculate distance matrixes for all samples
+#param distances
+#store in a list of distances 
+
+list.param.df.dist.METAG_LF <- list()
+list.param.df.dist.METAT_LF <- list()
+
+
+metadata_METAG_LF <- metadata %>%
+  filter(AccessionNumber_TBDSven %in% sampleid_METAG$BioSample & AccessionNumber_TBDSven %in% LF_accnum)
+metadata_METAT_LF <- metadata %>%
+  filter(AccessionNumber_TBDSven %in% paired_sampleid & AccessionNumber_TBDSven %in% LF_accnum) 
+j=0
+z=0
+vec_param <- which(colnames(metadata_METAG_LF) %in%  c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "dCH4_nM",           "Chla_ug/l", "dCO2_uM"))
+
+for (i in vec_param) { #columns with parameters
+  metadata_METAG_LF[,i] <- as.numeric(sub(",", ".", metadata_METAG_LF[,i])) #to double
+
+    if (sum(!is.na(metadata_METAG_LF[,i]))>0){ #if most is NA do not calculate distance matrixes #we can later tray with most NA (sum(!is.na(metadata_METAG[,i]))/length(metadata_METAG[,i]))>0.5 
+  j=j+1
+  dist_METAG_LF <- dist(metadata_METAG_LF[,i], method = "euclidean")
+  list.param.df.dist.METAG_LF[[j]] <- dist_METAG_LF  #append to list of df
+  names(list.param.df.dist.METAG_LF)[j] <- colnames(metadata_METAG_LF)[i]
+   }
+
+  metadata_METAT_LF[,i] <- as.numeric(sub(",", ".", metadata_METAT_LF[,i])) #to double
+
+  if (sum(!is.na(metadata_METAT_LF[,i]))>0){#if only NA do not calculate distance matrixes
+  z=z+1
+  dist_METAT_LF <- dist(metadata_METAT_LF[,i], method = "euclidean")
+  list.param.df.dist.METAT_LF[[z]] <-  dist_METAT_LF #append to list of df
+  names(list.param.df.dist.METAT_LF)[z] <- colnames(metadata_METAT_LF)[i]
+  
+  }
+} 
+#we have to transpose matrixes as vegdist calculates distances between columns 
+
+motus_df_METAG_LF.dist <- vegdist(t(motus_df_METAG_LF[,-1]), "euclidean")
+motus_expression_LF.dist <- vegdist(t(motus_expression_LF_wide[,-1]), "euclidean")
+
+host_motus_METAG_LF_wide.dist <- vegdist(t(host_motus_METAG_LF_wide[,-1]), "euclidean")
+host_motus_expression_LF_wide.dist <- vegdist(t(host_motus_expression_LF_wide[,-1]), na.rm = T, "euclidean")
+
+viral_diversity_LF.dist <- vegdist(t(viral_diversity_LF), "euclidean")
+viral_expression_LF.dist <- vegdist(t(viral_expression_LF), "euclidean")
+
+#put all distance matrixes into two lists for METAG and METAT respectively
+list.METAG_LF.dists <- list()
+list.METAG_LF.dists <- append(list.METAG_LF.dists, list.param.df.dist.METAG_LF)
+list.METAG_LF.dists[[length(list.METAG_LF.dists)+1]] <- motus_df_METAG_LF.dist
+names(list.METAG_LF.dists)[length(list.METAG_LF.dists)] <- "MOTUs"
+list.METAG_LF.dists[[length(list.METAG_LF.dists)+1]] <- viral_diversity_LF.dist
+names(list.METAG_LF.dists)[length(list.METAG_LF.dists)] <- "viral_diversity"
+list.METAG_LF.dists[[length(list.METAG_LF.dists)+1]] <- host_motus_METAG_LF_wide.dist
+names(list.METAG_LF.dists)[length(list.METAG_LF.dists)] <- "hosts_MOTUs"
+
+
+#the same for METAT
+list.METAT_LF.dists <- list()
+list.METAT_LF.dists <- append(list.METAT_LF.dists,list.param.df.dist.METAT_LF)
+list.METAT_LF.dists[[length(list.METAT_LF.dists)+1]] <- motus_expression_LF.dist
+names(list.METAT_LF.dists)[length(list.METAT_LF.dists)] <- "MOTUs"
+list.METAT_LF.dists[[length(list.METAT_LF.dists)+1]] <- viral_expression_LF.dist
+names(list.METAT_LF.dists)[length(list.METAT_LF.dists)] <- "viral_expression"
+list.METAT_LF.dists[[length(list.METAT_LF.dists)+1]] <- host_motus_expression_LF_wide.dist
+names(list.METAT_LF.dists)[length(list.METAT_LF.dists)] <- "hosts_MOTUs"
+#different number of samples - needs to be added to another sistance list - individual for each fraction -start from LF
+
+#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+
+
+
+```{r run mantel test LF}
+#check how many METAG and METAT samples
+#find a file with sampleid and type (METAG or METAT)
+#check it this agrees with number of columns in distance matrixes
+list.METAG_LF.dists.length <- length(list.METAG_LF.dists)
+list.METAT_LF.dists.length <- length(list.METAT_LF.dists)
+
+list.dist.length <- length(list.METAG_LF.dists)
+matrix_res_stat_METAG_LF <- matrix(nrow = list.METAG_LF.dists.length, ncol = list.METAG_LF.dists.length)
+colnames(matrix_res_stat_METAG_LF) <- c(names(list.METAG_LF.dists))
+matrix_res_stat_METAT_LF <- matrix(nrow = list.METAT_LF.dists.length, ncol = list.METAT_LF.dists.length)
+colnames(matrix_res_stat_METAT_LF) <- c(names(list.METAT_LF.dists))
+matrix_res_sig_METAG_LF <- matrix(nrow = list.METAG_LF.dists.length, ncol = list.METAG_LF.dists.length)
+colnames(matrix_res_sig_METAG_LF) <- c(names(list.METAG_LF.dists))
+matrix_res_sig_METAT_LF <- matrix(nrow = list.METAT_LF.dists.length, ncol = list.METAT_LF.dists.length)
+colnames(matrix_res_sig_METAT_LF) <- c(names(list.METAT_LF.dists))
+
+for (i in c(1:list.dist.length)) {
+  for (j in c(1:list.dist.length)) {
+    #we dont want to calculate mantel between parameters or the same matrixes 
+      if ((i <= length(list.param.df.dist.METAG_LF) & j <= length(list.param.df.dist.METAG_LF)) | (i>=j)){
+       next
+    }
+    dist.matrix <- list.METAG_LF.dists[[i]]
+    dist.matrix2 <- list.METAG_LF.dists[[j]]
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
+    matrix_res_sig_METAG_LF[i,j] <- res$signif
+    matrix_res_stat_METAG_LF[i,j] <- res$statistic
+  }
+}
+#METAT
+for (i in c(1:list.dist.length)) {
+  for (j in c(1:list.dist.length)) {
+
+    #we dont want to calculate mantel between parameters or the same matrixes 
+
+  if ((i <= length(list.param.df.dist.METAT_LF) & j <= length(list.param.df.dist.METAT_LF)) | (i>=j) | j>list.METAT_LF.dists.length){
+       next
+  }
+    dist.matrix <- list.METAT_LF.dists[[i]]
+    dist.matrix2 <- list.METAT_LF.dists[[j]]
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
+    matrix_res_sig_METAT_LF[i,j] <- res$signif
+    matrix_res_stat_METAT_LF[i,j] <- res$statistic
+  }
+}
+
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+
+
+```{r adjust p-values LF}
+
+#Adjust_p_values
+#add colnames to rows to read them easier 
+rownames(matrix_res_stat_METAT_LF) <- colnames(matrix_res_stat_METAT_LF)
+rownames(matrix_res_sig_METAT_LF) <- colnames(matrix_res_stat_METAT_LF)
+rownames(matrix_res_stat_METAG_LF) <- colnames(matrix_res_stat_METAG_LF)
+rownames(matrix_res_sig_METAG_LF) <- colnames(matrix_res_sig_METAG_LF)
+#we have reformat to long version
+#but first lets filter all with R statistic higher then 0.2
+
+#adjust p-values
+#and take last 3 columns
+matrix_res_stat_METAT_LF_plot <- matrix_res_stat_METAT_LF[,c((length(matrix_res_stat_METAT_LF[1,])-2):length(matrix_res_stat_METAT_LF[1,]))]
+matrix_res_sig_METAT_LF_plot <- matrix_res_sig_METAT_LF[,c((length(matrix_res_stat_METAT_LF[1,])-2):length(matrix_res_stat_METAT_LF[1,]))]
+library(reshape2)
+
+matrix_res_stat_METAT_LF_plot <- melt(matrix_res_stat_METAT_LF_plot, value.name = "R_statistic" )
+matrix_res_sig_METAT_LF_plot <- melt(matrix_res_sig_METAT_LF_plot, value.name = "p_value" )
+#lets remove the confonded values
+matrix_res_sig_METAT_LF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAT_LF_plot$p_value, method="hochberg")
+
+#p_value.adj_LF <- matrix_res_sig_METAT_LF_plot %>% filter(Var2 =="MOTUs_LF") p.adjust(matrix_res_sig_METAT_LF_plot$p_value, method="hochberg")
+
+matrix_res_stat_METAT_LF_plot <- left_join(matrix_res_stat_METAT_LF_plot, matrix_res_sig_METAT_LF_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAT_LF_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_LF_plot[,1]))
+
+#prepare the same for METAG 
+#adjust p-values
+#and take last 3 columns
+matrix_res_stat_METAG_LF_plot <- matrix_res_stat_METAG_LF[,c((length(matrix_res_stat_METAG_LF[1,])-2):length(matrix_res_stat_METAG_LF[1,]))]
+matrix_res_sig_METAG_LF_plot <- matrix_res_sig_METAG_LF[,c((length(matrix_res_stat_METAG_LF[1,])-2):length(matrix_res_stat_METAG_LF[1,]))]
+
+matrix_res_stat_METAG_LF_plot <- melt(matrix_res_stat_METAG_LF_plot, value.name = "R_statistic")
+matrix_res_sig_METAG_LF_plot <- melt(matrix_res_sig_METAG_LF_plot, value.name = "p_value")
+matrix_res_sig_METAG_LF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_LF_plot$p_value, method="hochberg")
+
+matrix_res_stat_METAG_LF_plot <- left_join(matrix_res_stat_METAG_LF_plot, matrix_res_sig_METAG_LF_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAG_LF_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_LF_plot[,1]))
+
+matrix_res_stat_LF_mantel_plot <- rbind(matrix_res_stat_METAG_LF_plot, matrix_res_stat_METAT_LF_plot) 
+#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+
+
+
+
+```{r METAG plot LF}
+# plot for METAG - use normal p-values as significant 
+#this comparison is not meaningfull <- put NA so is not visible on the plot
+matrix_res_stat_LF_mantel_plot[which(matrix_res_stat_LF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_LF_mantel_plot$Var2 == "hosts_MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+#Move value from MOTUs in var1 to MOTUs in var2
+#so the plot have better layout (MOTus and hosts motus only on "y axis")
+matrix_res_stat_LF_mantel_plot[which(matrix_res_stat_LF_mantel_plot$Var1 == "viral_diversity" & matrix_res_stat_LF_mantel_plot$Var2 == "MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- matrix_res_stat_LF_mantel_plot[which(matrix_res_stat_LF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_LF_mantel_plot$Var2 == "viral_diversity"),c("R_statistic", "p_value", "p_value.adj")]
+ #and remove from the original place 
+matrix_res_stat_LF_mantel_plot[which(matrix_res_stat_LF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_LF_mantel_plot$Var2 == "viral_diversity"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+  mantel_test_METAG_LF_plot <- matrix_res_stat_LF_mantel_plot %>%
+  filter(R_statistic != "NA") %>% 
+  filter(data == "Metagenome") %>% 
+ # filter(Var1 != "MOTUs") %>% 
+ # filter(!grepl("µM|uM", Var1)) %>% 
+  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
+  ggplot(aes(x=factor(Var1), y=Var2)) +
+  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
+  geom_point(aes(), shape=0, size = 8.5) + 
+  #scale_colour_gradient(low = "white", high = "darkgreen", ) +
+  scale_colour_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-0.7,0.7), space = "Lab", 
+   name="R statistic") +
+  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
+  scale_size_continuous(guide="none") +
+  scale_x_discrete()+ theme_bw() +
+  scale_y_discrete(position = "right") +
+  coord_fixed(ratio = 1) +
+  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
+        strip.background = element_blank()) +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2), 
         legend.position = "right") +
-  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
-mentel_test_METAT_FL_plot
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
+#show
+png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_METAG_LF_plot.png",width=700,height=300,units="px")
+mantel_test_METAG_LF_plot
+dev.off()
+```
+##2. Heavy fraction
+
+```{r distances HF}
+#calculate distance matrixes for all samples
+#param distances
+#store in a list of distances 
+
+list.param.df.dist.METAG_HF <- list()
+list.param.df.dist.METAT_HF <- list()
+
+
+metadata_METAG_HF <- metadata %>%
+  filter(AccessionNumber_TBDSven %in% sampleid_METAG$BioSample & AccessionNumber_TBDSven %in% HF_accnum)
+metadata_METAT_HF <- metadata %>%
+  filter(AccessionNumber_TBDSven %in% paired_sampleid & AccessionNumber_TBDSven %in% HF_accnum) 
+j=0
+z=0
+vec_param <- which(colnames(metadata_METAG_HF) %in%  c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "dCH4_nM",           "Chla_ug/l", "dCO2_uM"))
+
+for (i in vec_param) { #columns with parameters
+  metadata_METAG_HF[,i] <- as.numeric(sub(",", ".", metadata_METAG_HF[,i])) #to double
+
+    if (sum(!is.na(metadata_METAG_HF[,i]))>0){ #if most is NA do not calculate distance matrixes #we can later tray with most NA (sum(!is.na(metadata_METAG[,i]))/length(metadata_METAG[,i]))>0.5 
+  j=j+1
+  dist_METAG_HF <- dist(metadata_METAG_HF[,i], method = "euclidean")
+  list.param.df.dist.METAG_HF[[j]] <- dist_METAG_HF  #append to list of df
+  names(list.param.df.dist.METAG_HF)[j] <- colnames(metadata_METAG_HF)[i]
+   }
+
+  metadata_METAT_HF[,i] <- as.numeric(sub(",", ".", metadata_METAT_HF[,i])) #to double
+
+  if (sum(!is.na(metadata_METAT_HF[,i]))>0){#if only NA do not calculate distance matrixes
+  z=z+1
+  dist_METAT_HF <- dist(metadata_METAT_HF[,i], method = "euclidean")
+  list.param.df.dist.METAT_HF[[z]] <-  dist_METAT_HF #append to list of df
+  names(list.param.df.dist.METAT_HF)[z] <- colnames(metadata_METAT_HF)[i]
+  
+  }
+} 
+#we have to transpose matrixes as vegdist calculates distances between columns 
+
+motus_df_METAG_HF.dist <- vegdist(t(motus_df_METAG_HF[,-1]), "euclidean")
+motus_expression_HF.dist <- vegdist(t(motus_expression_HF_wide[,-1]), "euclidean")
+
+host_motus_METAG_HF_wide.dist <- vegdist(t(host_motus_METAG_HF_wide[,-1]), "euclidean")
+host_motus_expression_HF_wide.dist <- vegdist(t(host_motus_expression_HF_wide[,-1]), na.rm = T, "euclidean")
+
+viral_diversity_HF.dist <- vegdist(t(viral_diversity_HF), "euclidean")
+viral_expression_HF.dist <- vegdist(t(viral_expression_HF), "euclidean")
+
+#put all distance matrixes into two lists for METAG and METAT respectively
+list.METAG_HF.dists <- list()
+list.METAG_HF.dists <- append(list.METAG_HF.dists, list.param.df.dist.METAG_HF)
+list.METAG_HF.dists[[length(list.METAG_HF.dists)+1]] <- motus_df_METAG_HF.dist
+names(list.METAG_HF.dists)[length(list.METAG_HF.dists)] <- "MOTUs"
+list.METAG_HF.dists[[length(list.METAG_HF.dists)+1]] <- viral_diversity_HF.dist
+names(list.METAG_HF.dists)[length(list.METAG_HF.dists)] <- "viral_diversity"
+list.METAG_HF.dists[[length(list.METAG_HF.dists)+1]] <- host_motus_METAG_HF_wide.dist
+names(list.METAG_HF.dists)[length(list.METAG_HF.dists)] <- "hosts_MOTUs"
+
+
+#the same for METAT
+list.METAT_HF.dists <- list()
+list.METAT_HF.dists <- append(list.METAT_HF.dists,list.param.df.dist.METAT_HF)
+list.METAT_HF.dists[[length(list.METAT_HF.dists)+1]] <- motus_expression_HF.dist
+names(list.METAT_HF.dists)[length(list.METAT_HF.dists)] <- "MOTUs"
+list.METAT_HF.dists[[length(list.METAT_HF.dists)+1]] <- viral_expression_HF.dist
+names(list.METAT_HF.dists)[length(list.METAT_HF.dists)] <- "viral_expression"
+list.METAT_HF.dists[[length(list.METAT_HF.dists)+1]] <- host_motus_expression_HF_wide.dist
+names(list.METAT_HF.dists)[length(list.METAT_HF.dists)] <- "hosts_MOTUs"
+#different number of samples - needs to be added to another sistance list - individual for each fraction -start from HF
+
+#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+
+
+
+```{r run mantel test HF}
+#check how many METAG and METAT samples
+#find a file with sampleid and type (METAG or METAT)
+#check it this agrees with number of columns in distance matrixes
+list.METAG_HF.dists.length <- length(list.METAG_HF.dists)
+list.METAT_HF.dists.length <- length(list.METAT_HF.dists)
+
+list.dist.length <- length(list.METAG_HF.dists)
+matrix_res_stat_METAG_HF <- matrix(nrow = list.METAG_HF.dists.length, ncol = list.METAG_HF.dists.length)
+colnames(matrix_res_stat_METAG_HF) <- c(names(list.METAG_HF.dists))
+matrix_res_stat_METAT_HF <- matrix(nrow = list.METAT_HF.dists.length, ncol = list.METAT_HF.dists.length)
+colnames(matrix_res_stat_METAT_HF) <- c(names(list.METAT_HF.dists))
+matrix_res_sig_METAG_HF <- matrix(nrow = list.METAG_HF.dists.length, ncol = list.METAG_HF.dists.length)
+colnames(matrix_res_sig_METAG_HF) <- c(names(list.METAG_HF.dists))
+matrix_res_sig_METAT_HF <- matrix(nrow = list.METAT_HF.dists.length, ncol = list.METAT_HF.dists.length)
+colnames(matrix_res_sig_METAT_HF) <- c(names(list.METAT_HF.dists))
+
+for (i in c(1:list.dist.length)) {
+  for (j in c(1:list.dist.length)) {
+    #we dont want to calculate mantel between parameters or the same matrixes 
+      if ((i <= length(list.param.df.dist.METAG_HF) & j <= length(list.param.df.dist.METAG_HF)) | (i>=j)){
+       next
+    }
+    dist.matrix <- list.METAG_HF.dists[[i]]
+    dist.matrix2 <- list.METAG_HF.dists[[j]]
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
+    matrix_res_sig_METAG_HF[i,j] <- res$signif
+    matrix_res_stat_METAG_HF[i,j] <- res$statistic
+  }
+}
+#METAT
+for (i in c(1:list.dist.length)) {
+  for (j in c(1:list.dist.length)) {
+
+    #we dont want to calculate mantel between parameters or the same matrixes 
+
+  if ((i <= length(list.param.df.dist.METAT_HF) & j <= length(list.param.df.dist.METAT_HF)) | (i>=j) | j>list.METAT_HF.dists.length){
+       next
+  }
+    dist.matrix <- list.METAT_HF.dists[[i]]
+    dist.matrix2 <- list.METAT_HF.dists[[j]]
+    res <- mantel(dist.matrix, dist.matrix2, method = "spearman", permutations = 9999, na.rm = TRUE)
+    matrix_res_sig_METAT_HF[i,j] <- res$signif
+    matrix_res_stat_METAT_HF[i,j] <- res$statistic
+  }
+}
+
+
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+
+
+```{r adjust p-values HF}
+
+#Adjust_p_values
+#add colnames to rows to read them easier 
+rownames(matrix_res_stat_METAT_HF) <- colnames(matrix_res_stat_METAT_HF)
+rownames(matrix_res_sig_METAT_HF) <- colnames(matrix_res_stat_METAT_HF)
+rownames(matrix_res_stat_METAG_HF) <- colnames(matrix_res_stat_METAG_HF)
+rownames(matrix_res_sig_METAG_HF) <- colnames(matrix_res_sig_METAG_HF)
+#we have reformat to long version
+#but first lets filter all with R statistic higher then 0.2
+
+#adjust p-values
+#and take last 3 columns
+matrix_res_stat_METAT_HF_plot <- matrix_res_stat_METAT_HF[,c((length(matrix_res_stat_METAT_HF[1,])-2):length(matrix_res_stat_METAT_HF[1,]))]
+matrix_res_sig_METAT_HF_plot <- matrix_res_sig_METAT_HF[,c((length(matrix_res_stat_METAT_HF[1,])-2):length(matrix_res_stat_METAT_HF[1,]))]
+library(reshape2)
+
+matrix_res_stat_METAT_HF_plot <- melt(matrix_res_stat_METAT_HF_plot, value.name = "R_statistic" )
+matrix_res_sig_METAT_HF_plot <- melt(matrix_res_sig_METAT_HF_plot, value.name = "p_value" )
+#lets remove the confonded values
+matrix_res_sig_METAT_HF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAT_HF_plot$p_value, method="hochberg")
+
+#p_value.adj_HF <- matrix_res_sig_METAT_HF_plot %>% filter(Var2 =="MOTUs_HF") p.adjust(matrix_res_sig_METAT_HF_plot$p_value, method="hochberg")
+
+matrix_res_stat_METAT_HF_plot <- left_join(matrix_res_stat_METAT_HF_plot, matrix_res_sig_METAT_HF_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAT_HF_plot$data <- rep(c("Metatranscriptome"), time= length(matrix_res_stat_METAT_HF_plot[,1]))
+
+#prepare the same for METAG 
+#adjust p-values
+#and take last 3 columns
+matrix_res_stat_METAG_HF_plot <- matrix_res_stat_METAG_HF[,c((length(matrix_res_stat_METAG_HF[1,])-2):length(matrix_res_stat_METAG_HF[1,]))]
+matrix_res_sig_METAG_HF_plot <- matrix_res_sig_METAG_HF[,c((length(matrix_res_stat_METAG_HF[1,])-2):length(matrix_res_stat_METAG_HF[1,]))]
+
+matrix_res_stat_METAG_HF_plot <- melt(matrix_res_stat_METAG_HF_plot, value.name = "R_statistic")
+matrix_res_sig_METAG_HF_plot <- melt(matrix_res_sig_METAG_HF_plot, value.name = "p_value")
+matrix_res_sig_METAG_HF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_HF_plot$p_value, method="hochberg")
+
+matrix_res_stat_METAG_HF_plot <- left_join(matrix_res_stat_METAG_HF_plot, matrix_res_sig_METAG_HF_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
+matrix_res_stat_METAG_HF_plot$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_HF_plot[,1]))
+
+matrix_res_stat_HF_mantel_plot <- rbind(matrix_res_stat_METAG_HF_plot, matrix_res_stat_METAT_HF_plot) 
+#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mental_test_elbe.RData")
+```
+
+
+
+
+```{r METAG plot HF}
+# plot for METAG - use normal p-values as significant 
+#this comparison is not meaningfull <- put NA so is not visible on the plot
+matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_HF_mantel_plot$Var2 == "hosts_MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+#Move value from MOTUs in var1 to MOTUs in var2
+#so the plot have better layout (MOTus and hosts motus only on "y axis")
+matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "viral_diversity" & matrix_res_stat_HF_mantel_plot$Var2 == "MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_HF_mantel_plot$Var2 == "viral_diversity"),c("R_statistic", "p_value", "p_value.adj")]
+ #and remove from the original place 
+matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_HF_mantel_plot$Var2 == "viral_diversity"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+  mantel_test_METAG_HF_plot <- matrix_res_stat_HF_mantel_plot %>%
+  filter(R_statistic != "NA") %>% 
+  filter(data == "Metagenome") %>% 
+ # filter(Var1 != "MOTUs") %>% 
+ # filter(!grepl("µM|uM", Var1)) %>% 
+  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
+  ggplot(aes(x=factor(Var1), y=Var2)) +
+  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
+  geom_point(aes(), shape=0, size = 8.5) + 
+  #scale_colour_gradient(low = "white", high = "darkgreen", ) +
+  scale_colour_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-0.7,0.7), space = "Lab", 
+   name="R statistic") +
+  guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
+  scale_size_continuous(guide="none") +
+  scale_x_discrete()+ theme_bw() +
+  scale_y_discrete(position = "right") +
+  coord_fixed(ratio = 1) +
+  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
+        strip.background = element_blank()) +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2), 
+        legend.position = "right") +
+  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
+#show
+png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_METAG_HF_plot.png",width=700,height=300,units="px")
+mantel_test_METAG_HF_plot
+dev.off()
+```
+
+
+
+```{r METAT plot HF}
+matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "viral_expression" & matrix_res_stat_HF_mantel_plot$Var2 == "MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_HF_mantel_plot$Var2 == "viral_expression"),c("R_statistic", "p_value", "p_value.adj")]
+#and remove from the original place 
+matrix_res_stat_HF_mantel_plot[which(matrix_res_stat_HF_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_HF_mantel_plot$Var2 == "viral_expression"),c("R_statistic", "p_value", "p_value.adj")] <- NA
+# plot for METAT - use normal p -values as significant 
+  mantel_test_METAT_HF_plot <- matrix_res_stat_HF_mantel_plot %>%
+  filter(R_statistic != "NA") %>% 
+  filter(data == "Metatranscriptome") %>% 
+# filter(Var1 != "MOTUs") %>% 
+  filter(!grepl("µM|uM", Var1)) %>% 
+  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
+  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_expression", "hosts_MOTUs")))) +
+  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
+  geom_point(aes(), shape=0, size = 8.5) + 
+  #scale_colour_gradient(low = "blue", high = "red",) + 
+  scale_colour_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-0.8,0.8), space = "Lab", 
+   name="R statistic") +
+ # guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) +    #title.theme = element_text(angle=90, vjust=1))) +
+  scale_size_continuous(guide="none") +
+  scale_x_discrete()+ theme_bw() +
+  scale_y_discrete(position = "right") +
+  coord_fixed(ratio = 1) +
+  theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
+        strip.background = element_blank()) +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), 
+        legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
+png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_expression_HF_plot.png",width=570,height=300,units="px")
+mantel_test_METAT_HF_plot
+dev.off()
 #better - more significant but strange plot NA and not all comparisons included
 ```
