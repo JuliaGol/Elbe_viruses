@@ -1,0 +1,164 @@
+---
+title: "CCA"
+author: "Julia Golebiowska"
+date: "2024-10-13"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+CCA  - Canonical correspondance analysis on viral data from the Elbe estuary for each fraction and and data type - abundace and expression. This analysis revels the potential drivers of communities diversity and activity. 
+
+## Viral diversity 
+
+
+```{r test}
+library(vegan)
+#> Loading required package: permute
+#> Loading required package: lattice
+#> This is vegan 2.6-4
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+#data
+data("varechem")
+data("varespec")
+
+data("varechem")
+data("varespec")
+
+#extracting species and env-data
+species_data <- varespec[, 1:18]
+env_data <- varechem[, 2:7]
+#extracting species and env-data
+
+cca_result <- cca(species_data, env_data)
+
+#sumary of the data
+summary(cca_result)
+plot(cca_result)
+
+```
+
+##1. Read data and metadata for each fraction and data type
+
+
+```{r , echo=FALSE}
+#FL
+viral_diversity_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_diversity_FL.RDS")
+viral_expression_FL = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_expression_FL.RDS")
+metadata_METAG_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/metadata_METAG_FL.RDS")
+metadata_METAT_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/metadata_METAT_FL.RDS")
+#LF
+viral_diversity_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_diversity_LF.RDS")
+viral_expression_LF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_expression_LF.RDS")
+metadata_METAG_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/metadata_METAG_LF.RDS")
+metadata_METAT_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/metadata_METAT_LF.RDS")
+#HF
+viral_diversity_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_diversity_HF.RDS")
+viral_expression_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_expression_HF.RDS")
+metadata_METAG_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/metadata_METAG_HF.RDS")
+metadata_METAT_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/metadata_METAT_HF.RDS")
+#vector of numeric parameters columns from metadata
+env_numeric <- c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "dCH4_nM", "Chla_ug/l", "dCO2_uM")
+#reformat metadata - sample names into rownames  
+rownames(metadata_METAG_FL) <- metadata_METAG_FL$BioSample
+rownames(metadata_METAT_FL) <- metadata_METAT_FL$BioSample
+rownames(metadata_METAG_LF) <- metadata_METAG_LF$BioSample
+rownames(metadata_METAT_LF) <- metadata_METAT_LF$BioSample
+rownames(metadata_METAG_HF) <- metadata_METAG_HF$BioSample
+rownames(metadata_METAT_HF) <- metadata_METAT_HF$BioSample
+#take only numeric parameters
+metadata_METAG_FL <- metadata_METAG_FL[,env_numeric]
+metadata_METAT_FL <- metadata_METAT_FL[,env_numeric]
+metadata_METAG_LF <- metadata_METAG_LF[,env_numeric]
+metadata_METAT_LF <- metadata_METAT_LF[,env_numeric]
+metadata_METAG_HF <- metadata_METAG_HF[,env_numeric]
+metadata_METAT_HF <- metadata_METAT_HF[,env_numeric]
+#replace all NA by average to proceed CCA
+#define function
+#it replaces na by mean 
+#this is an approch to proceed with table having empty values
+#it returns scaled (normalised) columns
+avr_to_na_norm <- function(x){
+  x[which(is.na(x))] <- mean(x, na.rm = T)
+  scale(x)
+  }
+
+metadata_METAG_FL_filled <- apply(metadata_METAG_FL, 2, avr_to_na_norm)
+#same columns can be empty - get rid of them
+metadata_METAG_FL_filled <- as.data.frame(metadata_METAG_FL_filled) %>% select_if(~!any(is.nan(.))) 
+
+
+```
+
+##2. Free-living CCA 
+
+```{r CCA diversity FL}
+#reformat viruses
+t_viral_diversity_FL <- t(viral_diversity_FL)
+t_viral_diversity_FL <- as.data.frame(t_viral_diversity_FL)
+ps <- 0.000001
+#log transform
+#t_viral_diversity_FL <- sqrt(t_viral_diversity_FL) #sqrt normalisation - avoiding negative values 
+rownames(t_viral_diversity_FL) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_FL))
+rownames(t_viral_diversity_FL) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_FL))
+
+cca_result <- cca(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
+summary(cca_result)
+```
+```{r}
+cc_result <- cancor(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
+cc_result
+```
+```{r}
+plot(cca_result)
+```
+```{r}
+veg_1 = as.data.frame(cca_result$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genusv
+veg_2 = as.data.frame(cca_result$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+  geom_point(data =
+               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+```{r}
+
+
+plot +
+  geom_text_repel(data = veg_2,
+                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
+                  nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm"))
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+```
+
