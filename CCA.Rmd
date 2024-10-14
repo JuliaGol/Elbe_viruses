@@ -12,36 +12,33 @@ knitr::opts_chunk$set(echo = TRUE)
 # Introduction
 CCA  - Canonical correspondance analysis on viral data from the Elbe estuary for each fraction and and data type - abundace and expression. This analysis revels the potential drivers of communities diversity and activity. 
 
-## Viral diversity 
 
 
 ```{r test}
 library(vegan)
-#> Loading required package: permute
-#> Loading required package: lattice
-#> This is vegan 2.6-4
 library(ggplot2)
 library(ggrepel)
 library(dplyr)
-#data
-data("varechem")
-data("varespec")
-
-data("varechem")
-data("varespec")
-
-#extracting species and env-data
-species_data <- varespec[, 1:18]
-env_data <- varechem[, 2:7]
-#extracting species and env-data
-
-cca_result <- cca(species_data, env_data)
-
-#sumary of the data
-summary(cca_result)
-plot(cca_result)
+# #data
+# data("varechem")
+# data("varespec")
+# 
+# data("varechem")
+# data("varespec")
+# 
+# #extracting species and env-data
+# species_data <- varespec[, 1:18]
+# env_data <- varechem[, 2:7]
+# #extracting species and env-data
+# 
+# cca_result <- cca(species_data, env_data)
+# 
+# #sumary of the data
+# summary(cca_result)
+# plot(cca_result)
 
 ```
+## Viral diversity 
 
 ##1. Read data and metadata for each fraction and data type
 
@@ -78,6 +75,7 @@ metadata_METAG_LF <- metadata_METAG_LF[,env_numeric]
 metadata_METAT_LF <- metadata_METAT_LF[,env_numeric]
 metadata_METAG_HF <- metadata_METAG_HF[,env_numeric]
 metadata_METAT_HF <- metadata_METAT_HF[,env_numeric]
+#prepare metadat for analysis
 #replace all NA by average to proceed CCA
 #define function
 #it replaces na by mean 
@@ -85,44 +83,69 @@ metadata_METAT_HF <- metadata_METAT_HF[,env_numeric]
 #it returns scaled (normalised) columns
 avr_to_na_norm <- function(x){
   x[which(is.na(x))] <- mean(x, na.rm = T)
-  scale(x)
-  }
+  x   
+}
 
+#for FL
 metadata_METAG_FL_filled <- apply(metadata_METAG_FL, 2, avr_to_na_norm)
-#same columns can be empty - get rid of them
+#same columns can be empty - get rid of them 
 metadata_METAG_FL_filled <- as.data.frame(metadata_METAG_FL_filled) %>% select_if(~!any(is.nan(.))) 
-
-
+#the same procedure for METAT
+#first replace all comas by points and change to numric
+metadata_METAT_FL <- apply(metadata_METAT_FL ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAT_FL_filled <- apply(metadata_METAT_FL, 2, avr_to_na_norm)
+metadata_METAT_FL_filled <- as.data.frame(metadata_METAT_FL_filled) %>% select_if(~!any(is.nan(.))) 
+#for LF
+metadata_METAG_LF <- apply(metadata_METAG_LF ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAG_LF_filled <- apply(metadata_METAG_LF, 2, avr_to_na_norm)
+#same columns can be empty - get rid of them 
+metadata_METAG_LF_filled <- as.data.frame(metadata_METAG_LF_filled) %>% select_if(~!any(is.nan(.))) 
+#the same procedure for METAT
+#first replace all comas by points and change to numric
+metadata_METAT_LF <- apply(metadata_METAT_LF ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAT_LF_filled <- apply(metadata_METAT_LF, 2, avr_to_na_norm)
+metadata_METAT_LF_filled <- as.data.frame(metadata_METAT_LF_filled) %>% select_if(~!any(is.nan(.))) 
+#HF
+metadata_METAG_HF_filled <- apply(metadata_METAG_HF, 2, avr_to_na_norm)
+#same columns can be empty - get rid of them 
+metadata_METAG_HF_filled <- as.data.frame(metadata_METAG_HF_filled) %>% select_if(~!any(is.nan(.))) 
+#the same procedure for METAT
+#first replace all comas by points and change to numric
+metadata_METAT_HF <- apply(metadata_METAT_HF ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAT_HF_filled <- apply(metadata_METAT_HF, 2, avr_to_na_norm)
+metadata_METAT_HF_filled <- as.data.frame(metadata_METAT_HF_filled) %>% select_if(~!any(is.nan(.))) 
 ```
 
 ##2. Free-living CCA 
-
+###2.1 Diversity FL 
 ```{r CCA diversity FL}
 #reformat viruses
 t_viral_diversity_FL <- t(viral_diversity_FL)
 t_viral_diversity_FL <- as.data.frame(t_viral_diversity_FL)
 ps <- 0.000001
-#log transform
-#t_viral_diversity_FL <- sqrt(t_viral_diversity_FL) #sqrt normalisation - avoiding negative values 
+
+t_viral_diversity_FL <- t_viral_diversity_FL 
 rownames(t_viral_diversity_FL) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_FL))
 rownames(t_viral_diversity_FL) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_FL))
 
-cca_result <- cca(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
-summary(cca_result)
+cca_diversity_FL <- cca(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
+summary(cca_diversity_FL) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+
 ```
 ```{r}
-cc_result <- cancor(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
-cc_result
+cc_diversity_FL <- cancor(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
+cc_diversity_FL$cor
+#why correlation is one???
 ```
 ```{r}
-plot(cca_result)
+plot(cca_diversity_FL)
 ```
 ```{r}
-veg_1 = as.data.frame(cca_result$CCA$biplot)
+veg_1 = as.data.frame(cca_diversity_FL$CCA$biplot)
 veg_1["env"] = row.names(veg_1)
 
 #extracting the data; genusv
-veg_2 = as.data.frame(cca_result$CCA$v)
+veg_2 = as.data.frame(cca_diversity_FL$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
 
@@ -135,7 +158,7 @@ plot
 ```
 ```{r}
 
-
+veg_1 = veg_1[1:5,]
 plot +
   geom_text_repel(data = veg_2,
                   aes(x = CCA1, y = CCA2, label = veg_2$genus),
@@ -149,7 +172,7 @@ plot +
       xend = CCA1,
       yend = CCA2
     ),
-    arrow = arrow(length = unit(0.25, "cm"))
+    arrow = arrow(length = unit(0.25, "cm")), size=1
   ) +
   geom_text_repel(
     data = veg_1,
@@ -162,3 +185,342 @@ plot +
         axis.title = element_text(size = 18))
 ```
 
+Salinity and temperature looks prominent.
+
+###2.2 Expression FL
+
+```{r CCA expression FL}
+#reformat viruses
+t_viral_expression_FL <- t(viral_expression_FL)
+t_viral_expression_FL <- as.data.frame(t_viral_expression_FL)
+
+rownames(t_viral_expression_FL) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_expression_FL))
+rownames(t_viral_expression_FL) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_expression_FL))
+
+cca_expression_FL <- cca(as.matrix(t_viral_expression_FL), as.matrix(metadata_METAT_FL_filled))
+summary(cca_expression_FL) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
+
+```
+```{r}
+cc_expression_FL <- cancor(as.matrix(t_viral_expression_FL), as.matrix(metadata_METAT_FL_filled))
+cc_expression_FL$cor
+#why correlation is one???
+```
+```{r}
+veg_1 = as.data.frame(cca_expression_FL$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genus
+veg_2 = as.data.frame(cca_expression_FL$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+  geom_point(data =
+               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Temperature_TBDHereon
+0", "pH_TBDHereon", "Silicate_mg.L", "dCO2_uM")),]
+plot +
+  geom_text_repel(data = veg_2,
+                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
+                  nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+```
+## 3. Light fraction CCA
+### 3.1 Diversity LF  
+```{r CCA diversity LF}
+#reformat viruses
+t_viral_diversity_LF <- t(viral_diversity_LF)
+t_viral_diversity_LF <- as.data.frame(t_viral_diversity_LF)
+ps <- 0.000001
+
+t_viral_diversity_LF <- t_viral_diversity_LF 
+rownames(t_viral_diversity_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_LF))
+rownames(t_viral_diversity_LF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_LF))
+
+cca_diversity_LF <- cca(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
+summary(cca_diversity_LF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+
+```
+```{r}
+cc_diversity_LF <- cancor(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
+cc_diversity_LF$cor
+#why correlation is one???
+```
+```{r}
+plot(cca_diversity_LF)
+```
+```{r}
+veg_1 = as.data.frame(cca_diversity_LF$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genusv
+veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+  geom_point(data =
+               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+```{r}
+
+veg_1 = veg_1[1:5,]
+plot +
+  geom_text_repel(data = veg_2,
+                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
+                  nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+```
+
+Salinity and temperature looks prominent.
+
+###2.2 Expression LF
+
+```{r CCA expression LF}
+#reformat viruses
+t_viral_expression_LF <- t(viral_expression_LF)
+t_viral_expression_LF <- as.data.frame(t_viral_expression_LF)
+
+rownames(t_viral_expression_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_expression_LF))
+rownames(t_viral_expression_LF) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_expression_LF))
+
+cca_expression_LF <- cca(as.matrix(t_viral_expression_LF), as.matrix(metadata_METAT_LF_filled))
+summary(cca_expression_LF) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
+
+```
+```{r}
+cc_expression_LF <- cancor(as.matrix(t_viral_expression_LF), as.matrix(metadata_METAT_LF_filled))
+cc_expression_LF$cor
+#why correlation is one???
+```
+```{r}
+veg_1 = as.data.frame(cca_expression_LF$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genus
+veg_2 = as.data.frame(cca_expression_LF$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+  geom_point(data =
+               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Temperature_TBDHereon
+0", "pH_TBDHereon", "Silicate_mg.L", "dCO2_uM")),]
+plot +
+  geom_text_repel(data = veg_2,
+                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
+                  nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+```
+##4. Heavy fraction CCA
+### 4.1. Diversity HF
+```{r CCA diversity LF}
+#reformat viruses
+t_viral_diversity_LF <- t(viral_diversity_LF)
+t_viral_diversity_LF <- as.data.frame(t_viral_diversity_LF)
+ps <- 0.000001
+
+t_viral_diversity_LF <- t_viral_diversity_LF 
+rownames(t_viral_diversity_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_LF))
+rownames(t_viral_diversity_LF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_LF))
+
+cca_diversity_LF <- cca(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
+summary(cca_diversity_LF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+
+```
+```{r}
+cc_diversity_LF <- cancor(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
+cc_diversity_LF$cor
+#why correlation is one???
+```
+```{r}
+plot(cca_diversity_LF)
+```
+```{r}
+veg_1 = as.data.frame(cca_diversity_LF$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genusv
+veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+  geom_point(data =
+               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+```{r}
+
+veg_1 = veg_1[1:5,]
+plot +
+  geom_text_repel(data = veg_2,
+                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
+                  nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+```
+
+Salinity and temperature looks prominent.
+
+###2.2 Expression HF
+
+```{r CCA expression LF}
+#reformat viruses
+t_viral_expression_LF <- t(viral_expression_LF)
+t_viral_expression_LF <- as.data.frame(t_viral_expression_LF)
+
+rownames(t_viral_expression_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_expression_LF))
+rownames(t_viral_expression_LF) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_expression_LF))
+
+cca_expression_LF <- cca(as.matrix(t_viral_expression_LF), as.matrix(metadata_METAT_LF_filled))
+summary(cca_expression_LF) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
+
+```
+```{r}
+cc_expression_LF <- cancor(as.matrix(t_viral_expression_LF), as.matrix(metadata_METAT_LF_filled))
+cc_expression_LF$cor
+#why correlation is one???
+```
+```{r}
+veg_1 = as.data.frame(cca_expression_LF$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genus
+veg_2 = as.data.frame(cca_expression_LF$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+  geom_point(data =
+               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Temperature_TBDHereon
+0", "pH_TBDHereon", "Silicate_mg.L", "dCO2_uM")),]
+plot +
+  geom_text_repel(data = veg_2,
+                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
+                  nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+```
