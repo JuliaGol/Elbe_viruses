@@ -80,22 +80,27 @@ metadata_METAG_FL_filled <- as.data.frame(metadata_METAG_FL_filled) %>% select_i
 metadata_METAT_FL_filled <- apply(metadata_METAT_FL, 2, avr_to_na_norm)
 metadata_METAT_FL_filled <- as.data.frame(metadata_METAT_FL_filled) %>% select_if(~!any(is.nan(.))) 
 #for LF
-metadata_METAG_LF <- apply(metadata_METAG_LF ,1,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAG_LF <- data.frame(apply(metadata_METAG_LF ,2,function(x) as.numeric(gsub(",", ".", as.character(x)))),
+                   check.names=F, row.names = rownames(metadata_METAG_LF))
 metadata_METAG_LF_filled <- apply(metadata_METAG_LF, 2, avr_to_na_norm)
 #same columns can be empty - get rid of them 
 metadata_METAG_LF_filled <- as.data.frame(metadata_METAG_LF_filled) %>% select_if(~!any(is.nan(.))) 
 #the same procedure for METAT
 #first replace all comas by points and change to numric
-metadata_METAT_LF <- apply(metadata_METAT_LF ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAT_LF <- data.frame(apply(metadata_METAT_LF ,2,function(x) as.numeric(gsub(",", ".", as.character(x)))),
+                   check.names=F, row.names = rownames(metadata_METAT_LF))
 metadata_METAT_LF_filled <- apply(metadata_METAT_LF, 2, avr_to_na_norm)
 metadata_METAT_LF_filled <- as.data.frame(metadata_METAT_LF_filled) %>% select_if(~!any(is.nan(.))) 
 #HF
+metadata_METAG_HF <- data.frame(apply(metadata_METAG_HF ,2,function(x) as.numeric(gsub(",", ".", as.character(x)))),
+                   check.names=F, row.names = rownames(metadata_METAG_HF))
 metadata_METAG_HF_filled <- apply(metadata_METAG_HF, 2, avr_to_na_norm)
 #same columns can be empty - get rid of them 
 metadata_METAG_HF_filled <- as.data.frame(metadata_METAG_HF_filled) %>% select_if(~!any(is.nan(.))) 
 #the same procedure for METAT
 #first replace all comas by points and change to numric
-metadata_METAT_HF <- apply(metadata_METAT_HF ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAT_HF <- data.frame(apply(metadata_METAT_HF ,2,function(x) as.numeric(gsub(",", ".", as.character(x)))),
+                   check.names=F, row.names = rownames(metadata_METAT_HF))
 metadata_METAT_HF_filled <- apply(metadata_METAT_HF, 2, avr_to_na_norm)
 metadata_METAT_HF_filled <- as.data.frame(metadata_METAT_HF_filled) %>% select_if(~!any(is.nan(.))) 
 pathways <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_AMG_pathways_Combined_viruses.tsv", sep='\t')
@@ -106,7 +111,7 @@ save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/
 ```
 
 ##2. Free-living CCA 
-###2.1 Diversity FL 
+###2.1 Gene abundance FL 
 ```{r CCA gene_abund FL}
 #reformat viruses
 #t_log_gene_abund_FL <- t(log_gene_abund_FL)
@@ -314,21 +319,19 @@ plot +
         axis.title = element_text(size = 18))
 ```
 ## 3. Light fraction CCA
-### 3.1 gene_abund LF  
+### 3.1 Gene abundance LF  
 ```{r CCA gene_abund LF}
 #reformat viruses
-#t_log_gene_abund_LF <- t(log_gene_abund_LF)
 log_gene_abund_LF <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/log_gene_abund_all_LF.RDS")
 log_gene_abund_LF <- as.data.frame(log_gene_abund_LF)
 count_gene_abund_LF <- exp(log_gene_abund_LF) #reverse log - we cannot have negative numbers for cca 
 rownames(count_gene_abund_LF) <- gsub("GROS22.(1|2)_", "", rownames(count_gene_abund_LF))
 rownames(count_gene_abund_LF) <- gsub("_METAG.genecount.profile", "", rownames(count_gene_abund_LF))
-
 cca_gene_abund_LF <- cca(as.matrix(count_gene_abund_LF[which(rownames(count_gene_abund_LF) %in% rownames(metadata_METAG_LF_filled)),]), as.matrix(metadata_METAG_LF_filled))
 # summary(cca_gene_abund_FL) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
 #remove original file from workspace to make space 
-rm(log_gene_abund_FL)
-rm(count_gene_abund_FL)
+rm(log_gene_abund_LF)
+rm(count_gene_abund_LF)
 save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/cca_viral_genes.RData")
 ```
 
@@ -337,29 +340,59 @@ cc_gene_abund_LF <- cancor(as.matrix(t_viral_gene_abund_LF), as.matrix(metadata_
 cc_gene_abund_LF$cor
 #why correlation is one???
 ```
-```{r}
-plot(cca_gene_abund_LF)
-```
+Explore different pathways - find those with clear pattern - direction
 ```{r}
 veg_1 = as.data.frame(cca_gene_abund_LF$CCA$biplot)
 veg_1["env"] = row.names(veg_1)
 
-#extracting the data; genusv
-veg_2 = as.data.frame(cca_gene_abund_LF$CCA$v)
-veg_2["genus"] = row.names(veg_2)
+#extracting the data; genus
+veg_2_gene_LF = as.data.frame(cca_gene_abund_LF$CCA$v)
+veg_2_gene_LF["genus"] = row.names(veg_2_gene_LF)
+veg_2_gene_LF <- merge(veg_2_gene_LF, vir_genecluster_annot, by.x ="row.names", by.y = "gene_cluster", all.x =T)
+#reformat so is easlier to merge
+pathways <- pathways %>% separate_rows(Present.AMG.KOs, sep = ",", convert = FALSE)
+veg_2_gene_LF <- merge(veg_2_gene_LF, pathways, by.x ="KO", by.y = "Present.AMG.KOs", all.x =T)
 
+plot = ggplot(data = veg_2_gene_LF[which(veg_2_gene_LF$Metabolism=="Folding, sorting and degradation" &  veg_2_gene_LF$Total.AMGs > 10),]) +
+  geom_point( aes(x = CCA1, y = CCA2, colour = Pathway)) + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color=Pathway)) # + theme(legend.position="none")
+#+ geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
-
-plot
+plot 
+beep(sound = 1, expr = NULL)
 ```
 ```{r}
+#
+selected_pathways <-c(#"Steroid hormone biosynthesis",
+  "Synthesis and degradation of ketone bodies",
+  "Photosynthesis",
+  "Oxidative phosphorylation")
+plot_gene_LF = ggplot() +
+  geom_point(data = veg_2_gene_LF[which(veg_2_gene_LF$Pathway %in% selected_pathways),], aes(x = CCA1, y = CCA2, colour = Pathway)) + geom_mark_ellipse(data = veg_2_gene_LF[which(veg_2_gene_LF$Pathway %in% selected_pathways),], aes(x = CCA1, y = CCA2, color=Pathway))
+plot_gene_LF
+#beep(sound = 1, expr = NULL)
+```
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("O2_TBDHereon", "pH_TBDHereon", "Phosphate_µM", "Silicate_mg.L", "Temperature_TBDHereon", "Total_DIN_µM")),]
-plot +
+```{r}
+veg_LF_1 = as.data.frame(cca_gene_abund_LF$CCA$biplot)
+veg_LF_1["env"] = row.names(veg_LF_1)
+
+#extracting the data; genusv
+veg_LF_2 = as.data.frame(cca_gene_abund_LF$CCA$v)
+veg_LF_2["genus"] = row.names(veg_LF_2)
+
+# #explore data to find pathways which makes clusters
+# plot = ggplot() +
+#   geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+#   geom_point(data =
+#                veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+# 
+# plot
+```
+```{r}
+vec_param<- c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon",  "pH_TBDHereon", "DOC_mg.L", "TN_mg.L", "Total_DIN_µM", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L",  "Phosphate_µM",  "PTC_mgperL", "PTN_mgperL", "dCH4_nM", "dCO2_uM")     
+veg_LF_1 = veg_1[which(rownames(veg_1) %in% vec_param),]
+veg_1 = veg_LF_1
+LF_vir_gene_abund_plot  <- plot_gene_LF +
   theme_bw() +
   geom_segment(
     data = veg_1,
@@ -369,33 +402,44 @@ plot +
       xend = CCA1,
       yend = CCA2
     ),
-    arrow = arrow(length = unit(0.25, "cm")), size=1
+    arrow = arrow(length = unit(0.25, "cm")), size=0.05
   ) +
   geom_text_repel(
     data = veg_1,
     aes(x = CCA1, y = CCA2, label = veg_1$env),
     nudge_y = -0.05,
     color = "blue",
-    size = 5
+    size = 3
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+tiff("CCA_gene_abund_LF.tiff",width = 550, height = 480, units = "px")
+LF_vir_gene_abund_plot 
+dev.off()
+
 ```
 
 Salinity and temperature looks prominent.
 
 ###2.2 Expression LF
 
-```{r CCA expression LF}
-#reformat viruses
-t_viral_expression_LF <- t(viral_expression_LF)
-t_viral_expression_LF <- as.data.frame(t_viral_expression_LF)
+```{r CCA expression FL}
+#FL
+log_expression_LF <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/log_expression_LF.RDS")
+log_expression_LF <- as.data.frame(log_expression_LF)
+log_expression_LF <- log_expression_LF + abs(min(log_expression_LF)) #add absolute value of minimum to get positive values - not sure if it is correct 
 
-rownames(t_viral_expression_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_expression_LF))
-rownames(t_viral_expression_LF) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_expression_LF))
+log_expression_LF <- as.data.frame(log_expression_LF)
 
-cca_expression_LF <- cca(as.matrix(t_viral_expression_LF), as.matrix(metadata_METAT_LF_filled))
-summary(cca_expression_LF) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
+rownames(log_expression_LF) <- gsub("GROS22.(1|2)_", "", rownames(log_expression_LF))
+rownames(log_expression_LF) <- gsub("_METAT.genecount.profile", "", rownames(log_expression_LF))
+
+cca_expression_LF <- cca(as.matrix(log_expression_LF), as.matrix(metadata_METAT_LF_filled))
+rm(log_expression_LF)
+
+#summary(cca_expression_LF) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
+save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/cca_viral_genes.RData")
+beep(sound = 2, expr = NULL)
 
 ```
 ```{r}
@@ -408,25 +452,42 @@ veg_1 = as.data.frame(cca_expression_LF$CCA$biplot)
 veg_1["env"] = row.names(veg_1)
 
 #extracting the data; genus
-veg_2 = as.data.frame(cca_expression_LF$CCA$v)
-veg_2["genus"] = row.names(veg_2)
+veg_2_expr_LF = as.data.frame(cca_expression_LF$CCA$v)
+veg_2_expr_LF["genus"] = row.names(veg_2_expr_LF)
+veg_2_expr_LF <- merge(veg_2_expr_LF, vir_genecluster_annot, by.x ="row.names", by.y = "gene_cluster", all.x =T)
+#reformat so is easlier to merge
+pathways <- pathways %>% separate_rows(Present.AMG.KOs, sep = ",", convert = FALSE)
+veg_2_expr_LF <- merge(veg_2_expr_LF, pathways, by.x ="KO", by.y = "Present.AMG.KOs", all.x =T)
 
-
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
-
-plot
 ```
 
 ```{r}
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("Ammonium_mg.L", "Temperature_TBDHereon", "Salinity_TBDHereon", "TotalDissolvedPhosphate_mg.L")),]
+plot = ggplot(data = veg_2_expr_LF[which(veg_2_expr_LF$Metabolism=="Amino acid metabolism" &  veg_2_expr_LF$Total.AMGs > 10),]) +
+  geom_point(aes(x = CCA1, y = CCA2, colour = Pathway)) + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color=Pathway)) # + theme(legend.position="none")
+#+ geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot 
+beep(sound = 1, expr = NULL)
+```
+Explore pathways
+```{r}
+#
+selected_pathways <-c("Phosphonate and phosphinate metabolism", "Lipoarabinomannan (LAM) biosynthesis", "Glycosaminoglycan degradation", "Retinol metabolism")
+plot = ggplot() +
+  geom_point(data = veg_2_expr_LF[which(veg_2_expr_LF$Pathway %in% selected_pathways),], aes(x = CCA1, y = CCA2, colour = Pathway))
+plot
+beep(sound = 1, expr = NULL)
+```
+Not informative - focus on gene abundance in the othe fraction
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c( "Phosphate_µM", "TotalDissolvedPhosphate_mg.L", "Salinity_TBDHereon",  "Temperature_TBDHereon", "SRP_mgperL",
+"Total_DIN_µM","pH_TBDHereon", "DIC_mg", "dCO2_uM", "dCH4_nM", "O2_TBDHereon", "Phosphate_µM")),]
 plot +
   # geom_text_repel(data = veg_2,
-  #                 aes(x = CCA1, y = CCA2, label = veg_2$genus),
-  #                 nudge_y = -0.05) +
+    #              aes(x = CCA1, y = CCA2, label = F),
+    #              nudge_y = -0.05) +
   theme_bw() +
   geom_segment(
     data = veg_1,
@@ -436,7 +497,7 @@ plot +
       xend = CCA1,
       yend = CCA2
     ),
-    arrow = arrow(length = unit(0.25, "cm")), size=1
+    arrow = arrow(length = unit(0.25, "cm")), size=0.05
   ) +
   geom_text_repel(
     data = veg_1,
@@ -449,72 +510,97 @@ plot +
         axis.title = element_text(size = 18))
 ```
 ##4. Heavy fraction CCA
-### 4.1. gene_abund HF
-```{r CCA gene_abund HF}
+### 4.1. Gene abundance HF
+```{r CCA gene_abund LF}
 #reformat viruses
-t_viral_gene_abund_LF <- t(viral_gene_abund_LF)
-t_viral_gene_abund_LF <- as.data.frame(t_viral_gene_abund_LF)
-ps <- 0.000001
-
-t_viral_gene_abund_LF <- t_viral_gene_abund_LF 
-rownames(t_viral_gene_abund_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_gene_abund_LF))
-rownames(t_viral_gene_abund_LF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_gene_abund_LF))
-
-cca_gene_abund_LF <- cca(as.matrix(t_viral_gene_abund_LF), as.matrix(metadata_METAG_LF_filled))
-summary(cca_gene_abund_LF) #scalling of the parameters doesnt matter sqrt of gene_abund results makes proportion explained lower
-
+log_gene_abund_HF <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/log_gene_abund_all_HF.RDS")
+log_gene_abund_HF <- as.data.frame(log_gene_abund_HF)
+count_gene_abund_HF <- exp(log_gene_abund_HF) #reverse log - we cannot have negative numbers for cca 
+rownames(count_gene_abund_HF) <- gsub("GROS22.(1|2)_", "", rownames(count_gene_abund_HF))
+rownames(count_gene_abund_HF) <- gsub("_METAG.genecount.profile", "", rownames(count_gene_abund_HF))
+cca_gene_abund_HF <- cca(as.matrix(count_gene_abund_HF[which(rownames(count_gene_abund_HF) %in% rownames(metadata_METAG_HF_filled)),]), as.matrix(metadata_METAG_HF_filled))
+# summary(cca_gene_abund_LF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+#remove original file from workspace to make space 
+rm(log_gene_abund_HF)
+rm(count_gene_abund_HF)
+save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/cca_viral_genes.RData")
 ```
+
 ```{r}
-cc_gene_abund_LF <- cancor(as.matrix(t_viral_gene_abund_LF), as.matrix(metadata_METAG_LF_filled))
-cc_gene_abund_LF$cor
+cc_gene_abund_HF <- cancor(as.matrix(t_viral_gene_abund_HF), as.matrix(metadata_METAG_HF_filled))
+cc_gene_abund_HF$cor
 #why correlation is one???
 ```
+Explore different pathways - find those with clear pattern - direction
 ```{r}
-plot(cca_gene_abund_LF)
-```
-```{r}
-veg_1 = as.data.frame(cca_gene_abund_LF$CCA$biplot)
+veg_1 = as.data.frame(cca_gene_abund_HF$CCA$biplot)
 veg_1["env"] = row.names(veg_1)
 
-#extracting the data; genusv
-veg_2 = as.data.frame(cca_gene_abund_LF$CCA$v)
-veg_2["genus"] = row.names(veg_2)
-
-
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
-
-plot
+#extracting the data; genus
+veg_2_gene_HF = as.data.frame(cca_gene_abund_HF$CCA$v)
+veg_2_gene_HF["genus"] = row.names(veg_2_gene_HF)
+veg_2_gene_HF <- merge(veg_2_gene_HF, vir_genecluster_annot, by.x ="row.names", by.y = "gene_cluster", all.x =T)
+#reformat so is easlier to merge
+pathways <- pathways %>% separate_rows(Present.AMG.KOs, sep = ",", convert = FALSE)
+veg_2_gene_HF <- merge(veg_2_gene_HF, pathways, by.x ="KO", by.y = "Present.AMG.KOs", all.x =T)
 ```
 ```{r}
 
-veg_1 = veg_1 = veg_1[which(rownames(veg_1) %in% c("Total_DIN_µM", "O2_TBDHereon","Phosphate_µM", "pH_TBDHereon", "Temperature_TBDHereon")),]
-plot +
-  geom_text_repel(data = veg_2,
-                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
-                  nudge_y = -0.05) +
+selected_pathways <-c("Photosynthesis", 
+                       "Steroid hormone biosynthesis", 
+                      "D-Arginine and D-ornithine metabolism",  "Lipoarabinomannan (LAM) biosynthesis",  "Geraniol degradation", "Carotenoid biosynthesis")
+
+
+plot_gene_HF = ggplot(data = veg_2_gene_HF[which(veg_2_gene_HF$Pathway %in% selected_pathways),]) +
+  geom_point(aes(x = CCA1, y = CCA2, colour = Pathway)) + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color=Pathway))
+plot_gene_HF
+#beep(sound = 1, expr = NULL)
+```
+
+```{r}
+veg_HF_1 = as.data.frame(cca_gene_abund_HF$CCA$biplot)
+veg_HF_1["env"] = row.names(veg_HF_1)
+
+#extracting the data; genusv
+veg_HF_2 = as.data.frame(cca_gene_abund_HF$CCA$v)
+veg_HF_2["genus"] = row.names(veg_HF_2)
+
+# #explore data to find pathways which makes clusters
+# plot = ggplot() +
+#   geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
+#   geom_point(data =
+#                veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+# 
+# plot
+```
+```{r}
+vec_param<- c("Temperature_TBDHereon",  "DOC_mg.L", "TN_mg.L", "Total_DIN_µM", "SRP_mgperL",  "Phosphate_µM",  "PTC_mgperL", "Nitrate_mg.L", "dCO2_uM")     
+veg_HF_1 = veg_1[which(rownames(veg_1) %in% vec_param),]
+HF_vir_gene_abund_plot  <- plot_gene_HF +
   theme_bw() +
   geom_segment(
-    data = veg_1,
+    data = veg_HF_1,
     aes(
       x = 0,
       y = 0,
       xend = CCA1,
       yend = CCA2
     ),
-    arrow = arrow(length = unit(0.25, "cm")), size=1
+    arrow = arrow(length = unit(0.25, "cm")), size=0.05
   ) +
   geom_text_repel(
-    data = veg_1,
-    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    data = veg_HF_1,
+    aes(x = CCA1, y = CCA2, label = veg_HF_1$env),
     nudge_y = -0.05,
     color = "blue",
-    size = 5
+    size = 3
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+tiff("CCA_gene_abund_HF.tiff",width = 550, height = 480, units = "px")
+HF_vir_gene_abund_plot 
+dev.off()
+
 ```
 
 Salinity and temperature looks prominent.
