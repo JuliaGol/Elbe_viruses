@@ -76,7 +76,7 @@ metadata_METAG_FL_filled <- apply(metadata_METAG_FL, 2, avr_to_na_norm)
 metadata_METAG_FL_filled <- as.data.frame(metadata_METAG_FL_filled) %>% select_if(~!any(is.nan(.))) 
 #the same procedure for METAT
 #first replace all comas by points and change to numric
-#metadata_METAT_FL <- apply(metadata_METAT_FL ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
+metadata_METAT_FL <- apply(metadata_METAT_FL ,2,function(x) as.numeric(gsub(",", ".", as.character(x))))
 metadata_METAT_FL_filled <- apply(metadata_METAT_FL, 2, avr_to_na_norm)
 metadata_METAT_FL_filled <- as.data.frame(metadata_METAT_FL_filled) %>% select_if(~!any(is.nan(.))) 
 #for LF
@@ -240,16 +240,15 @@ Salinity and temperature looks prominent.
 #FL
 log_expression_FL <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/log_expression_FL.RDS")
 log_expression_FL <- as.data.frame(log_expression_FL)
-log_expression_FL <- log_expression_FL + abs(min(log_expression_FL)) #add absolute value of minimum to get positive values - not sure if it is correct 
+counts_expression_FL <- exp(log_expression_FL) # transform to counts 0 positive values needed for cca
+counts_expression_FL <- as.data.frame(counts_expression_FL)
 
-log_expression_FL <- as.data.frame(log_expression_FL)
+rownames(counts_expression_FL) <- gsub("GROS22.(1|2)_", "", rownames(counts_expression_FL))
+rownames(counts_expression_FL) <- gsub("_METAT.genecount.profile", "", rownames(counts_expression_FL))
 
-rownames(log_expression_FL) <- gsub("GROS22.(1|2)_", "", rownames(log_expression_FL))
-rownames(log_expression_FL) <- gsub("_METAT.genecount.profile", "", rownames(log_expression_FL))
-
-cca_expression_FL <- cca(as.matrix(log_expression_FL), as.matrix(metadata_METAT_FL_filled))
+cca_expression_FL <- cca(as.matrix(counts_expression_FL), as.matrix(metadata_METAT_FL_filled))
 rm(log_expression_FL)
-
+rm(counts_expression_FL)
 #summary(cca_expression_FL) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
 save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/cca_viral_genes.RData")
 beep(sound = 2, expr = NULL)
@@ -261,39 +260,117 @@ cc_expression_FL$cor
 #why correlation is one???
 ```
 ```{r}
-veg_1 = as.data.frame(cca_expression_FL$CCA$biplot)
-veg_1["env"] = row.names(veg_1)
+veg_expr_FL_1 = as.data.frame(cca_expression_FL$CCA$biplot)
+veg_expr_FL_1["env"] = row.names(veg_1)
 
 #extracting the data; genus
 veg_2_expr_FL = as.data.frame(cca_expression_FL$CCA$v)
 veg_2_expr_FL["genus"] = row.names(veg_2_expr_FL)
 veg_2_expr_FL <- merge(veg_2_expr_FL, vir_genecluster_annot, by.x ="row.names", by.y = "gene_cluster", all.x =T)
-#reformat so is easlier to merge
+#reformat so is easier to merge
 pathways <- pathways %>% separate_rows(Present.AMG.KOs, sep = ",", convert = FALSE)
 veg_2_expr_FL <- merge(veg_2_expr_FL, pathways, by.x ="KO", by.y = "Present.AMG.KOs", all.x =T)
+```
+```{r}
+#C5-Branched dibasic acid metabolism
+#Photosynthesis
+#Sulfur metabolism
+#Arachidonic acid metabolism
+#Ether lipid metabolism
+#Fatty acid degradation
+#Fatty acid biosynthesis
+#Cyanoamino acid metabolism
+#Selenocompound metabolism
+#Glutathione metabolism
+#Retinol metabolism
+#Terpenoid backbone biosynthesis
+#Penicillin and cephalosporin biosynthesis
+#Phenylpropanoid biosynthesis
+#Monobactam biosynthesis
+#Novobiocin biosynthesis
+#Streptomycin biosynthesis
+#Stilbenoid, diarylheptanoid and gingerol biosynthesis
+#Xylene degradation
+#Steroid degradation
+#Chloroalkane and chloroalkene degradation
+#Chlorocyclohexane and chlorobenzene degradation
+#Fluorobenzoate degradation
 
-plot = ggplot(data = veg_2_expr_FL[which(veg_2_expr_FL$Metabolism=="Folding, sorting and degradation" &  veg_2_expr_LF$Total.AMGs > 10),]) +
+plot = ggplot(data = veg_2_expr_FL[which(veg_2_expr_FL$Metabolism=="Folding, sorting and degradation" &  veg_2_expr_FL$Total.AMGs > 10),]) +
   geom_point( aes(x = CCA1, y = CCA2, colour = Pathway)) + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color=Pathway)) # + theme(legend.position="none")
 #+ geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot 
-beep(sound = 1, expr = NULL)
 ```
 Explore pathways
 ```{r}
 #
-selected_pathways <-c("Phosphonate and phosphinate metabolism", "Lipoarabinomannan (LAM) biosynthesis", "Glycosaminoglycan degradation", "Retinol metabolism")
-plot = ggplot() +
-  geom_point(data = veg_2_expr_FL[which(veg_2_expr_FL$Pathway %in% selected_pathways),], aes(x = CCA1, y = CCA2, colour = Pathway))
+selected_pathways <-c(#"C5-Branched dibasic acid metabolism",
+#"Photosynthesis",
+"Ether lipid metabolism",
+"Fatty acid degradation",
+"Fatty acid biosynthesis",
+"Cyanoamino acid metabolism",
+"Selenocompound metabolism",
+"Terpenoid backbone biosynthesis",
+"Penicillin and cephalosporin biosynthesis",
+"Phenylpropanoid biosynthesis",
+"Novobiocin biosynthesis",
+"Stilbenoid, diarylheptanoid and gingerol biosynthesis",
+"Xylene degradation",
+"Chloroalkane and chloroalkene degradation",
+"Fluorobenzoate degradation")
+# plot = ggplot() +
+#   geom_point(data = veg_2_expr_FL[which(veg_2_expr_FL$Pathway %in% selected_pathways[1:5]),], aes(x = CCA1, y = CCA2, colour = Pathway))
+FL_vir_expr_pathways_plot = ggplot(data = veg_2_expr_FL[which(veg_2_expr_FL$Pathway %in% selected_pathways),]) +
+  geom_point(aes(x = CCA1, y = CCA2, colour = Pathway))# + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color=Pathway)) # +
 plot
 beep(sound = 1, expr = NULL)
 ```
 Not informative - focus on gene abundance in the othe fraction
 ```{r}
+#first general expression plot 
+veg_1 = veg_expr_FL_1[which(rownames(veg_expr_FL_1) %in% c( "Phosphate_µM", "Salinity_TBDHereon",  "Temperature_TBDHereon", "Total_DIN_µM","pH_TBDHereon", "DIC_mg", "dCO2_uM",  "O2_TBDHereon", "Phosphate_µM")),]
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c( "Phosphate_µM", "TotalDissolvedPhosphate_mg.L", "Salinity_TBDHereon",  "Temperature_TBDHereon", "SRP_mgperL",
-"Total_DIN_µM","pH_TBDHereon", "DIC_mg", "dCO2_uM", "dCH4_nM", "O2_TBDHereon", "Phosphate_µM")),]
-plot +
+FL_vir_expr_pathways_cca_plot <- FL_vir_expr_pathways_plot +
+  # geom_text_repel(data = veg_2,
+    #              aes(x = CCA1, y = CCA2, label = F),
+    #              nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=0.05
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18)) + ggtitle("Free-living expression")
+tiff("CCA_expr_FL.tiff",width = 550, height = 480, units = "px")
+FL_vir_expr_pathways_cca_plot
+dev.off()
+```
+```{r}
+FL_vir_expr_plot = ggplot() +
+  geom_point(data = veg_2_expr_FL[which(!is.na(veg_2_expr_FL$Metabolism)),], aes(x = CCA1, y = CCA2, colour = Metabolism)) #+ geom_mark_ellipse(aes(data = veg_2_expr_FL, x = CCA1, y = CCA2, color=Pathway)) # +
+FL_vir_expr_plot
+beep(sound = 1, expr = NULL)
+```
+```{r}
+#first general expression plot 
+veg_1 = veg_expr_FL_1[which(rownames(veg_expr_FL_1) %in% c( "Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "DOC_mg.L",  "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "SRP_mgperL",  "Chla_ug/l", "dCO2_uM")),]
+
+FL_vir_expr_cca_plot <- FL_vir_expr_plot +
   # geom_text_repel(data = veg_2,
     #              aes(x = CCA1, y = CCA2, label = F),
     #              nudge_y = -0.05) +
@@ -317,7 +394,9 @@ plot +
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+FL_vir_expr_cca_plot
 ```
+
 ## 3. Light fraction CCA
 ### 3.1 Gene abundance LF  
 ```{r CCA gene_abund LF}
@@ -427,16 +506,16 @@ Salinity and temperature looks prominent.
 #FL
 log_expression_LF <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/log_expression_LF.RDS")
 log_expression_LF <- as.data.frame(log_expression_LF)
-log_expression_LF <- log_expression_LF + abs(min(log_expression_LF)) #add absolute value of minimum to get positive values - not sure if it is correct 
+counts_expression_LF <- exp(log_expression_LF) #add absolute value of minimum to get positive values - not sure if it is correct 
 
-log_expression_LF <- as.data.frame(log_expression_LF)
+counts_expression_LF <- as.data.frame(counts_expression_LF)
 
-rownames(log_expression_LF) <- gsub("GROS22.(1|2)_", "", rownames(log_expression_LF))
-rownames(log_expression_LF) <- gsub("_METAT.genecount.profile", "", rownames(log_expression_LF))
+rownames(counts_expression_LF) <- gsub("GROS22.(1|2)_", "", rownames(counts_expression_LF))
+rownames(counts_expression_LF) <- gsub("_METAT.genecount.profile", "", rownames(counts_expression_LF))
 
-cca_expression_LF <- cca(as.matrix(log_expression_LF), as.matrix(metadata_METAT_LF_filled))
+cca_expression_LF <- cca(as.matrix(counts_expression_LF), as.matrix(metadata_METAT_LF_filled))
 rm(log_expression_LF)
-
+rm(counts_expression_LF)
 #summary(cca_expression_LF) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
 save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/cca_viral_genes.RData")
 beep(sound = 2, expr = NULL)
@@ -448,8 +527,8 @@ cc_expression_LF$cor
 #why correlation is one???
 ```
 ```{r}
-veg_1 = as.data.frame(cca_expression_LF$CCA$biplot)
-veg_1["env"] = row.names(veg_1)
+veg_1_expr_LF = as.data.frame(cca_expression_LF$CCA$biplot)
+veg_1_expr_LF["env"] = row.names(veg_1)
 
 #extracting the data; genus
 veg_2_expr_LF = as.data.frame(cca_expression_LF$CCA$v)
@@ -462,29 +541,56 @@ veg_2_expr_LF <- merge(veg_2_expr_LF, pathways, by.x ="KO", by.y = "Present.AMG.
 ```
 
 ```{r}
+#Steroid hormone biosynthesis
+#Ether lipid metabolism
+#Glycerolipid metabolism
+#Fatty acid degradation
+#Amino acid metabolism
+#Amino acid metabolism
 
-plot = ggplot(data = veg_2_expr_LF[which(veg_2_expr_LF$Metabolism=="Amino acid metabolism" &  veg_2_expr_LF$Total.AMGs > 10),]) +
+
+plot = ggplot(data = veg_2_expr_LF[which(veg_2_expr_LF$Metabolism=="Xenobiotics biodegradation and metabolism" &  veg_2_expr_LF$Total.AMGs > 10),]) +
   geom_point(aes(x = CCA1, y = CCA2, colour = Pathway)) + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color=Pathway)) # + theme(legend.position="none")
 #+ geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot 
 beep(sound = 1, expr = NULL)
 ```
-Explore pathways
-```{r}
+Try to visualise interesting KO
+
 #
-selected_pathways <-c("Phosphonate and phosphinate metabolism", "Lipoarabinomannan (LAM) biosynthesis", "Glycosaminoglycan degradation", "Retinol metabolism")
-plot = ggplot() +
-  geom_point(data = veg_2_expr_LF[which(veg_2_expr_LF$Pathway %in% selected_pathways),], aes(x = CCA1, y = CCA2, colour = Pathway))
-plot
+```{r}
+#Steroid hormone biosynthesis
+#Ether lipid metabolism
+#Glycerolipid metabolism
+#Fatty acid degradation
+#Amino acid metabolism
+#Amino acid metabolism
+
+veg_2_expr_LF_known_metabolism <- veg_2_expr_LF[which(!is.na(veg_2_expr_LF$Metabolism)),]
+veg_2_expr_LF_known_metabolism$interesting_genes <- rep(c("other"), time = length(veg_2_expr_LF_known_metabolism[,1]))
+#label
+veg_2_expr_LF_known_metabolism[which(veg_2_expr_LF_known_metabolism$KO == "K02703"),"interesting_genes"] <-"1PsbA"
+#label
+veg_2_expr_LF_known_metabolism[which(veg_2_expr_LF_known_metabolism$KO == "K00643"),"interesting_genes"] <-"2AlaS"
+veg_2_expr_LF_known_metabolism <- veg_2_expr_LF_known_metabolism %>% arrange(desc(interesting_genes))
+#opacity <- ifelse(veg_2_expr_LF_known_metabolism$interesting_genes == "other", 0, 1)
+plot = ggplot(data = veg_2_expr_LF_known_metabolism) +
+  geom_point(aes(x = CCA1, y = CCA2, colour = veg_2_expr_LF_known_metabolism$interesting_genes)) + geom_mark_ellipse(aes(x = CCA1, y = CCA2, color= veg_2_expr_LF_known_metabolism$interesting_genes)) # + theme(legend.position="none")
+#+ geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot 
 beep(sound = 1, expr = NULL)
 ```
-Not informative - focus on gene abundance in the othe fraction
+
+Maybe AlaS has a pattern
 ```{r}
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c( "Phosphate_µM", "TotalDissolvedPhosphate_mg.L", "Salinity_TBDHereon",  "Temperature_TBDHereon", "SRP_mgperL",
-"Total_DIN_µM","pH_TBDHereon", "DIC_mg", "dCO2_uM", "dCH4_nM", "O2_TBDHereon", "Phosphate_µM")),]
-plot +
+
+vec_param <- c("Nitrate_mg.L", "RespirationRate_O2ug.L.h" , "Chla_ug/l", "PTH_mgperL", "dCO2_uM"," SPM_mgperL")
+veg_1 = veg_1_expr_LF[which(rownames(veg_1_expr_LF) %in% vec_param),]
+
+LF_vir_expr_plot <- plot +
   # geom_text_repel(data = veg_2,
     #              aes(x = CCA1, y = CCA2, label = F),
     #              nudge_y = -0.05) +
@@ -504,10 +610,13 @@ plot +
     aes(x = CCA1, y = CCA2, label = veg_1$env),
     nudge_y = -0.05,
     color = "blue",
-    size = 5
-  ) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18))
+    size = 3
+  ) +scale_color_manual(values=c("red", "blue","yellow")) + theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18)) + ggtitle("Light fraction expression of PsbA and AlaS") + guides(colour=guide_legend(title="Genes"))
+LF_vir_expr_plot <- LF_vir_expr_plot + guides(colour=guide_legend(title="Genes"))
+tiff("LF_vir_expr_plot_AlaS_PsbA.tiff")
+LF_vir_expr_plot 
+dev.off()
 ```
 ##4. Heavy fraction CCA
 ### 4.1. Gene abundance HF
