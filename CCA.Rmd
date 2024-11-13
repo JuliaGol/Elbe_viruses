@@ -115,9 +115,9 @@ save.image(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/
 ```{r CCA gene_abund FL}
 #reformat viruses
 #t_log_gene_abund_FL <- t(log_gene_abund_FL)
-log_gene_abund_FL <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA_outputs/log_gene_abund_all_FL.RDS")
-log_gene_abund_FL <- as.data.frame(log_gene_abund_FL)
-count_gene_abund_FL <- exp(log_gene_abund_FL) #reverse log - we cannot have negative numbers for cca 
+log_gene_abund_FL <- readRDS(file="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA/PCA_outputs/log_gene_abund_all_FL.RDS")
+log_gene_abund_all_FL <- as.data.frame(log_gene_abund_all_FL)
+count_gene_abund_FL <- exp(log_gene_abund_all_FL) #reverse log - we cannot have negative numbers for cca 
 rownames(count_gene_abund_FL) <- gsub("GROS22.(1|2)_", "", rownames(count_gene_abund_FL))
 rownames(count_gene_abund_FL) <- gsub("_METAG.genecount.profile", "", rownames(count_gene_abund_FL))
 
@@ -135,6 +135,23 @@ cc_gene_abund_FL$cor
 ```
 ```{r}
 plot(cca_gene_abund_FL)
+```
+```{r}
+veg_1 = as.data.frame(cca_gene_abund_FL$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genusv
+veg_2 = as.data.frame(cca_gene_abund_FL$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+veg_2 <- merge(veg_2, vir_genecluster_annot, by.x ="row.names", by.y = "gene_cluster", all.x =T)
+#reformat so is easlier to merge
+pathways <- pathways %>% separate_rows(Present.AMG.KOs, sep = ",", convert = FALSE)
+veg_2 <- merge(veg_2, pathways, by.x ="KO", by.y = "Present.AMG.KOs", all.x =T)
+
+#to make picture clear - remove unclassified from visualisation
+plot_metabolism = ggplot() +
+  geom_point(data = veg_2[which(!is.na(veg_2$Metabolism)),], aes(x = CCA1, y = CCA2, colour = Metabolism)) #+  geom_point(data =veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+plot_metabolism
 ```
 ```{r}
 veg_1 = as.data.frame(cca_gene_abund_FL$CCA$biplot)
