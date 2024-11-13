@@ -1,3 +1,4 @@
+library("dplyr")
 #group by gene_cluster to optimise calculations
 #chose only columns which we need
 #select columns with metat 
@@ -15,9 +16,12 @@ vir_genecluster_annot_cols <- colnames(vir_genecluster_annot)[which(grepl("GROS|
 
 vir_genecluster_annot_sum <- vir_genecluster_annot[, vir_genecluster_annot_cols] %>% 
   group_by(gene_cluster) %>% summarise_at(vir_genecluster_annot_cols[-1] , sum)
-#
+#keep unique rows
+vir_genecluster_annot_uniq <- unique(vir_genecluster_annot[, vir_genecluster_annot_cols])
+
 vir_metag  <- vir_genecluster_annot_sum %>% select(contains("METAG"))
 vir_metat  <- vir_genecluster_annot_sum %>% select(contains("METAT"))
+#update use for PCA
 saveRDS(vir_metag,  file="vir_metag.RDS")
 saveRDS(vir_metat,  file="vir_metat.RDS")
 
@@ -42,6 +46,10 @@ paired_vir_metat_paired <- vir_metat_paired[,paired_METAT]
 #add small pseudocount avoid problems wth NaN values coming from zeros
 log_paired_vir_metag_paired <- log(paired_vir_metag_paired + 0.000001)
 log_paired_vir_metat_paired <- log(paired_vir_metat_paired + 0.000001)
+#update log of all abundance data 
+log_vir_metag <- log(vir_metag + 0.000001)
+#save RDS for PCA
+saveRDS(log_vir_metag, file="log_vir_metag.RDS")
 #normalization interpreted as gene expression
 norm_expression_paired_vir <- log_paired_vir_metat_paired - log_paired_vir_metag_paired
 saveRDS(norm_expression_paired_vir, file="norm_expression_paired_vir.RDS")
