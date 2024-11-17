@@ -5,7 +5,7 @@ date: "2024-04-29"
 output: html_document
 ---
 #Introduction
-In this script we will calculate distances between samples using environmental parameters, MOTUs, hosts MOTUs and viruses abundances and expression data to finally get mantel test results which will be visualise. 
+In this script we will calculate distances between samples using environmental parameters, MOTUs, hosts MOTUs and viruses abundances and expression of individual marker genes (activity) data to finally get mantel test results which will be visualise. 
 This procedure will be applied for each fraction: free-living, light fraction and heavy fraction and each dataset metag and expression data - metatranscriptomic data normalised by gene counts using folowing formula: log(metat + pseudocounts) - log(metag + pseudocounts). 
 
 ```{r setup, include=FALSE}
@@ -294,9 +294,24 @@ motus_expression_HF_wide <-  motus_expression_long_HF %>%
 
 ```{r load viral diversity and activity with iphop results}
 #read counts according to gene markers 
+#viral population only - not all genes/activity
+#try to use all gene clusters assigned as viral by vibrant - and MCPs only to compare !!!!
 geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/geneabund_drep_marker_taxa.RDS")
+#keep only unique rows 
+#for our analysis not needed hosts annotation <- remove last 
+#corrrect here !!! this can affect analysis 
+# geneabund_drep_marker_taxa <-  distinct(geneabund_drep_marker_taxa[,-c(ncol(geneabund_drep_marker_taxa)-9:ncol(geneabund_drep_marker_taxa))])
+
 viral_diversity <- geneabund_drep_marker_taxa %>%
   select(contains("METAG")) %>% select(contains(sampleid_METAG$BioSample)) #some METAG excluded from analysis - further selection by vector with metagenomes samples from otus tables (where samples were preselected)
+rownames(viral_diversity) <- geneabund_drep_marker_taxa$gene_cluster
+#FL
+viral_diversity_FL <- viral_diversity %>% select(contains(FL_accnum)) #select by the accession number of the fl samples
+#LF
+viral_diversity_LF <- viral_diversity %>% select(contains(LF_accnum)) #select by the accession number of the lf samples
+#HF
+viral_diversity_HF <- viral_diversity %>% select(contains(HF_accnum)) #select by the accession number of the hf samples
+#viral expression has less samples the respective mostus and hosts 
 viral_activity <- geneabund_drep_marker_taxa %>%
   select(contains("METAT"))
 viral_diversity_paired <- viral_diversity %>% select(contains(paired_METAG))
@@ -490,6 +505,9 @@ matrix_res_sig_METAG_FL_plot <- matrix_res_sig_METAG_FL[,c((length(matrix_res_st
 
 matrix_res_stat_METAG_FL_plot <- melt(matrix_res_stat_METAG_FL_plot, value.name = "R_statistic")
 matrix_res_sig_METAG_FL_plot <- melt(matrix_res_sig_METAG_FL_plot, value.name = "p_value")
+#remove false values
+matrix_res_sig_METAG_FL_plot <- matrix_res_sig_METAG_FL_plot[which(!(matrix_res_sig_METAG_FL_plot$Var1%in% c("Total_DIN_µM", "Ammonium_µM", "Phosphate_µM"))),] 
+matrix_res_stat_METAG_FL_plot <- matrix_res_stat_METAG_FL_plot[which(!(matrix_res_stat_METAG_FL_plot$Var1%in% c("Total_DIN_µM", "Ammonium_µM", "Phosphate_µM"))),] 
 matrix_res_sig_METAG_FL_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_FL_plot$p_value, method="hochberg")
 
 matrix_res_stat_METAG_FL_plot <- left_join(matrix_res_stat_METAG_FL_plot, matrix_res_sig_METAG_FL_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
@@ -504,7 +522,7 @@ matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL_plot, matrix_re
 
 ```{r METAG plot FL}
 # plot for METAG - use normal p-values as significant 
-#this comparison is not meaningfull <- put NA so is not visible on the plot
+#this comparison is not meaningful <- put NA so is not visible on the plot
 matrix_res_stat_FL_mantel_plot[which(matrix_res_stat_FL_mantel_plot$Var1 == "MOTUs" & matrix_res_stat_FL_mantel_plot$Var2 == "hosts_MOTUs"),c("R_statistic", "p_value", "p_value.adj")] <- NA
 #Move value from MOTUs in var1 to MOTUs in var2
 #so the plot have better layout (MOTus and hosts motus only on "y axis")
@@ -738,6 +756,9 @@ matrix_res_sig_METAG_LF_plot <- matrix_res_sig_METAG_LF[,c((length(matrix_res_st
 
 matrix_res_stat_METAG_LF_plot <- melt(matrix_res_stat_METAG_LF_plot, value.name = "R_statistic")
 matrix_res_sig_METAG_LF_plot <- melt(matrix_res_sig_METAG_LF_plot, value.name = "p_value")
+matrix_res_sig_METAG_LF_plot <- matrix_res_sig_METAG_LF_plot[which(!(matrix_res_sig_METAG_LF_plot$Var1%in% c("Total_DIN_µM", "Ammonium_µM", "Phosphate_µM"))),] 
+matrix_res_stat_METAG_LF_plot <- matrix_res_stat_METAG_LF_plot[which(!(matrix_res_stat_METAG_LF_plot$Var1%in% c("Total_DIN_µM", "Ammonium_µM", "Phosphate_µM"))),] 
+
 matrix_res_sig_METAG_LF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_LF_plot$p_value, method="hochberg")
 
 matrix_res_stat_METAG_LF_plot <- left_join(matrix_res_stat_METAG_LF_plot, matrix_res_sig_METAG_LF_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
@@ -936,7 +957,8 @@ library(reshape2)
 
 matrix_res_stat_METAT_HF_plot <- melt(matrix_res_stat_METAT_HF_plot, value.name = "R_statistic" )
 matrix_res_sig_METAT_HF_plot <- melt(matrix_res_sig_METAT_HF_plot, value.name = "p_value" )
-#lets remove the confonded values
+
+
 matrix_res_sig_METAT_HF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAT_HF_plot$p_value, method="hochberg")
 
 #p_value.adj_HF <- matrix_res_sig_METAT_HF_plot %>% filter(Var2 =="MOTUs_HF") p.adjust(matrix_res_sig_METAT_HF_plot$p_value, method="hochberg")
@@ -952,6 +974,9 @@ matrix_res_sig_METAG_HF_plot <- matrix_res_sig_METAG_HF[,c((length(matrix_res_st
 
 matrix_res_stat_METAG_HF_plot <- melt(matrix_res_stat_METAG_HF_plot, value.name = "R_statistic")
 matrix_res_sig_METAG_HF_plot <- melt(matrix_res_sig_METAG_HF_plot, value.name = "p_value")
+#lets remove the confounded values
+matrix_res_sig_METAG_HF_plot <- matrix_res_sig_METAG_HF_plot[which(!(matrix_res_sig_METAG_HF_plot$Var1%in% c("Total_DIN_µM", "Ammonium_µM", "Phosphate_µM"))),] 
+matrix_res_stat_METAG_HF_plot <- matrix_res_stat_METAG_HF_plot[which(!(matrix_res_stat_METAG_HF_plot$Var1%in% c("Total_DIN_µM", "Ammonium_µM", "Phosphate_µM"))),] 
 matrix_res_sig_METAG_HF_plot$p_value.adj <- p.adjust(matrix_res_sig_METAG_HF_plot$p_value, method="hochberg")
 
 matrix_res_stat_METAG_HF_plot <- left_join(matrix_res_stat_METAG_HF_plot, matrix_res_sig_METAG_HF_plot, by = c("Var1" = "Var1", "Var2" = "Var2")) 
