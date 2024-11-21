@@ -5,12 +5,22 @@ library(factoextra)
 #library(missMDA)
 #set up import and upload files/objects
 setwd("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/metadata"
+#read new polished metadata file 
+metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod2.txt"), sep="\t")
+#remove last empty column
+metadata <- metadata[,-c(ncol(metadata))]
 path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
-metadata <- read.csv(paste0(path,"/metadata_all.csv"))
+metadata_all <- read.csv(paste0(path,"/metadata_all.csv"))
+#connect by associated number those two - this way we have all values from final metadata with important linking columns from metadata_all
+metadata <- merge(metadata, metadata_all[, c( "sampleid", "AccessionNumber_TBDSven", "Associatednumber", "data_type")], by = "Associatednumber", all.x = T, all.y = F) 
+#save_it
+write.csv(metadata, file= "C:/Users/jgolebiowska/Documents/IGB_phd/virus/metadata/PhysicochemicalParameters_mod3.csv")
+metadata$Salinity_TBDHereon <- as.numeric(metadata$Salinity_TBDHereon)
+
 #read pathway annotation for PCA colouring
 pathways <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_AMG_pathways_Combined_viruses.tsv")
 #salinity to numeric 
-metadata$Salinity_TBDHereon <- as.numeric(gsub(",", ".", metadata$Salinity_TBDHereon)) 
 #read PCA results calculated on the server 
 #PCA_expression <- read.csv("PCA_expression.csv")
 #PCA_vir_abund <- read.csv("PCA_vir_abund.csv")
@@ -64,12 +74,12 @@ saveRDS(PCA_log_abund_all, file="PCA_outputs/PCA_log_abund_all.RDS")
 #PCA with metadata for plotting
 PCA_log_transcript_meta <- merge(PCA_log_transcript$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_TBDHereon", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
 #PCA_log_abund_meta <- merge(PCA_log_abund$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid")], by.x = "row.names", by.y = "sampleid") #merge by rownames
-PCA_log_abund_all_meta <- merge(PCA_log_abund_all$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_TBDHereon", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
+PCA_log_abund_all_meta <- merge(PCA_log_abund_all$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
 #PCA_log_abund_all_meta <- PCA_log_abund_all_meta[which(PCA_log_abund_all_meta$Station != "Seemanshöft" & PCA_log_abund_all_meta$Station != "Kollmar" & PCA_log_abund_all_meta$Station != "BunthausSpitze"),] 
-PCA_log_expression_meta <- merge(PCA_log_expression$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_TBDHereon", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames 
+PCA_log_expression_meta <- merge(PCA_log_expression$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames 
 #for right order in the legend
-PCA_log_expression_meta$Station <- factor(PCA_log_expression_meta$Station , levels = rev(c("Mühlenberger Loch", "Twielenfleth", "Schwarztonnensand", "Brunsbüttel","Medemgrund")))
-PCA_log_abund_all_meta$Station <- factor(PCA_log_abund_all_meta$Station , levels =  rev(c("BunthausSpitze", "Seemanshöft", "Mühlenberger Loch", "Twielenfleth", "Kollmar", "Schwarztonnensand", "Brunsbüttel","Medemgrund")))
+PCA_log_expression_meta$Station <- factor(PCA_log_expression_meta$Station , levels = rev(c("Muhlenberger Loch", "Twielenfleth", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
+PCA_log_abund_all_meta$Station <- factor(PCA_log_abund_all_meta$Station , levels =  rev(c("BunthausSpitze", "Seemanshöft", "Muhlenberger Loch", "Twielenfleth", "Kollmar", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
 
 #get eigenvalues 
 PCA_log_expression.eig.val <- get_eigenvalue(PCA_log_expression)
@@ -77,61 +87,78 @@ PCA_log_transcript.eig.val <- get_eigenvalue(PCA_log_transcript)
 PCA_log_abund_all.eig.val <- get_eigenvalue(PCA_log_abund_all)
 
 #visualise PCAs
-png(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Sample_type_Station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Sample_type_Station.tiff")
 ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_type, shape=Station)) + geom_point() + ggtitle("Viral log-transcription") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%"))
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%")) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14,face="bold"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Sample_date_Station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Sample_date_Station.tiff")
 ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) + geom_point() + ggtitle("Viral log-transcription") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Station_Sample_date.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Station_Sample_date.tiff")
 ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_date)) + geom_point() + ggtitle("Viral log-transcription") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Station_Sample_type.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Station_Sample_type.tiff")
 ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point() + ggtitle("Viral log-transcription") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%"))
 dev.off()
-# png(filename="PCA_outputs/PCA_plots/PCA_log_abund_Sample_date_Station.png")
+# tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_Sample_date_Station.tiff")
 # ggplot(PCA_log_abund_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) + geom_point() + ggtitle("Viral log-gene counts")
 # dev.off()
-# png(filename="PCA_outputs/PCA_plots/PCA_log_abund_Station_Sample_type.png")
+# tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_Station_Sample_type.tiff")
 # ggplot(PCA_log_abund_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point() + ggtitle("Viral log-gene counts")
 # dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Sample_date_Station.png")
-ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) + geom_point() + ggtitle("Viral log-gene counts") +
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Sample_date_Station.tiff")
+ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) + geom_point(size=2) + ggtitle("Viral log-gene counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) + 
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%"))
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14)) + 
+  guides(colour=guide_legend(title="Sampling date")) + scale_colour_manual(values=c("#00A9FF", "#E68613", "#CD9600", "#7CAE00", "#0BB702", "#FF61CC"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type_Salinity.png")
-ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_TBDHereon, shape=Sample_type)) + geom_point() + ggtitle("Viral log-gene counts") +
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Sample_date.tiff")
+ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date)) + geom_point(size=2) + ggtitle("Viral log-gene counts") +
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) + 
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14)) + 
+  guides(colour=guide_legend(title="Sampling date"))  + scale_colour_manual(values=c("#00A9FF", "#E68613", "#CD9600", "#7CAE00", "#0BB702", "#FF61CC"))
+dev.off()
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type_Salinity_legend.tiff")
+ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU)) + geom_point(size=2) +
+  ggtitle("Viral log-gene counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%"))  + scale_color_continuous(trans='reverse')
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) + scale_color_continuous(trans='reverse', name="Salinity [PSU]") + theme(axis.text=element_text(size=12), axis.title=element_text(size=14))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type.png")
-ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point() + ggtitle("Viral log-gene counts") +
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type.tiff")
+ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point(size=2) + ggtitle("Viral log-gene counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%"))
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14))  + 
+  guides(shape=guide_legend(title="Fraction"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_expression_Sample_date_Station.png")
-ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) + geom_point() + ggtitle("Viral log-expression counts") +
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_expression_Sample_date_Station.tiff")
+ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date)) + geom_point(size=2) + ggtitle("Viral log-expression counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%"))
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%"))  +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14))  + 
+  guides(colour=guide_legend(title="Sampling date"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_expression_Station_Sample_type.png")
-ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point() + ggtitle("Viral log-expression counts") +
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_expression_Station_Sample_type.tiff")
+ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point(size=2) + ggtitle("Viral log-expression counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%"))
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%"))  +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14))   + 
+  guides(shape=guide_legend(title="Fraction"))
 dev.off()
-png(filename="PCA_outputs/PCA_plots/PCA_log_expression_Station_Sample_type_salinity.png")
-ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_TBDHereon, shape=Sample_type)) + geom_point() + ggtitle("Viral log-expression counts") + 
-  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%")) + scale_color_continuous(trans='reverse')
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_expression_Station_Sample_type_salinity.tiff")
+ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU)) + geom_point(size=2) + ggtitle("Viral log-expression counts") + 
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) + ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%")) + 
+  scale_color_continuous(trans='reverse', name = "Salinity [PSU]" )  + theme(axis.text=element_text(size=12), axis.title=element_text(size=14))
 dev.off()
 #remove some objects to empty some space 
 rm(PCA_log_transcript)
@@ -176,7 +203,7 @@ rm(log_expression_FL)
 rm(PCA_log_expression_FL)
 rm(PCA_log_expression_FL_meta)
 
-png(filename="PCA_plots/PCA_log_expression_FL_sample_date_station.png")
+tiff(filename="PCA_plots/PCA_log_expression_FL_sample_date_station.tiff")
 ggplot(PCA_log_expression_FL_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-expression Free-living") + 
@@ -195,7 +222,7 @@ saveRDS(PCA_log_expression_LF_meta, file="PCA_outputs/PCA_log_expression_LF_meta
 rm(log_expression_LF)
 rm(PCA_log_expression_LF)
 rm(PCA_log_expression_LF_meta)
-png(filename="PCA_outputs/PCA_plots/PCA_log_expression_LF_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_expression_LF_sample_date_station.tiff")
 ggplot(PCA_log_expression_LF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-expression Light Fraction") + 
@@ -215,7 +242,7 @@ rm(log_expression_HF)
 rm(PCA_log_expression_HF)
 rm(PCA_log_expression_HF_meta)
 
-png(filename="PCA_outputs/PCA_plots/PCA_log_expression_HF_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_expression_HF_sample_date_station.tiff")
 ggplot(PCA_log_expression_HF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-expression Heavy Fraction") + 
@@ -234,7 +261,7 @@ PCA_log_gene_abund_FL.eig.val <- get_eigenvalue(PCA_log_gene_abund_FL)
 #higher variance explained
 PCA_log_gene_abund_FL_meta <-  merge(PCA_log_gene_abund_FL$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid")], by.x = "row.names", by.y = "sampleid")
 saveRDS(PCA_log_gene_abund_FL_meta, file="PCA_outputs/PCA_log_gene_abund_FL.RDS")
-png(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_FL_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_FL_sample_date_station.tiff")
 ggplot(PCA_log_gene_abund_FL_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-gene counts per cell Free-living") + 
@@ -249,7 +276,7 @@ PCA_log_gene_abund_LF.eig.val <- get_eigenvalue(PCA_log_gene_abund_LF)
 #higher variance explained
 PCA_log_gene_abund_LF_meta <-  merge(PCA_log_gene_abund_LF$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid")], by.x = "row.names", by.y = "sampleid")
 saveRDS(PCA_log_gene_abund_LF_meta, file="PCA_log_gene_abund_FL.RDS")
-png(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_LF_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_LF_sample_date_station.tiff")
 ggplot(PCA_log_gene_abund_LF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-gene counts per cell light fraction") + 
@@ -264,7 +291,7 @@ PCA_log_gene_abund_HF.eig.val <- get_eigenvalue(PCA_log_gene_abund_HF)
 #higher variance explained
 PCA_log_gene_abund_HF_meta <-  merge(PCA_log_gene_abund_HF$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid")], by.x = "row.names", by.y = "sampleid")
 saveRDS(PCA_log_gene_abund_HF_meta, file="PCA_log_gene_abund_HF.RDS")
-png(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_HF_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_HF_sample_date_station.tiff")
 ggplot(PCA_log_gene_abund_HF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-gene counts per cell heavy fraction") + 
@@ -282,7 +309,7 @@ PCA_log_gene_abund_all_FL_meta <-  merge(PCA_log_gene_abund_all_FL$ind$coord, me
 saveRDS(log_gene_abund_all_FL, file="PCA_outputs/log_gene_abund_all_FL.RDS")
 saveRDS(PCA_log_gene_abund_all_FL_meta, file="PCA_log_gene_abund_all_FL_meta.RDS")
 saveRDS(PCA_log_gene_abund_all_FL, file="PCA_log_gene_abund_all_FL.RDS")
-png(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_all_FL_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_all_FL_sample_date_station.tiff")
 ggplot(PCA_log_gene_abund_all_FL_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-gene counts per cell Free-living") + 
@@ -298,7 +325,7 @@ PCA_log_gene_abund_all_LF_meta <-  merge(PCA_log_gene_abund_all_LF$ind$coord, me
 saveRDS(log_gene_abund_all_LF, file="log_gene_abund_all_LF.RDS")
 saveRDS(PCA_log_gene_abund_all_LF_meta, file="PCA_log_gene_abund_all_LF_meta.RDS")
 saveRDS(PCA_log_gene_abund_all_LF, file="PCA_log_gene_abund_all_LF.RDS")
-png(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_all_LF_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_all_LF_sample_date_station.tiff")
 ggplot(PCA_log_gene_abund_all_LF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-gene counts per cell light fraction") + 
@@ -314,7 +341,7 @@ PCA_log_gene_abund_all_HF_meta <-  merge(PCA_log_gene_abund_all_HF$ind$coord, me
 saveRDS(log_gene_abund_all_HF, file="PCA_outputs/log_gene_abund_all_HF.RDS")
 saveRDS(PCA_log_gene_abund_all_HF_meta, file="PCA_log_gene_abund_all_HF_meta.RDS")
 saveRDS(PCA_log_gene_abund_all_HF, file="PCA_log_gene_abund_all_HF.RDS")
-png(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_all_HF_sample_date_station.png")
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_gene_abund_all_HF_sample_date_station.tiff")
 ggplot(PCA_log_gene_abund_all_HF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) +
   geom_point() +
   ggtitle("Viral log-gene counts per cell heavy fraction") + 
