@@ -11,17 +11,25 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-In this Rmarkdown we are going to expolore viral dataset to have better understanding of the data. 
+In this Rmarkdown we are going to explore viral dataset to have better understanding of the data. 
 ```{r setup and loading}
 library(dplyr)
 library(tidyverse)
 library(ggplot2)
 setwd("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances")
-vibrant_annot <- read.csv("BICEST.phages.annot",  sep = "\t", header = F)
-colnames(vibrant_annot) <- c("gene", "range", "KO", "DESCRIPTION")
+#should be in vir_genecluster_annot
+# vibrant_annot <- read.csv("BICEST.phages.annot",  sep = "\t", header = F)
+# colnames(vibrant_annot) <- c("gene", "range", "KO", "DESCRIPTION")
 ##lets load the viral data 
 vir_genecluster_annot <- readRDS(file = "vir_genecluster_annot.RDS")
-
+#dereplication data
+drep_clusters <- read.csv("Cdb.csv", header = TRUE, sep = ",")
+drep_clusters[,"genome"] = sub(".fna", "", drep_clusters[,"genome"])
+#hosts assignment  data - iphop
+host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genome_m90.csv")
+host_prediction_genus = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genus_m90.csv")
+host_prediction_genome <- host_prediction_genome %>% 
+  separate(Host.taxonomy, c("domain", "phylum", "class", "order", "family",  "genus", "species"), ";")
 ```
 
 ## Including Plots
@@ -37,10 +45,14 @@ vibrant_annot_METAG <- vibrant_annot %>% filter(grepl("METAG" , gene))
 #divide into METAT 
 vibrant_annot_METAT <- vibrant_annot %>% filter(grepl("METAT" , gene))
 #for each generate contig column
-#METAG
-vibrant_annot_METAG <- vibrant_annot_METAG %>% 
+vir_genecluster_annot <- vir_genecluster_annot %>% 
   mutate(contig=str_remove(gene, ">GROS.*_SAMEA.*_METAG-scaffold_")) %>%
   mutate(contig=str_remove(contig, "_length=.*_orig=NODE_.*_length_.*_cov_.*"))
+#METAG
+vibrant_annot_METAG <- vir_genecluster_annot %>% 
+  mutate(contig=str_remove(gene, ">GROS.*_SAMEA.*_METAG-scaffold_")) %>%
+  mutate(contig=str_remove(contig, "_length=.*_orig=NODE_.*_length_.*_cov_.*"))
+
 #how many contigs
 contigs_counts_METAG <- vibrant_annot_METAG %>% select("contig") %>% unique() %>% nrow()
 #205611
@@ -68,9 +80,20 @@ vibrant_annot_METAT <- vibrant_annot_METAT %>%
 #check how many lengths and id they number equals contigs
 vibrant_annot_METAT %>% select("length") %>% unique() %>% nrow()
 #not at all
-#size distribution METAG
-vibrant_annot_METAG$length <- as.numeric(vibrant_annot_METAG$length)
-hist(vibrant_annot_METAG$length, breaks=100)
+#size distribution for good quality contigs
+#generate contig column
+drep_clusters <-  drep_clusters %>% mutate(length=str_remove(genome, "GROS.*_SAMEA.*_METAG-scaffold_.*_length=.*_orig=NODE_.*_length_")) %>% mutate(length=str_remove(length, "_cov_.*")) 
+drep_clusters <-  drep_clusters %>% mutate(length=str_remove(length, "GROS.*_SAMEA.*_METAT-transcript_.*_length=.*_orig=NODE_.*_length_")) %>% mutate(length=str_remove(length, "_cov_.*")) %>% mutate(length=str_remove(length, "_g[0-9]+_i[0-9]+$"))
+drep_clusters$data_type <- rep(c("METAG"), each=nrow(drep_clusters))
+drep_clusters[grep("METAT", drep_clusters$genome),"data_type"] <-"METAT"
+drep_clusters$length <- as.numeric(drep_clusters$length)
+drep_clusters$length <- drep_clusters$length/1000
+tiff("hist_viral_contigs_length_METAG.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAG")], breaks=100, ylim=c(0,1500), xlim=c(0,400), main = "Good quality contigs length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
+tiff("hist_viral_contigs_length_METAT.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAT")], breaks=100, ylim=c(0,100), xlim=c(0,50), main = "Good quality transcripts length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
 ```
 
 ```{r}
@@ -84,8 +107,25 @@ vibrant_annot_METAG %>% select("gene") %>% unique() %>% nrow()
 vibrant_annot_METAT %>% select("gene") %>% unique() %>% nrow()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-```{r more advanced statistic, echo=FALSE}
+Prepare table with viruses scaffolds data <- quality, lytic/lysogenic predicted host, drep cluster (to check if similar data in clusters) 
+```{r , echo=FALSE}
+#check hosts 
+drep_clusters <- merge(drep_clusters, host_prediction_genome, by.x ="genome", by.y = "Virus", all.x = T, all.y = F)
+drep_clusters_hosts_sum <-aggregate(phylum ~ primary_cluster , data = drep_clusters, FUN = function(x) length(unique(x)))
+# Sort the pirates dataframe by height in decreasing order
+drep_clusters_hosts_sum <- drep_clusters_hosts_sum[order(drep_clusters_hosts_sum$phylum, decreasing = TRUE),]
+sum(drep_clusters_hosts_sum$phylum > 1 ) #126 clusters with host of multiple phylum - generalists
+sum(drep_clusters_hosts_sum$phylum == 1 ) #558
+length(unique(drep_clusters$primary_cluster)) - nrow(drep_clusters_hosts_sum) #1688
+
+#no assicieted host
+length(unique(drep_clusters$secondary_cluster)) - nrow(drep_sec_clusters_hosts_sum) #1720
+drep_sec_clusters_hosts_sum <-aggregate(phylum ~ secondary_cluster , data = drep_clusters, FUN = function(x) length(unique(x)))
+#more then one host - generalists
+sum(drep_sec_clusters_hosts_sum$phylum > 1 ) #126??
+sum(drep_sec_clusters_hosts_sum$phylum == 1 ) #570
+#no associated host
+length(unique(drep_clusters$secondary_cluster)) - nrow(drep_sec_clusters_hosts_sum) #1720
 ```
 
 ```{r nature of the data, echo=FALSE}
@@ -100,55 +140,3 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 ```
 
 
-Data transformation
-"log-transformation, the expression profiles were computed as the difference between the log2-transformed metatranscriptomic profile and the log2-transformed metagenomic profile" 
-
-Gene Expression Changes and Community Turnover
-Differentially Shape the Global Ocean Metatranscriptome
-
-Normalise transcription by genes copy numbers 
-
-```{r normalise}
-#read virus data
-vir_genecluster_annot <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/vir_genecluster_annot.RDS")
-
-#group by gene_cluster to optimise calculations
-#chose only columns which we need
-#select columns with metat 
-metat_cols <- colnames(vir_genecluster_annot)[which(grepl("METAT", colnames(vir_genecluster_annot)))]
-#find paired metag
-paired_METAG <- sort(gsub("METAT", "METAG", metat_cols)) 
-#check and save those which are existing
-paired_METAG <- sort(paired_METAG[which(paired_METAG %in% colnames(vir_genecluster_annot))])
-#save respected METAT columns 
-paired_METAT <- sort(gsub("METAG", "METAT", paired_METAG))
-#check if the same order
-sum(gsub("METAG", "METAT", colnames(paired_METAG)) == colnames(paired_METAT)) == length(colnames(paired_METAT))
-#select only needed columns and summarise by gene cluster 
-vir_genecluster_annot_sum <- vir_genecluster_annot[, c("gene_cluster", paired_METAG, paired_METAT)] %>% 
-  group_by(gene_cluster) %>% summarise_at(c(paired_METAG, paired_METAT), sum)
-vir_metag <- vir_genecluster_annot_sum %>% select(contains("METAG"))
-vir_metat <- vir_genecluster_annot_sum %>% select(contains("METAT"))
-#find respective metagenomes for metatranscriptomes vir_metat
-paired_METAG <- sort(gsub("METAT", "METAG", colnames(vir_metat))) 
-colnames_vir_metag <- sort(colnames(vir_metag))
-paired_vir_metag <- vir_metag %>% select(contains(paired_METAG)) #strange some METAT do not have 
-#METAG
-#then select metat which has paired METAG
-paired_METAT <- sort(gsub("METAG", "METAT", colnames(paired_vir_metag)))
-paired_vir_metat <- vir_metat[,paired_METAT]
-#check the order 
-#sort it
-#== sub("METAT", "METAG", colnames(vir_metat))
-#log transform both
-#add small pseudocount avoid problems wth NaN values coming from zeros
-log_paired_vir_metag <- log(paired_vir_metag + 0.000001)
-log_paired_vir_metat <- log(paired_vir_metat + 0.000001)
-#normalization interpreted as gene expression
-norm_expression_paired_vir <- log_paired_vir_metat - log_paired_vir_metag
-#transform to long format and combine with metatranscriptome
-#add dummy column as is needed for reformating  
-#norm_expression_paired_vir$dummy <- rep (c(1), times=length(norm_expression_paired_vir[,1])) 
-norm_expression_paired_vir_long <- norm_expression_paired_vir %>%
-  pivot_longer(colnames(norm_expression_paired_vir),  names_to = "sampleid", values_to = "counts") %>% left_join(metadata, by = "sampleid")
-```
