@@ -1,0 +1,718 @@
+---
+title: "viral_genes"
+author: "Julia Golebiowska"
+date: "2024-05-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+The Analysis of axuliary genes carried by Viruses in the Elbe Estuary. Metagenomic data from 2021-22.   
+
+```{r setup}
+#lets load the viral data 
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+setwd("~/IGB_phd/virus/viral_genes")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
+```
+
+```{r loading}
+##Loading files
+#gene_cluster_table
+#long to load - used one from the saved object
+#clstr <- read.csv(paste0(path,"/GROS22.clstr"), sep="\t", skip=0, header = F)
+#colnames(clstr) <- c("gene_cluster", "mem", "gene", "length", "pos")
+#gene abundance (in fact gene copy number per cell and transcription per cell)
+#big file - avoid loading multiple times
+#geneabund <- read.csv(paste0(path,"/BICEST_cellabund.tsv"), sep="\t", skip=1, header = TRUE, row.names = 1)
+#viral genes annotated
+#big file avoid loading multiple times
+#vibrant_annot <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/BICEST.phages.annot",  sep = "\t", header = T)
+#colnames(vibrant_annot) <- c("genome", "range", "KO", "DESCRIPTION")
+#vibrant_annot[,"genome"] = sub(">", "", vibrant_annot[,"genome"])
+#metadata
+metadata_sim <- read.csv(paste0(path,"/SAMEAID_SampleID_simplified.csv"), header=TRUE, sep=";") 
+#select the needed columns to avoid doubling computations
+metadata_sim <-metadata_sim[,c("BioSample", "ProjectID")]
+#read simplified metadata, as it has a ProjectID 
+metadata <- read.csv(paste0(path,"/SAMEAID_SampleID.csv"), header=TRUE, sep=",") %>% 
+  left_join(metadata_sim, by = "BioSample")  %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAT.genecount.profile")) %>%
+  mutate(data_type="METAT")
+
+metadata2 <- read.csv(paste0(path, "/SAMEAID_SampleID.csv"), header=TRUE, sep=",") %>% 
+  left_join(metadata_sim, by = "BioSample")  %>% 
+  mutate(sampleid=paste0(ProjectID,"_",BioSample,"_METAG.genecount.profile")) %>%
+  mutate(data_type="METAG")
+
+metadata <- rbind(metadata, metadata2)
+#remove not consequent date style (remove -)  
+metadata <-metadata %>% 
+  mutate(sample=str_remove(sampleid, ".genecount.profile")) %>%
+  mutate(sample=str_replace(sample, "[.]", "-"))
+#unify date names (remove '-')
+metadata <-metadata %>% mutate(Sample_date = str_replace(Sample_date, "-"," "))
+#unify station names
+metadata$Station[metadata$Station=="Meedem Grund"] <- "Medemgrund"
+
+#chlorophyll data 
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+
+#add chlorophyll (and gas values)  to metadata from another file
+metadata_more <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_genes/Stations_Daten_RTG_250923.csv", sep=",", skip=2, header = F)
+metadata_more[1,] <- paste(metadata_more[1,], metadata_more[2,], sep = "_")
+#as header
+names(metadata_more) <- metadata_more[1,]
+#remove the first line - header  manually
+metadata_more <- metadata_more[-1,]
+#update enumeration
+rownames(metadata_more) <- 1:nrow(metadata_more)
+metadata_more <-metadata_more[metadata_more!="" & !is.na(metadata_more[,1]),]
+metadata_more$Cruise_[metadata_more$Cruise_=="LP210308"]<-"Mar 21"
+metadata_more$Cruise_[metadata_more$Cruise_=="LP210503"]<-"Mai 21"
+metadata_more$Cruise_[metadata_more$Cruise_=="LP210725"]<-"Jul 21"
+metadata_more$Cruise_[metadata_more$Cruise_=="LP220228"]<-"Feb 22"
+metadata_more$Cruise_[metadata_more$Cruise_=="LP220522"]<-"Mai 22"
+metadata_more$Cruise_[metadata_more$Cruise_=="LP220613"]<-"Jun 22"
+metadata_more$Cruise_[metadata_more$Cruise_=="LP221107"]<-"Nov 22"
+#put the same name as in metadata
+colnames(metadata_more)[1] <- "Sample_date"
+colnames(metadata_more)[5] <- "Station"
+#unify station names
+metadata_more$Station[metadata_more$Station=="Medem Grund"] <- "Medemgrund"
+#remove another meassurement from the same station and date
+metadata_more <- metadata_more[-5,]
+#update enumeration
+rownames(metadata_more) <- 1:nrow(metadata_more)
+#remove 'micro' sign
+colnames(metadata_more)[which(colnames(metadata_more)=="Chla_µg/l")] <- "Chla_ug/l"
+colnames(metadata_more)[which(colnames(metadata_more)=="dCO2_µM")] <- "dCO2_uM"
+#left_join with the CO2 CH4 Chlorophyll values from  metadata_more by Sample date
+metadata <- metadata %>% merge(metadata_more[, c("Sample_date", "Station", "dCH4_nM", "Chla_ug/l","dCO2_uM")], by = c("Sample_date", "Station"), all.x = T)
+#change problematic column names
+colnames(metadata)[which(colnames(metadata) == "Chla_ug/l")] <- "Chlorophyll"
+metadata$Chlorophyll <- as.numeric(metadata$Chlorophyll)
+metadata$dCH4_nM <- as.numeric(metadata$dCH4_nM)
+metadata$dCO2_uM <- as.numeric(metadata$dCO2_uM)
+write.csv(metadata, paste0(path,"/metadata_all.csv"), row.names = FALSE)
+```
+
+Prepare data for prokaryotic genes exploration
+```{r}
+#generate dataframe to work with
+geneabund <- geneabund %>% 
+  rownames_to_column("gene_cluster")
+annot <- read.csv(paste0(path,"/GROS22.kegg-annotations.tsv"), sep="\t", skip=0, header = TRUE, quote="")
+psbA_prok <- annot %>%  
+  filter(KO %in% c("K02703")) %>% 
+  left_join(geneabund,  join_by(QUERY == gene_cluster))
+saveRDS(psbA_prok, file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
+psbA_prok = readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
+
+```
+Prepare metadata with Chlorophyll 
+
+
+
+
+```{r pressure, echo=FALSE}
+
+vir_genecluster_annot <- vibrant_annot %>% 
+  left_join(clstr,  join_by(genome == gene)) %>% left_join(geneabund)
+#save it 
+saveRDS(vir_genecluster_annot, file = "vir_genecluster_annot.RDS")
+
+#clean workspace
+rm(vibrant_annot, geneabund, clstr)
+```
+
+```{r genes search}
+genome_quality_Combined_proviruses <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_proviruses/VIBRANT_genome_quality_Combined_proviruses.tsv", sep="\t")
+genome_quality_Combined_viruses <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_genome_quality_Combined_viruses.tsv", sep="\t")
+genome_quality_Combined_all_viruses <- rbind(genome_quality_Combined_proviruses, genome_quality_Combined_viruses)
+genome_quality_Combined_all_viruses[, "scaffold"] <- sub("_[0-9] [0-9]+[-][0-9]+/[0-9]+$","",genome_quality_Combined_all_viruses[, "scaffold"])
+vir_genecluster_annot[, "genome"] <- sub("_g[0-9]+_i[0-9]_[0-9]$","",vir_genecluster_annot[, "genome"])
+vir_genecluster_annot[, "genome"] <- sub("_fragment_[0-9]*.", "", vir_genecluster_annot[, "genome"])
+#psbA_plot_num <- merge(vir_genecluster_annot, genome_quality_Combined_all_viruses, by.x="genome", by.y="scaffold")
+#add quality data
+vir_genecluster_annot_quality <- vir_genecluster_annot %>% 
+   left_join(genome_quality_Combined_all_viruses,  join_by(genome == scaffold))
+#Check if they are present  the data:
+#filter out low quality 
+#vir_genecluster_annot <- vir_genecluster_annot %>% filter(Quality!="low quality draft")
+#rhodopsins
+rhd_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00909","K04641","K04642","K04643", "K23306")) #not found
+#psbA photosystem
+psbA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02703")) #found 27
+#find psaA genes photosytem 
+psaA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02689")) #not found
+
+#Photosynthetic reaction center 
+#(petC - K02636, petE - K02638, and petH - K02641) and the cyanobacteria-specific antenna proteins
+petC_vir <- vir_genecluster_annot %>%  filter(KO %in% c("K02636")) #not_found
+
+petE_vir <- vir_genecluster_annot %>%  filter(KO %in% c("K02638")) #found
+ 
+petH_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02641")) #not_found
+ 
+#(apcA - K02092, apcF - K02097, cpcA - K02284, cpeA - K05376, and cpeT - K05383)
+# the cyanobacteria-specific antenna proteins
+
+apcA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02092")) 
+ 
+apcF_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02097"))
+ 
+cpcA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02284"))
+ 
+cpeA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K05376"))
+
+cpeT_vir <- vir_genecluster_annot %>% filter(KO %in% c("K05383"))
+ 
+#nitrification pathways
+#nitrogen fixation
+nifH_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02588"))
+ 
+nifD_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02586"))
+ 
+#denitrification:
+napA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02567"))
+ 
+nirS_vir <- vir_genecluster_annot %>% filter(KO %in% c("K15864"))
+ 
+norB_vir <- vir_genecluster_annot %>% filter(KO %in% c("K04561"))  
+ 
+nosZ_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00376")) #1 found
+#Calvin cycle
+#rbcL
+ #K01601
+rbcL_vir <- vir_genecluster_annot %>% filter(KO %in% c("K01601")) #90!
+#rbcS
+#K01602
+rbcS_vir <- vir_genecluster_annot %>% filter(KO %in% c("K01602")) #no
+#phosphoribulokinase - prkB
+#	K00855   
+prkB_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00855")) #2
+#glyceraldehyde-3-phosphate dehydrogenase gapN
+#K00131
+gapN_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00131")) #0
+#gltA citrate synthase
+#K01647
+gltA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K01647")) #0
+#isocitrate dehydrogenase IDH3
+#K00030  
+idh3_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00030")) #2
+#malate dehydrogenase
+#K00024       
+md_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00024")) #388
+#methyl-coenzyme M reductase alpha subunit
+#methane pathway 
+#K00399
+mcrA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00399")) #0
+#K10944
+pmoA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K10944")) #0
+#K10946
+pmoC_vir <- vir_genecluster_annot %>% filter(KO %in% c("K10946")) #5 !
+#Shemin pathway
+#K00643
+AlaS_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00643")) #25
+
+#phycobilisome rod-core linker protein
+#K02290
+prc <- vir_genecluster_annot %>% filter(KO %in% c("K02290")) #0
+#K08929 - pufM photosynthetic reaction center M subunit
+pufM <- vir_genecluster_annot %>% filter(KO %in% c("K08929")) #0
+#catalase-peroxidase
+#K03782      
+katG_vir <-  vir_genecluster_annot %>% filter(KO %in% c("K03782")) #5
+#K22227
+#AdoMet-dependent heme synthase [EC:1.3.98.6]
+ahbD_vir <-   vir_genecluster_annot %>% filter(KO %in% c("K22227")) #803!!!!!!!
+```
+```{r analysis}
+#prepare psbA for analysis
+psbA_vir_plot <- psbA_vir %>% 
+  pivot_longer(!colnames(psbA_vir)[c(1:8, length(psbA_vir[1,])-1, length(psbA_vir[1,]))], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% left_join(metadata, by="sampleid")
+```
+
+```{r}
+#plot it! against elbe kilometer
+psbA_vir_plot$Stromkilometer <- sub(",", ".", psbA_vir_plot$Stromkilometer)
+psbA_vir_plot$Stromkilometer <- as.double(psbA_vir_plot$Stromkilometer)
+                                          
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid,Stromkilometer, Sample_date, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + ggtitle("viral psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+
+```
+In metag mostly PsbA viral genes are increasing with kilometer value, when in metat in Jun and Mai the trend has peak in brackish waters of the middle of estuary (BB or TW)  and in Nov is decreasing with increased stormkilometer. 
+```{r}
+#check turbidity factor
+psbA_vir_plot$Turbidity_TBDHereon <- sub(",", ".", psbA_vir_plot$Turbidity_TBDHereon)
+psbA_vir_plot$Turbidity_TBDHereon <- as.double(psbA_vir_plot$Turbidity_TBDHereon)
+
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, Turbidity_TBDHereon, Sample_date, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Turbidity_TBDHereon, y=counts)) + ggtitle("viral psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+
+```
+Too less turbidity values - do not divide into sampling dates
+```{r}
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, Turbidity_TBDHereon, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Turbidity_TBDHereon, y=counts)) + ggtitle("viral psbA counts across different Turbidity values across different data sets") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth() 
+
+```
+Trend still hard to define 
+
+```{r Chlorophyll}
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, Chlorophyll, data_type, Sample_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Chlorophyll, y=counts)) + ggtitle("viral psbA counts across different chlorophyll values across different data sets") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth() 
+
+```
+Split values by FL and PA
+```{r CO2}
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCO2_uM, data_type, Sample_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("viral psbA counts across different CO2 values for different data sets") + geom_point() + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth() 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CO2.jpg")
+dev.off ()
+
+```
+```{r CO2}
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCO2_uM, data_type, Sample_date) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("viral psbA counts across different CO2 values for different data sets") + geom_point() + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CO2.jpg")
+dev.off ()
+
+```
+```{r CO2}
+psbA_prok_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCO2_uM, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("Prokaryotic psbA counts across different CO2 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth(method = "lm") 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CH4.jpg")
+dev.off ()
+
+```
+```{r CO2}
+psbA_prok_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCO2_uM, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=counts, y=dCO2_uM)) + ggtitle("Prokaryotic psbA counts across different CO2 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth(method = "lm") 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/prok_psbA_CH4.jpg")
+dev.off ()
+
+```
+```{r CH4}
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCH4_nM, data_type, Sample_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("viral psbA counts across different CH4 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth(method = "lm") 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CH4.jpg")
+dev.off ()
+
+```
+
+
+```{r CH4}
+psbA_prok_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, dCH4_nM, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("Prokaryotic psbA counts across different CH2 values for different data sets") + geom_point()  + scale_y_log10() + geom_tile() + facet_wrap(~data_type, scale = "free_y") + geom_smooth(method = "lm") 
+dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CH4.jpg")
+dev.off ()
+
+```
+
+No trend found 
+
+```{r}
+
+psbA_vir_plot$Salinity_TBDHereon <- sub(",", ".", psbA_vir_plot$Salinity_TBDHereon)
+psbA_vir_plot$Salinity_TBDHereon <- as.double(psbA_vir_plot$Salinity_TBDHereon)
+
+psbA_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, Salinity_TBDHereon, Sample_date, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Salinity_TBDHereon, y=counts)) + ggtitle("viral psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+
+```
+No trend really found
+```{r}
+petE_vir_plot <- petE_vir %>% 
+  pivot_longer(!colnames(petE_vir)[1:8], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% left_join(metadata, by="sampleid")
+petE_vir_plot$Stromkilometer <- sub(",", ".", petE_vir_plot$Stromkilometer)
+petE_vir_plot$Stromkilometer <- as.double(petE_vir_plot$Stromkilometer)
+
+petE_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid,Stromkilometer, Sample_date, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Stromkilometer, y=counts)) + ggtitle("viral petE counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+
+```
+
+PetE genes counts has very different trends across different seasons in METAG samples, but METAT samples share very similar trend - decreasing with a peak in TW or SH. Very similar trends to PsbA
+
+```{r}
+petE_vir_plot$Turbidity_TBDHereon <- sub(",", ".", petE_vir_plot$Turbidity_TBDHereon)
+petE_vir_plot$Turbidity_TBDHereon <- as.double(petE_vir_plot$Turbidity_TBDHereon)
+
+petE_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid,Turbidity_TBDHereon, Sample_date, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Turbidity_TBDHereon, y=counts)) + ggtitle("viral petE counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+
+```
+
+```{r}
+petE_vir_plot$Salinity_TBDHereon <- sub(",", ".", petE_vir_plot$Salinity_TBDHereon)
+petE_vir_plot$Salinity_TBDHereon <- as.double(petE_vir_plot$Salinity_TBDHereon)
+
+petE_vir_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid,Salinity_TBDHereon, Sample_date, data_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=Salinity_TBDHereon, y=counts)) + ggtitle("viral petE counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + geom_smooth() 
+
+```
+Both turbidyity and saline factors are hard to analyse. 
+
+Lets try to plot viral PsbA genes and hosts.
+```{r load}
+#load needed objects and prepare for analysis
+psbA_prok <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
+vir_genecluster_annot <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/vir_genecluster_annot.RDS")
+#select psbA genes for this analysis
+psbA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02703")) #found
+#long format viral data
+psbA_vir_plot <- psbA_vir %>% 
+  pivot_longer(!colnames(psbA_vir)[c(1:8)], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  left_join(metadata, by="sampleid")
+#long format prokaryotic data
+psbA_prok_plot <- psbA_prok %>% 
+  pivot_longer(!colnames(psbA_prok)[1:19], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% left_join(metadata, by="sampleid") %>% select(-colnames(psbA_prok)[3:19])
+#add origin label
+psbA_prok_plot["origin"] <- rep("host", times=length(psbA_prok_plot[1]))
+psbA_vir_plot["origin"] <- rep("virus", times=length(psbA_vir[1]))
+```
+
+```{r}
+psbA_all_plot <- left_join(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "Chlorophyll")], psbA_vir_plot[, c("AccessionNumber_TBDSven", "counts", "gene_cluster")], by = "AccessionNumber_TBDSven")
+#check genome/scaffold add quality - not added
+sum(psbA_prok_plot$QUERY %in% psbA_vir_plot$gene_cluster)
+sum(psbA_vir_plot$gene_cluster %in% psbA_prok_plot$QUERY)
+#plot viral against bacterial
+colnames(psbA_all_plot)[which(colnames(psbA_all_plot)=="counts.x")] <- "prokaryotic" 
+colnames(psbA_all_plot)[which(colnames(psbA_all_plot)=="counts.y")] <- "viral" 
+
+psbA_all_plot_origin <- rbind(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin", "Chlorophyll")], psbA_vir_plot[,  c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin",  "Chlorophyll")])
+#change problematic column name
+
+#colnames(psbA_all_plot_origin)[which(colnames(psbA_all_plot_origin) == "Chla_ug/l")] <- "Chlorophyll"
+#psbA_all_plot_origin$Chlorophyll <- as.numeric(psbA_all_plot_origin$Chlorophyll)
+
+psbA_all_plot_origin %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
+  ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + labs(fill="Origin")
+
+```
+```{r}
+psbA_all_plot_origin %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin, Chlorophyll) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin)))  + geom_point() + geom_smooth() + geom_point(aes(x=as.numeric(Stromkilometer), y=Chlorophyll), fill="green", colour="green") + geom_smooth(aes(x=as.numeric(Stromkilometer), y=Chlorophyll), colour="green") + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites with Chlorophyll values")  +
+  scale_y_log10() + 
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") 
+```
+```{r correlation}
+psbA_all_plot_origin_vir <- psbA_all_plot_origin[which(psbA_all_plot_origin$origin == "virus"),]
+psbA_all_plot_origin_host <- psbA_all_plot_origin[which(psbA_all_plot_origin$origin == "host"),]
+cor(psbA_all_plot_origin_vir$counts,psbA_all_plot_origin_vir$Chlorophyll, use='pairwise.complete.obs')
+cor(psbA_all_plot_origin_host$counts,psbA_all_plot_origin_host$Chlorophyll, use='pairwise.complete.obs')
+#correlation near 0
+
+#explore other params
+
+```
+```{r}
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_genes/"
+my_palette <- colorRampPalette(c("blue", "white", "red"))(n = 299)
+#read quality files 
+genome_quality_Combined_proviruses <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_proviruses/VIBRANT_genome_quality_Combined_proviruses.tsv", sep="\t")
+genome_quality_Combined_viruses <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_genome_quality_Combined_viruses.tsv", sep="\t")
+genome_quality_Combined_all_viruses <- rbind(genome_quality_Combined_proviruses, genome_quality_Combined_viruses)
+genome_quality_Combined_all_viruses[, "scaffold"] <- sub("_[0-9] [0-9]+[-][0-9]+/[0-9]+$","",genome_quality_Combined_all_viruses[, "scaffold"])
+psbA_plot_num[, "genome"] <- sub("_g[0-9]+_i[0-9]_[0-9]$","",psbA_plot_num[, "genome"])
+psbA_plot_num[, "genome"] <- sub("_fragment_[0-9]", "", psbA_plot_num[, "genome"])
+psbA_plot_num <- merge(psbA_plot_num, genome_quality_Combined_all_viruses, by.x="genome", by.y="scaffold")
+
+
+param_col <-  c( "Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "SRP_mgperL","TotalDissolvedPhosphate_mg.L", "Ammonium_µM", "Nitrite_µM", "Nitrate_µM", "SRP_µM", "Phosphate_µM", "Silicate_µM", "DOC_uM.L", "DIC_uM.L", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL","dCH4_nM", "Chlorophyll", "dCO2_uM")
+#reformat 
+#combine both origines of psbA
+psbA_plot_num <- merge(as.data.frame(psbA_vir_plot), psbA_prok_plot[, c("counts", "AccessionNumber_TBDSven")], suffixes = c(".vPsbA",".PsbA"), by="AccessionNumber_TBDSven", all=TRUE)
+#to get quality values
+#unify genomes names
+genome_quality_Combined_all_viruses[, "scaffold"] <- sub("_[0-9] [0-9]+[-][0-9]+/[0-9]+$","",genome_quality_Combined_all_viruses[, "scaffold"])
+psbA_plot_num[, "genome"] <- sub("_g[0-9]+_i[0-9]_[0-9]$","",psbA_plot_num[, "genome"])
+psbA_plot_num[, "genome"] <- sub("_fragment_[0-9]", "", psbA_plot_num[, "genome"])
+#quick check if there are common scaffolds
+sum(psbA_plot_num[, "genome"] %in% genome_quality_Combined_all_viruses[, "scaffold"]) ####why?????
+#and merge both 
+psbA_plot_num <- merge(psbA_plot_num, genome_quality_Combined_all_viruses, by.x="genome", by.y="scaffold")
+#filter low quality contigs out
+psbA_plot_num <- psbA_plot_num %>% filter(Quality !="low quality draft")
+#should be deduct viral values from hosts? go back to scaffold ?
+for (i in 1:length(psbA_plot_num[1,])){
+  if(is.character(psbA_plot_num[,i]) & (colnames(psbA_plot_num)[i] %in% param_col)){ 
+  psbA_plot_num[,i] <-  as.numeric(sub(",", ".", psbA_plot_num[,i])) #replace , to . to get a string which can be converted to double #wrong replacement
+  }}
+#filter out low quality
+psbA_plot_num <- psbA_plot_num %>% filter(Quality != "low quality draft") 
+#METAG FL
+psbA_vir_plot_METAG_FL <- psbA_vir_plot_num %>% filter(data_type == "METAG") %>% filter(Sample_type == "Free_living")
+res <- cor(psbA_vir_plot_METAG_FL[,param_col], y=psbA_vir_plot_METAG_FL$counts, use='pairwise.complete.obs')
+res <- res[, colSums(is.na(res)) != nrow(res)]# remove where all na
+res <- res[rowSums(is.na(res)) != ncol(res),]# remove where all na
+tiff(paste0(path,"vPsbA_counts_heatmap_METAG_FL.tiff"))
+heatmap.2(round(res, 2), cexRow = 0.5, cexCol = 0.5, dendrogram="none", density.info="none", trace="none", col=my_palette, main = "METAG Free-living", na.color = "green")
+dev.off()
+
+#METAG LF
+psbA_vir_plot_METAG_FL <- psbA_vir_plot_num %>% filter(data_type == "METAG") %>% filter(Sample_type == "Light_fraction")
+res <- cor(psbA_vir_plot_METAG_FL[,param_col], use='pairwise.complete.obs')
+res <- res[, colSums(is.na(res)) != nrow(res)]# remove where all na
+res <- res[rowSums(is.na(res)) != ncol(res),]# remove where all na
+tiff(paste0(path,"vPsbA_counts_heatmap_METAG_LF.tiff"))
+heatmap.2(round(res, 2), cexRow = 0.5, cexCol = 0.5, dendrogram="none", density.info="none", trace="none", col=my_palette, main = "METAG Light Fraction", na.color = "green")
+dev.off()
+#METAG HF
+psbA_vir_plot_METAG_FL <- psbA_vir_plot_num %>% filter(data_type == "METAG") %>% filter(Sample_type == "Heavy_fraction")
+res <- cor(psbA_vir_plot_METAG_FL[,param_col], use='pairwise.complete.obs')
+res <- res[, colSums(is.na(res)) != nrow(res)]# remove where all na
+res <- res[rowSums(is.na(res)) != ncol(res),]# remove where all na
+tiff(paste0(path,"vPsbA_counts_heatmap_METAG_HL.tiff"))
+heatmap.2(round(res, 2), cexRow = 0.5, cexCol = 0.5, dendrogram="none", density.info="none", trace="none", col=my_palette, main = "METAG Heavy Fraction", na.color = "green")
+dev.off()
+
+#METAT FL
+psbA_vir_plot_METAG_FL <- psbA_vir_plot_num %>% filter(data_type == "METAT") %>% filter(Sample_type == "Free_living")
+res <- cor(psbA_vir_plot_METAG_FL[,param_col], use='pairwise.complete.obs')
+res <- res[, colSums(is.na(res)) != nrow(res)]# remove where all na
+res <- res[rowSums(is.na(res)) != ncol(res),]# remove where all na
+tiff(paste0(path,"vPsbA_counts_heatmap_METAT_FL.tiff"))
+heatmap.2(round(res, 2), cexRow = 0.5, cexCol = 0.5, dendrogram="none", density.info="none", trace="none", col=my_palette, main = "METAT Free-living", na.color = "green")
+dev.off()
+
+#METAG LF
+psbA_vir_plot_METAG_FL <- psbA_vir_plot_num %>% filter(data_type == "METAT") %>% filter(Sample_type == "Light_fraction")
+res <- cor(psbA_vir_plot_METAG_FL[,param_col], use='pairwise.complete.obs')
+res <- res[, colSums(is.na(res)) != nrow(res)]# remove where all na
+res <- res[rowSums(is.na(res)) != ncol(res),]# remove where all na
+tiff(paste0(path,"vPsbA_counts_heatmap_METAT_LF.tiff"))
+heatmap.2(round(res, 2), cexRow = 0.5, cexCol = 0.5, dendrogram="none", density.info="none", trace="none", col=my_palette, main = "METAT Light Fraction", na.color = "green")
+dev.off()
+#METAG HF
+psbA_vir_plot_METAG_FL <- psbA_vir_plot_num %>% filter(data_type == "METAT") %>% filter(Sample_type == "Heavy_fraction") 
+res <- cor(psbA_vir_plot_METAG_FL[,param_col], use='pairwise.complete.obs')
+res <- res[, colSums(is.na(res)) != nrow(res)]# remove where all na
+res <- res[rowSums(is.na(res)) != ncol(res),]# remove where all na
+tiff(paste0(path,"vPsbA_counts_heatmap_METAT_HF.tiff"))
+heatmap.2(round(res, 2), cexRow = 0.5, cexCol = 0.5, dendrogram="none", density.info="none", trace="none", col=my_palette, main = "METAT Heavy Fraction", na.color = "green")
+dev.off()
+#these are not good plots0 we want to focus on PsbA counts not on all params visualise on the same plot correlations for different fractions and prokPsbA
+
+#remove vireal counts from prok PsbA?????
+#and for each data type 
+```
+Too less chlorophyll values
+```{r}
+psbA_all_plot_origin %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(fill=as.factor(origin)) + geom_smooth() + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites")  + labs(x="Elbe km", fill="origin") +
+  scale_y_log10() + 
+  geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") 
+```
+Plot viral and hosts against each other by data type
+
+```{r}
+psbA_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Stromkilometer, Sample_date) %>% 
+    summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type , scale = "free") + geom_smooth() 
+```
+
+```{r}
+psbA_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Stromkilometer, Sample_date) %>% 
+    summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_type , scale = "free") + geom_smooth() 
+```
+
+Quite similar pattern with peak 
+```{r}
+psbA_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(data_type == "METAG") %>%
+    group_by(Stromkilometer, Sample_type, Sample_date) %>% 
+  summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic, na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~Sample_type *Sample_date, scale = "free") + geom_smooth() 
+```
+ones again  peaks
+```{r}
+psbA_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(data_type == "METAT") %>%
+    group_by(Stromkilometer,data_type, Sample_type, Sample_date) %>% 
+  summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic, na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~Sample_type *Sample_date, scale = "free") + geom_smooth() 
+```
+Not enough data points 
+Other interesting genes
+```{r}
+unique(vibrant_annot$hypothetical.protein)
+```
+```{r}
+unique(vibrant_annot$hypothetical.protein)
+```
+Data transformation
+"log-transformation, the expression profiles were computed as the difference between the log2-transformed metatranscriptomic profile and the log2-transformed metagenomic profile" 
+
+Gene Expression Changes and Community Turnover
+Differentially Shape the Global Ocean Metatranscriptome
+
+Normalise transcription by genes copy numbers 
+
+```{r normalise}
+#group by gene_cluster to optimise calculations
+#chose only columns which we need
+#select columns with metat 
+metat_cols <- colnames(vir_genecluster_annot)[which(grepl("METAT", colnames(vir_genecluster_annot)))]
+#find paired metag
+paired_METAG <- sort(gsub("METAT", "METAG", metat_cols)) 
+#check and save those which are existing
+paired_METAG <- sort(paired_METAG[which(paired_METAG %in% colnames(vir_genecluster_annot))])
+#save respected METAT columns 
+paired_METAT <- sort(gsub("METAG", "METAT", paired_METAG))
+#check if the same order
+sum(gsub("METAG", "METAT", colnames(paired_METAG)) == colnames(paired_METAT)) == length(colnames(paired_METAT))
+#select only needed columns and summurise by gene cluster 
+vir_genecluster_annot_sum <- vir_genecluster_annot[, c("gene_cluster", paired_METAG, paired_METAT)] %>% 
+  group_by(gene_cluster) %>% summarise_at(c(paired_METAG, paired_METAT), sum)
+vir_metag <- vir_genecluster_annot_sum %>% select(contains("METAG"))
+vir_metat <- vir_genecluster_annot_sum %>% select(contains("METAT"))
+#find respective metagenomes for metatranscriptomes vir_metat
+paired_METAG <- sort(gsub("METAT", "METAG", colnames(vir_metat))) 
+colnames_vir_metag <- sort(colnames(vir_metag))
+paired_vir_metag <- vir_metag %>% select(contains(paired_METAG)) #strange some METAT do not have 
+#METAG
+#then select metat which has paired METAG
+paired_METAT <- sort(gsub("METAG", "METAT", colnames(paired_vir_metag)))
+paired_vir_metat <- vir_metat[,paired_METAT]
+#check the order 
+#sort it
+#== sub("METAT", "METAG", colnames(vir_metat))
+#log transform both
+#add small pseudocount avoid problems wth NaN values coming from zeros
+log_paired_vir_metag <- log(paired_vir_metag + 0.000001)
+log_paired_vir_metat <- log(paired_vir_metat + 0.000001)
+#normalization interpreted as gene expression
+norm_expression_paired_vir <- log_paired_vir_metat - log_paired_vir_metag
+#transform to long format and combine with metatranscriptome
+#add dummy column as is needed for reformating  
+#norm_expression_paired_vir$dummy <- rep (c(1), times=length(norm_expression_paired_vir[,1])) 
+norm_expression_paired_vir_long <- norm_expression_paired_vir %>%
+  pivot_longer(colnames(norm_expression_paired_vir),  names_to = "sampleid", values_to = "counts") %>% left_join(metadata, by = "sampleid")
+```
+
