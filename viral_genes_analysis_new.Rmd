@@ -15,8 +15,8 @@ The Analysis of axuliary genes carried by Viruses in the Elbe Estuary. Metagenom
 library(dplyr)
 library(tidyverse)
 library(ggplot2)
-setwd("~/IGB_phd/virus/viral_genes")
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
+setwd("~/IGB_phd/BICESTvirus/viral_genes")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog"
 ```
 
 ```{r loading}
@@ -34,6 +34,7 @@ path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
 #colnames(vibrant_annot) <- c("genome", "range", "KO", "DESCRIPTION")
 #vibrant_annot[,"genome"] = sub(">", "", vibrant_annot[,"genome"])
 #metadata
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog"
 metadata_sim <- read.csv(paste0(path,"/SAMEAID_SampleID_simplified.csv"), header=TRUE, sep=";") 
 #select the needed columns to avoid doubling computations
 metadata_sim <-metadata_sim[,c("BioSample", "ProjectID")]
@@ -52,7 +53,8 @@ metadata <- rbind(metadata, metadata2)
 #remove not consequent date style (remove -)  
 metadata <-metadata %>% 
   mutate(sample=str_remove(sampleid, ".genecount.profile")) %>%
-  mutate(sample=str_replace(sample, "[.]", "-"))
+  mutate(sample=str_replace(sample, "[.]", "-"))  %>%
+  mutate(Sample_date=str_replace(Sample_date, "Mai", "May"))
 #unify date names (remove '-')
 metadata <-metadata %>% mutate(Sample_date = str_replace(Sample_date, "-"," "))
 #unify station names
@@ -109,6 +111,8 @@ annot <- read.csv(paste0(path,"/GROS22.kegg-annotations.tsv"), sep="\t", skip=0,
 psbA_prok <- annot %>%  
   filter(KO %in% c("K02703")) %>% 
   left_join(geneabund,  join_by(QUERY == gene_cluster))
+#remove viral gene cluster from prokaryotic counts 
+psbA_prok <- psbA_prok[which(!(psbA_prok$QUERY %in% PsbA_vir$gene_cluster)),] 
 saveRDS(psbA_prok, file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
 psbA_prok = readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
 
@@ -715,4 +719,118 @@ norm_expression_paired_vir <- log_paired_vir_metat - log_paired_vir_metag
 norm_expression_paired_vir_long <- norm_expression_paired_vir %>%
   pivot_longer(colnames(norm_expression_paired_vir),  names_to = "sampleid", values_to = "counts") %>% left_join(metadata, by = "sampleid")
 ```
+prokaryotic AlaS vs viral AlaS dynamic across Elbe kilometer and against each other 
+```{r}
+AlaS_prok_long <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/phototrophy/meta_AlaS_clust.RDS")
+#filter out viral gene clusters from prokartoyic AlaS
+AlaS_prok_long <- AlaS_prok_long[which(!(AlaS_prok_long$QUERY %in% AlaS_vir$gene_cluster)),] 
+#prepare two version of each - long for spatial-temporal dynamic and wide for dynamic against each other  
+#remove hyphen from AlaS to unify with AlaS vir data 
+AlaS_prok_long$Sample_date <- sub("-", " ", AlaS_prok_long$Sample_date)
+AlaS_vir_long <- AlaS_vir %>% 
+  pivot_longer(!colnames(AlaS_vir)[c(1:8, length(AlaS_vir[1,])-1, length(AlaS_vir[1,]))], names_to = "sampleid", values_to = "counts", values_drop_na = T) %>%
+  left_join(metadata, by="sampleid")
+# #long format prokaryotic data
+# psbA_prok_plot <- psbA_prok %>% 
+#   pivot_longer(!colnames(psbA_prok)[1:19], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% left_join(metadata, by="sampleid") %>% select(-colnames(psbA_prok)[3:19])
+#add origin label
+AlaS_prok_long["origin"] <- rep("host", times=length(AlaS_prok_long[1]))
+AlaS_vir_long["origin"] <- rep("virus", times=length(AlaS_vir_long[1]))
+```
+```{r}
+
+AlaS_all_plot_origin <- rbind(AlaS_prok_long[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin")], AlaS_vir_long[,  c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type", "origin")])
+#change problematic column name
+tiff("Viral_and_prokaryotic_AlaS_counts_across_river_sites_for_METAG_and_METAT.tiff")
+AlaS_all_plot_origin %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
+  ggtitle("Viral and prokaryotic AlaS counts across river sites for METAG and METAT") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type, scale = "free_y") + labs(fill="Origin")
+dev.off()
+
+tiff("Viral_and_prokaryotic_AlaS_counts_across_river_sites_for_sample_type.tiff")
+AlaS_all_plot_origin %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
+  ggtitle("Viral and prokaryotic AlaS counts across different seasons and river sites") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + labs(fill="Origin")
+dev.off()
+
+AlaS_all_plot_origin$Stromkilometer <- as.numeric(AlaS_all_plot_origin$Stromkilometer)
+
+tiff("Viral_and_prokaryotic_AlaS_counts_across_river_sites_for_seasons.tiff")
+AlaS_all_plot_origin %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type, origin) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
+  ggtitle("Viral and prokaryotic AlaS counts across different seasons and river sites") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + labs(fill="Origin")
+dev.off()
+```
+For metag viral and prokaryotic AlaS are proportional when for metat it shows general opposite dynamics - increase of viruses correlates with decrease of hosts and the other way round. 
+For different frations but metag we can notice repeating proportional dynamic of prokaryotic and viral AlaS with a little of exception in light fraction but variance of viral AlaS is too high too clearly distingush trends between fractions. For metat in high varianc eto notice a clear trend but more dynamic. 
+Very different dynamic across sampling dates. Especially for May and June 22 very different - dynamic pattern then for the other dates where mostly we can describe it as proportional.
+
+```{r}
+AlaS_all_plot <- left_join(AlaS_prok_long[, c("AccessionNumber_TBDSven", "Station","Sample_date", "Stromkilometer", "counts","data_type","Sample_type")], AlaS_vir_long[, c("AccessionNumber_TBDSven", "counts")], by = "AccessionNumber_TBDSven")
+#plot viral against bacterial
+colnames(AlaS_all_plot)[which(colnames(AlaS_all_plot)=="counts.x")] <- "prokaryotic" 
+colnames(AlaS_all_plot)[which(colnames(AlaS_all_plot)=="counts.y")] <- "viral" 
+```
+
+```{r}
+tiff("AlaS_vir_vs_host_data_type.tiff")
+AlaS_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Stromkilometer, Sample_date) %>% 
+    summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type , scale = "free") + geom_smooth() 
+dev.off()
+```
+Similar trend for both METAG and METAT. Viral counts increase with prokaryotic.
+```{r}
+tiff("AlaS_vir_vs_host_fraction.tiff")
+AlaS_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Stromkilometer, Sample_date) %>% 
+    summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_type , scale = "free") + geom_smooth() 
+dev.off()
+```
+
+The same pattern for all fractions. Here we can notice that for METAT the increase is less pronouced
+```{r}
+tiff("AlaS_vir_vs_host_sample_date.tiff")
+AlaS_all_plot %>%  
+  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(data_type == "METAG") %>%
+    group_by(Stromkilometer, data_type, Sample_type, Sample_date) %>% 
+  summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic, na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free") + geom_smooth() 
+dev.off()
+```
+Hard to interpret - comaprison of different fractions and stations
+```{r}
+tiff("AlaS_vir_vs_host_Station.tiff")
+AlaS_all_plot %>%  
+ # filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(data_type == "METAG") %>%
+    group_by(Station, data_type, Sample_type, Sample_date) %>% 
+  summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic, na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Station, scale = "free") + geom_smooth() 
+dev.off()
+```
+For mid stations ST and TW similar pattern  with peak with high prokaryotic values. For Bunthaus very little values but interesting decrease of viral counts with incresing prokaryotic onces. When for first station after city w have opposite - proportional increase of both. For BB we have peak in the middle and for MG we have excitation curve.  
 
