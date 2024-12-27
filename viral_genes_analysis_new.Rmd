@@ -15,7 +15,7 @@ The Analysis of axuliary genes carried by Viruses in the Elbe Estuary. Metagenom
 library(dplyr)
 library(tidyverse)
 library(ggplot2)
-setwd("~/IGB_phd/BICESTvirus/viral_genes")
+setwd("~/IGB_phd/BICEST/virus/viral_genes")
 path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog"
 ```
 
@@ -64,7 +64,7 @@ metadata$Station[metadata$Station=="Meedem Grund"] <- "Medemgrund"
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
 #add chlorophyll (and gas values)  to metadata from another file
-metadata_more <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_genes/Stations_Daten_RTG_250923.csv", sep=",", skip=2, header = F)
+metadata_more <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_genes/Stations_Daten_RTG_250923.csv", sep=",", skip=2, header = F)
 metadata_more[1,] <- paste(metadata_more[1,], metadata_more[2,], sep = "_")
 #as header
 names(metadata_more) <- metadata_more[1,]
@@ -112,9 +112,9 @@ psbA_prok <- annot %>%
   filter(KO %in% c("K02703")) %>% 
   left_join(geneabund,  join_by(QUERY == gene_cluster))
 #remove viral gene cluster from prokaryotic counts 
-psbA_prok <- psbA_prok[which(!(psbA_prok$QUERY %in% PsbA_vir$gene_cluster)),] 
-saveRDS(psbA_prok, file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
-psbA_prok = readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
+psbA_prok <- psbA_prok[which(!(psbA_prok$QUERY %in% psbA_vir$gene_cluster)),] 
+saveRDS(psbA_prok, file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/psbA_prok.RDS")
+psbA_prok = readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/psbA_prok.RDS")
 
 ```
 Prepare metadata with Chlorophyll 
@@ -245,7 +245,6 @@ psbA_vir_plot <- psbA_vir %>%
 #plot it! against elbe kilometer
 psbA_vir_plot$Stromkilometer <- sub(",", ".", psbA_vir_plot$Stromkilometer)
 psbA_vir_plot$Stromkilometer <- as.double(psbA_vir_plot$Stromkilometer)
-                                          
 psbA_vir_plot %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
@@ -303,6 +302,7 @@ psbA_vir_plot %>%
 ```
 Split values by FL and PA
 ```{r CO2}
+tiff("viral_psbA_CO2.tiff")
 psbA_vir_plot %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
@@ -311,6 +311,7 @@ psbA_vir_plot %>%
     group_by(sampleid, dCO2_uM, data_type, Sample_type) %>% 
   summarise(counts=sum(counts)) %>%
   ggplot(aes(x=dCO2_uM, y=counts)) + ggtitle("viral psbA counts across different CO2 values for different data sets") + geom_point() + scale_y_log10() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth() 
+dev.off()
 dev.copy(jpeg, filename="C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/viral_psbA_CO2.jpg")
 dev.off ()
 
@@ -458,13 +459,13 @@ Both turbidyity and saline factors are hard to analyse.
 Lets try to plot viral PsbA genes and hosts.
 ```{r load}
 #load needed objects and prepare for analysis
-psbA_prok <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/psbA_prok.RDS")
-vir_genecluster_annot <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/vir_genecluster_annot.RDS")
+# psbA_prok <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/psbA_prok.RDS")
+# vir_genecluster_annot <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vir_genecluster_annot.RDS")
 #select psbA genes for this analysis
-psbA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02703")) #found
+# psbA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K02703")) #found
 #long format viral data
 psbA_vir_plot <- psbA_vir %>% 
-  pivot_longer(!colnames(psbA_vir)[c(1:8)], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
+  pivot_longer(!colnames(psbA_vir)[c(1:8, length(psbA_vir[1,])-1, length(psbA_vir[1,]))], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>%
   left_join(metadata, by="sampleid")
 #long format prokaryotic data
 psbA_prok_plot <- psbA_prok %>% 
@@ -488,7 +489,9 @@ psbA_all_plot_origin <- rbind(psbA_prok_plot[, c("AccessionNumber_TBDSven", "Sta
 
 #colnames(psbA_all_plot_origin)[which(colnames(psbA_all_plot_origin) == "Chla_ug/l")] <- "Chlorophyll"
 #psbA_all_plot_origin$Chlorophyll <- as.numeric(psbA_all_plot_origin$Chlorophyll)
-
+tiff("PsbA_host_and_vir_across_Elbekm.tiff", units = 'px', 
+     width = 800, 
+     height = 400)
 psbA_all_plot_origin %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
@@ -496,9 +499,13 @@ psbA_all_plot_origin %>%
   summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
   ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
   ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + labs(fill="Origin")
+dev.off()
 
 ```
 ```{r}
+tiff("PsbA_host_and_vir_across_Elbekm_chlorophyll.tiff", units = 'px', 
+     width = 800, 
+     height = 400)
 psbA_all_plot_origin %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
@@ -507,6 +514,7 @@ psbA_all_plot_origin %>%
   ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin)))  + geom_point() + geom_smooth() + geom_point(aes(x=as.numeric(Stromkilometer), y=Chlorophyll), fill="green", colour="green") + geom_smooth(aes(x=as.numeric(Stromkilometer), y=Chlorophyll), colour="green") + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites with Chlorophyll values")  +
   scale_y_log10() + 
   geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") 
+dev.off()
 ```
 ```{r correlation}
 psbA_all_plot_origin_vir <- psbA_all_plot_origin[which(psbA_all_plot_origin$origin == "virus"),]
@@ -519,7 +527,7 @@ cor(psbA_all_plot_origin_host$counts,psbA_all_plot_origin_host$Chlorophyll, use=
 
 ```
 ```{r}
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_genes/"
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_genes/"
 my_palette <- colorRampPalette(c("blue", "white", "red"))(n = 299)
 #read quality files 
 genome_quality_Combined_proviruses <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_proviruses/VIBRANT_genome_quality_Combined_proviruses.tsv", sep="\t")
@@ -611,6 +619,9 @@ dev.off()
 ```
 Too less chlorophyll values
 ```{r}
+tiff("PsbA_host_and_vir_by_fraction_across_Elbekm.tiff", units = 'px', 
+     width = 800, 
+     height = 400)
 psbA_all_plot_origin %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
@@ -619,25 +630,46 @@ psbA_all_plot_origin %>%
   ggplot(aes(x=as.numeric(Stromkilometer), y=counts, fill=as.factor(origin))) + geom_point(fill=as.factor(origin)) + geom_smooth() + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites")  + labs(x="Elbe km", fill="origin") +
   scale_y_log10() + 
   geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") 
+dev.off()
 ```
 Plot viral and hosts against each other by data type
 
 ```{r}
+tiff("PsbA_host_vs_vir_by_data_type.tiff", units = 'px', 
+     width = 800, 
+     height = 400)
 psbA_all_plot %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Stromkilometer, Sample_date) %>% 
     summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
   ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
   geom_tile() + facet_wrap(~data_type , scale = "free") + geom_smooth() 
+dev.off()
 ```
 
 ```{r}
+tiff("PsbA_host_vs_vir_by_data_type_fraction.tiff", units = 'px', 
+     width = 800, 
+     height = 400)
 psbA_all_plot %>%  
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Stromkilometer, Sample_date) %>% 
     summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
   ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
   geom_tile() + facet_wrap(~data_type *Sample_type , scale = "free") + geom_smooth() 
+dev.off()
+```
+```{r}
+tiff("PsbA_host_vs_vir_by_station.tiff", units = 'px', 
+     width = 800, 
+     height = 400)
+psbA_all_plot %>%  
+#  filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%   group_by(data_type, Sample_type, Station, Sample_date) %>% 
+    summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic,na.rm = TRUE)) %>%
+  ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral psbA against prokaryotic psbA counts") + geom_point()  + scale_y_log10() +
+  geom_tile() + facet_wrap(~data_type *Station , scale = "free") + geom_smooth() 
+dev.off()
 ```
 
 Quite similar pattern with peak 
@@ -657,7 +689,7 @@ psbA_all_plot %>%
   filter(Station != 'BunthausSpitze') %>% 
   filter(Sample_date != "Nov 21") %>%
   filter(data_type == "METAT") %>%
-    group_by(Stromkilometer,data_type, Sample_type, Sample_date) %>% 
+    group_by(Stromkilometer, data_type, Sample_type, Sample_date) %>% 
   summarise(viral=sum(viral, na.rm = TRUE), prokaryotic=sum(prokaryotic, na.rm = TRUE)) %>%
   ggplot(aes(x=prokaryotic, y=viral)) + ggtitle("viral and prokaryotic psbA counts across different seasons and river sites") + geom_point()  + scale_y_log10() +
   geom_tile() + facet_wrap(~Sample_type *Sample_date, scale = "free") + geom_smooth() 
@@ -730,10 +762,6 @@ AlaS_prok_long$Sample_date <- sub("-", " ", AlaS_prok_long$Sample_date)
 AlaS_vir_long <- AlaS_vir %>% 
   pivot_longer(!colnames(AlaS_vir)[c(1:8, length(AlaS_vir[1,])-1, length(AlaS_vir[1,]))], names_to = "sampleid", values_to = "counts", values_drop_na = T) %>%
   left_join(metadata, by="sampleid")
-# #long format prokaryotic data
-# psbA_prok_plot <- psbA_prok %>% 
-#   pivot_longer(!colnames(psbA_prok)[1:19], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% left_join(metadata, by="sampleid") %>% select(-colnames(psbA_prok)[3:19])
-#add origin label
 AlaS_prok_long["origin"] <- rep("host", times=length(AlaS_prok_long[1]))
 AlaS_vir_long["origin"] <- rep("virus", times=length(AlaS_vir_long[1]))
 ```
