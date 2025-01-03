@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introduction
-CCA  - Canonical correspondence analysis on viral data from the Elbe estuary for each fraction and and data type - vial abundance and activity based on individual marker genes. This analysis revels the potential drivers of communities diversity and activity. 
+CCA  - Canonical correspondence analysis on viral data from the Elbe estuary for each fraction and and data type - viral abundance and expression based on individual marker genes. This analysis revels the potential drivers of communities diversity and activity. 
 
 
 
@@ -27,7 +27,7 @@ library(dplyr)
 
 ```{r , echo=FALSE}
 #load marker genes
-geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/geneabund_drep_marker_taxa.RDS")
+geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vibrant_annot_drep_marker_abund.RDS")
 #remove  repeating rows - I dont need host taxonomy 
 # next time generate special object with viral taxonomy and salinity niche classification
 geneabund_drep_marker_taxa <- geneabund_drep_marker_taxa %>% select(contains("GROS")) %>% distinct()
@@ -35,30 +35,46 @@ geneabund_drep_marker_taxa <- geneabund_drep_marker_taxa %>% select(contains("GR
 drep_clusters <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/Cdb.csv", header = TRUE, sep = ",")
 drep_clusters[,"genome"] = sub(".fna", "", drep_clusters[,"genome"])
 #FL
+viral_expression_FL = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/viral_expression_FL.RDS")
+metadata_METAG_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_FL.RDS")
+metadata_METAT_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_FL.RDS")
 
-metadata_METAG_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/metadata_METAG_FL.RDS")
-metadata_METAT_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/metadata_METAT_FL.RDS")
-marker_gene_METAG_FL <- geneabund_drep_marker_taxa %>% select(contains(metadata_METAG_FL$AccessionNumber_TBDSven)) %>% select(contains("METAG"))
-marker_gene_METAT_FL <- geneabund_drep_marker_taxa %>% select(contains(metadata_METAT_FL$AccessionNumber_TBDSven)) %>% select(contains("METAG"))
+colnames_FL <- colnames(geneabund_drep_marker_taxa)[which(grepl(paste(metadata_METAG_FL$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker_taxa)))]
+colnames_METAG_FL <- colnames_FL[grep("METAG", colnames_FL)]
+
+viral_diversity_FL <- geneabund_drep_marker_taxa[,colnames_METAG_FL] 
+colnames_METAT_FL <- colnames_FL[grep("METAT", colnames_FL)]
+viral_activity_FL <- geneabund_drep_marker_taxa[,colnames_METAT_FL] 
 #LF
-viral_diversity_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_diversity_LF.RDS")
+
 viral_expression_LF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_expression_LF.RDS")
-metadata_METAG_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/metadata_METAG_LF.RDS")
-metadata_METAT_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/metadata_METAT_LF.RDS")
+metadata_METAG_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_LF.RDS")
+metadata_METAT_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_LF.RDS")
+colnames_METAG_LF <- colnames(geneabund_drep_marker_taxa)[which(grepl(paste(metadata_METAG_LF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker_taxa)))]
+colnames_METAG_LF <- colnames_METAG_LF[which(grepl("METAG", colnames_METAG_LF))]
+
+viral_diversity_LF <- geneabund_drep_marker_taxa[,colnames_METAG_LF] 
+colnames_METAT_LF <- colnames_METAG_LF[which(grepl("METAT", colnames_METAG_LF))]
+viral_activity_LF <- geneabund_drep_marker_taxa[,colnames_METAT_LF] 
 #HF
-viral_diversity_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_diversity_HF.RDS")
 viral_expression_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_expression_HF.RDS")
-metadata_METAG_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/metadata_METAG_HF.RDS")
-metadata_METAT_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/metadata_METAT_HF.RDS")
+metadata_METAG_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_HF.RDS")
+metadata_METAT_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_HF.RDS")
+colnames_METAG_HF <- colnames(geneabund_drep_marker_taxa)[which(grepl(paste(metadata_METAG_HF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker_taxa)))]
+colnames_METAG_HF <- colnames_METAG_HF[which(grepl("METAG", colnames_METAG_HF))]
+
+viral_diversity_HF <- geneabund_drep_marker_taxa[,colnames_METAG_HF] 
+colnames_METAT_HF <- colnames_METAG_HF[which(grepl("METAT", colnames_METAG_HF))]
+viral_activity_HF <- geneabund_drep_marker_taxa[,colnames_METAT_HF] 
 #vector of numeric parameters columns from metadata
-env_numeric <- c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "dCH4_nM", "Chla_ug/l", "dCO2_uM")
+env_numeric <- colnames(metadata_METAG_LF)[9:45]
 #reformat metadata - sample names into rownames  
-rownames(metadata_METAG_FL) <- metadata_METAG_FL$BioSample
-rownames(metadata_METAT_FL) <- metadata_METAT_FL$BioSample
-rownames(metadata_METAG_LF) <- metadata_METAG_LF$BioSample
-rownames(metadata_METAT_LF) <- metadata_METAT_LF$BioSample
-rownames(metadata_METAG_HF) <- metadata_METAG_HF$BioSample
-rownames(metadata_METAT_HF) <- metadata_METAT_HF$BioSample
+# rownames(metadata_METAG_FL) <- metadata_METAG_FL$BioSample
+# rownames(metadata_METAT_FL) <- metadata_METAT_FL$BioSample
+# rownames(metadata_METAG_LF) <- metadata_METAG_LF$BioSample
+# rownames(metadata_METAT_LF) <- metadata_METAT_LF$BioSample
+# rownames(metadata_METAG_HF) <- metadata_METAG_HF$BioSample
+# rownames(metadata_METAT_HF) <- metadata_METAT_HF$BioSample
 #take only numeric parameters
 metadata_METAG_FL <- metadata_METAG_FL[,env_numeric]
 metadata_METAT_FL <- metadata_METAT_FL[,env_numeric]
@@ -111,7 +127,7 @@ metadata_METAT_HF_filled <- as.data.frame(metadata_METAT_HF_filled) %>% select_i
 ###2.1 Diversity FL 
 ```{r CCA diversity FL}
 #reformat viruses
-t_viral_diversity_FL <- t(marker_gene_METAG_FL)
+t_viral_diversity_FL <- t(viral_diversity_FL)
 t_viral_diversity_FL <- as.data.frame(t_viral_diversity_FL)
 ps <- 0.000001
 
@@ -149,7 +165,7 @@ plot
 ```
 ```{r}
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("O2_TBDHereon", "Phosphate_µM", "Silicate_mg.L", "Temperature_TBDHereon", "Total_DIN_µM")),]
+veg_1 = veg_1[which(!rownames(veg_1) %in% c("Sat_O2_Perc", "O2_uM", "Nitrite_uM", "dCH4_uM", "SPM_mgperL")),]
 FL_vir_diversity_plot <- plot +
   #geom_text_repel(data = veg_2,
   #                aes(x = CCA1, y = CCA2, label =),
@@ -190,12 +206,12 @@ rownames(t_viral_expression_FL) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_ex
 rownames(t_viral_expression_FL) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_expression_FL))
 
 cca_expression_FL <- cca(as.matrix(t_viral_expression_FL), as.matrix(metadata_METAT_FL_filled))
-summary(cca_expression_FL) #scalling of the parameters doesnt matter sqrt of expression results makes proportion explained lower
+summary(cca_expression_FL) #scalling of the parameters doesnt matter sqrt of activity results makes proportion explained lower
 
 ```
 ```{r}
-cc_expression_FL <- cancor(as.matrix(t_viral_expression_FL), as.matrix(metadata_METAT_FL_filled))
-cc_expression_FL$cor
+cc_activity_FL <- cancor(as.matrix(t_viral_expression_FL), as.matrix(metadata_METAT_FL_filled))
+cc_activity_FL$cor
 #why correlation is one???
 ```
 ```{r}
