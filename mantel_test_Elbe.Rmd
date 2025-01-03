@@ -14,18 +14,18 @@ library(dplyr)
 library(tidyverse)
 library(ggplot2)
 library(vegan)
-setwd("~/IGB_phd/virus/viral_abundances")
+setwd("~/IGB_phd/BICEST/virus/viral_abundances")
 ```
 ##2.1 Load metadata 
 ```{r load metadata}
 ##Load Metadata and concatenate it for later
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/metadata/"
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/"
 metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) 
 #remove rows with NA in Acession number - no molecular data
 metadata <- metadata[which(!is.na(metadata$AccessionNumber_TBDSven)),]
 
 #add chlorophyll  to metadata from another file
-metadata_more <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_genes/Stations_Daten_RTG_250923.csv", sep=",", skip=2, header = F)
+metadata_more <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_genes/Stations_Daten_RTG_250923.csv", sep=",", skip=2, header = F)
 metadata_more[1,] <- paste(metadata_more[1,], metadata_more[2,], sep = "_")
 #as header
 names(metadata_more) <- metadata_more[1,]
@@ -61,13 +61,31 @@ HF_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Heavy
 
 #remove some uncertain and redundant data 
 metadata <- metadata[,!(colnames(metadata) %in% c("RespirationRate_O2ug.L.h", "DIC_uM.L", "DOC_uM.L", "Total_DIN_uM", "Ammonium_uM", "Nitrite_uM", "Nitrate_uM", "dCH4_nM", "dCO2_nM", "Silicate_uM", "SRP_uM"))]
+#add bacteria labundance data
+metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) 
+bac_abund <- read.csv(paste0(path,"/BacterialAbundance.csv"), header=TRUE, sep=",", row.names=1) 
+#unify values
+#dates
+bac_abund$Date[bac_abund$Date=="2021.11"]<-"Nov-11"
+bac_abund$Date[bac_abund$Date=="2021.07"]<-"Jul-21"
+bac_abund$Date[bac_abund$Date=="2022.02"]<-"Feb-22"
+bac_abund$Date[bac_abund$Date=="2022.05"]<-"Mai-22"
+bac_abund$Date[bac_abund$Date=="2022.06"]<-"Jun-22"
+bac_abund$Date[bac_abund$Date=="2022.11"]<-"Nov-22"
+#fravtions
+bac_abund$Fraction[bac_abund$Fraction=="Free-living"]<-"Free_living"
+bac_abund$Fraction[bac_abund$Fraction=="Heavy"]<-"Heavy_fraction"
+bac_abund$Fraction[bac_abund$Fraction=="Light"]<-"Light_fraction"
+colnames(bac_abund)[which(colnames(bac_abund)=="Count")] <- "bacteria_counts"
+#add bacteria abundance to metadata
+metadata <- merge(metadata, bac_abund[, c("Date", "bacteria_counts", "Station", "Fraction")],  by.x = c("Sample_date", "Station", "Sample_type"), by.y = c("Date", "Station", "Fraction"), all.x=T )
 ```
 ##2.2 Load MOTUs and split by fraction 
 
 ```{r load motus}
 #load motus metadata
 
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/MOTUs/"
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/MOTUs/"
 motus_final_taxa_metadata <- readRDS(file=paste0(path,"motus_final_taxa_metadata.RDS"))
 motus_stats <- readRDS(file=paste0(path,"motu_stats.RDS"))
 ```
@@ -185,7 +203,7 @@ sampleid_MOTUs <- unique(motus_final_taxa_metadata$BioSample[which(motus_final_t
 ```{r hosts motus }
 #select motus which are assigned hosts
 #load hosts assignment
-host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/Host_prediction_to_genome_m90.csv")
+host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/Host_prediction_to_genome_m90.csv")
 #join Motus by MAGs which were assigned as hosts with iphop
 motus_MAGS <- motus_final_taxa_metadata %>%
   left_join(motus_stats, by = "mOTU")
@@ -208,9 +226,9 @@ host_motus_expression_HF <- motus_expression_HF[which(motus_expression_HF$mOTU %
 ```{r load viral diversity and activity with iphop results}
 #read counts according to gene markers 
 #viral population only - not all genes/activity
-geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/geneabund_drep_marker_taxa.RDS")
+geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vibrant_annot_drep_marker_abund.RDS")
 #keep only unique rows 
-geneabund_drep_marker_taxa <- distinct(geneabund_drep_marker_taxa[,c(ncol(geneabund_drep_marker_taxa)-9:ncol(geneabund_drep_marker_taxa))])
+# geneabund_drep_marker_taxa <- distinct(geneabund_drep_marker_taxa[,c(ncol(geneabund_drep_marker_taxa)-9:ncol(geneabund_drep_marker_taxa))])
 viral_diversity <- geneabund_drep_marker_taxa %>%
   select(contains("METAG")) %>% select(contains(sampleid_MOTUs)) 
 #some METAG excluded from analysis - further selection by vector with metagenomes samples from OTUs tables (where samples were preselected)
@@ -230,7 +248,7 @@ viral_activity <- geneabund_drep_marker_taxa %>%
 ##keep only accession ids after finding paired columns
 colnames(viral_activity) <- sub("GROS22.[1-2]_", "", colnames(viral_activity))
 colnames(viral_activity) <- sub("_METAT.genecount.profile", "", colnames(viral_activity))
-#take corressponding columns
+#take corresponding columns
 viral_diversity_paired <- viral_diversity %>% select(contains(paired_sampleid))
 viral_activity_paired <- viral_activity %>% select(contains(paired_sampleid))
 
@@ -277,6 +295,14 @@ rownames(metadata_METAG_HF) <- metadata_METAG_HF$AccessionNumber_TBDSven
 rownames(metadata_METAT_HF) <- metadata_METAT_HF$AccessionNumber_TBDSven
 metadata_METAG_HF <- metadata_METAG_HF[order(metadata_METAG_HF$AccessionNumber_TBDSven),]
 metadata_METAT_HF <- metadata_METAT_HF[order(metadata_METAT_HF$AccessionNumber_TBDSven),]
+#save metaadata (for cca)
+saveRDS(metadata_METAG_FL, file="metadata_METAG_FL.RDS")
+saveRDS(metadata_METAG_LF, file="metadata_METAG_LF.RDS")
+saveRDS(metadata_METAG_HF, file="metadata_METAG_HF.RDS")
+saveRDS(metadata_METAT_FL, file="metadata_METAT_FL.RDS")
+saveRDS(metadata_METAT_LF, file="metadata_METAT_LF.RDS")
+saveRDS(metadata_METAT_HF, file="metadata_METAT_HF.RDS")
+
 ```
 
 ##3. Free-living
@@ -358,7 +384,7 @@ list.METAT_FL.dists[[length(list.METAT_FL.dists)+1]] <- host_motus_expression_FL
 names(list.METAT_FL.dists)[length(list.METAT_FL.dists)] <- "hosts_MOTUs"
 #different number of samples - needs to be added to another distance list - individual for each fraction -start from FL
 
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test_elbe.RData")
 ```
 
 
@@ -417,7 +443,7 @@ if (names(list.METAT_FL.dists)[i] == "viral_activity" & colnames(matrix_res_sig_
 }
 
 
-#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test_elbe.RData")
+#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test_elbe.RData")
 ```
 
 
@@ -448,7 +474,7 @@ matrix_res_stat_METAG_FL <- left_join(matrix_res_stat_METAG_FL, matrix_res_sig_M
 matrix_res_stat_METAG_FL$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_FL[,1]))
 
 matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL, matrix_res_stat_METAT_FL)
-#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
+#save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
 ```
 
 
@@ -479,7 +505,7 @@ matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL, matrix_res_sta
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAG_FL_plot_avrdist_bray.tiff",width=770,height=300,units="px")
+tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAG_FL_plot_avrdist_bray_bac_counts.tiff",width=870,height=300,units="px")
 mantel_test_METAG_FL_plot
 dev.off()
 
@@ -514,10 +540,10 @@ dev.off()
         axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2, size=15), 
         axis.text.y = element_text(size=15), 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
-# png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_expression_FL_plot.png")
+# png("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_plots/mantel_test_expression_FL_plot.png")
 # mantel_test_METAT_FL_plot
 # dev.off()
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_FL_plot_log_euclidean.tiff",width=770,height=300)
+tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_FL_plot_log_euclidean_bac_counts.tiff",width=770,height=300)
 mantel_test_METAT_FL_plot
 dev.off()
 ```
@@ -591,7 +617,7 @@ list.METAT_LF.dists[[length(list.METAT_LF.dists)+1]] <- host_motus_expression_LF
 names(list.METAT_LF.dists)[length(list.METAT_LF.dists)] <- "hosts_MOTUs"
 #different number of samples - needs to be added to another distance list - individual for each fraction -start from LF
 
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
 ```
 
 
@@ -650,7 +676,7 @@ if (names(list.METAT_LF.dists)[i] == "viral_activity" & colnames(matrix_res_sig_
 }
 
 
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test_elbe.RData")
 ```
 
 
@@ -681,11 +707,11 @@ matrix_res_stat_METAG_LF <- left_join(matrix_res_stat_METAG_LF, matrix_res_sig_M
 matrix_res_stat_METAG_LF$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_LF[,1]))
 
 matrix_res_stat_LF_mantel_plot <- rbind(matrix_res_stat_METAG_LF, matrix_res_stat_METAT_LF)
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
 ```
 
 
-```{r}
+```{r METAG plot LF}
   mantel_test_METAG_LF_plot <- matrix_res_stat_LF_mantel_plot %>%
   filter(R_statistic != "NA") %>% 
   filter(data == "Metagenome") %>% 
@@ -712,7 +738,7 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mante
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAG_LF_plot_avrdist_bray.tiff",width=770,height=300,units="px")
+tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAG_LF_plot_avrdist_bray_bac_counts.tiff",width=870,height=300,units="px")
 mantel_test_METAG_LF_plot
 dev.off()
 
@@ -747,10 +773,10 @@ dev.off()
         axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2, size=15), 
         axis.text.y = element_text(size=15), 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
-# png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_expression_LF_plot.png")
+# png("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_plots/mantel_test_expression_LF_plot.png")
 # mantel_test_METAT_LF_plot
 # dev.off()
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_LF_plot_log_euclidean.tiff",width=770,height=300)
+tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_LF_plot_log_euclidean_bac_counts.tiff",width=770,height=300)
 mantel_test_METAT_LF_plot
 dev.off()
 ```
@@ -827,7 +853,7 @@ list.METAT_HF.dists[[length(list.METAT_HF.dists)+1]] <- host_motus_expression_HF
 names(list.METAT_HF.dists)[length(list.METAT_HF.dists)] <- "hosts_MOTUs"
 #different number of samples - needs to be added to another distance list - individual for each fraction -start from HF
 
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test_elbe.RData")
 ```
 
 
@@ -886,7 +912,7 @@ if (names(list.METAT_HF.dists)[i] == "viral_activity" & colnames(matrix_res_sig_
 }
 
 
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test_elbe.RData")
 ```
 
 
@@ -917,7 +943,7 @@ matrix_res_stat_METAG_HF <- left_join(matrix_res_stat_METAG_HF, matrix_res_sig_M
 matrix_res_stat_METAG_HF$data <- rep(c("Metagenome"), time=length(matrix_res_stat_METAG_HF[,1]))
 
 matrix_res_stat_HF_mantel_plot <- rbind(matrix_res_stat_METAG_HF, matrix_res_stat_METAT_HF)
-save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
+save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_test_elbe.RData")
 ```
 
 
@@ -948,7 +974,7 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mante
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAG_HF_plot_avrdist_bray.tiff",width=770,height=300,units="px")
+tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAG_HF_plot_avrdist_bray_bac_counts.tiff",width=870,height=300,units="px")
 mantel_test_METAG_HF_plot
 dev.off()
 
@@ -983,10 +1009,10 @@ dev.off()
         axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2, size=15), 
         axis.text.y = element_text(size=15), 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
-# png("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_plots/mantel_test_expression_HF_plot.png")
+# png("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_plots/mantel_test_expression_HF_plot.png")
 # mantel_test_METAT_HF_plot
 # dev.off()
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_HF_plot_log_euclidean.tiff",width=750,height=300)
+tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_HF_plot_log_euclidean_bac_counts.tiff",width=750,height=300)
 mantel_test_METAT_HF_plot
 dev.off()
 ```
