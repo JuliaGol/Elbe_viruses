@@ -19,6 +19,7 @@ library(vegan)
 library(ggplot2)
 library(ggrepel)
 library(dplyr)
+library(tidyverse)
 ```
 ## Viral diversity 
 
@@ -27,45 +28,104 @@ library(dplyr)
 
 ```{r , echo=FALSE}
 #load marker genes
-geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vibrant_annot_drep_marker_abund.RDS")
+geneabund_drep_marker <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vibrant_annot_drep_marker_abund.RDS")
 #remove  repeating rows - I dont need host taxonomy 
 # next time generate special object with viral taxonomy and salinity niche classification
-geneabund_drep_marker_taxa <- geneabund_drep_marker_taxa %>% select(contains("GROS")) %>% distinct()
+geneabund_drep_marker <- geneabund_drep_marker %>% select(contains("GROS")) %>% distinct()
 #drep clusters 
 drep_clusters <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/Cdb.csv", header = TRUE, sep = ",")
+#taxonomy
 drep_clusters[,"genome"] = sub(".fna", "", drep_clusters[,"genome"])
+proviruses_taxonomy <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/Elbe_viruses_distribution/genomad_proviruses_output/Combined_proviruses_annotate/Combined_proviruses_taxonomy.tsv", sep = "\t")
+viruses_taxonomy <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/Elbe_viruses_distribution/genomad_viruses_output/Combined_viruses_taxonomy.tsv", sep = "\t")
+#analyse if similar taxonomy for each cluster
+drep_clusters <- left_join(drep_clusters, viruses_taxonomy, by=c("genome"="seq_name"))
+drep_clusters %>% group_by(primary_cluster) %>% summarise(count_genomes= n_distinct(genome), count_lineages = n_distinct(lineage))  %>%  filter(count_lineages > 1) 
+#only 46 have more then 1 lineage - even when more lineages they agree at some point 
+#lets unify those 
+#keep lineages which dominates by more then 50%
+#if less then 50% go to upper taxa level
+#continue until Viruses - as we analyse only viruses we will put -"other" label to all analysis
+#for this purpose separate into columns
+drep_clusters <- drep_clusters %>% 
+  separate(lineage, c("level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7"), ";")
+drep_clusters[drep_clusters == ""] <- NA
+columns_to_keep = c("primary_cluster", "genome", "level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7")
+#primary_cluster, genome, level_1, level_2, level_3, level_4, level_5, level_6, level_7
+drep_clusters_fin_taxonomy <- drep_clusters %>%  add_count(primary_cluster, level_7,  name = "level_7_percentage", wt = !is.na(level_7))  %>% ungroup() %>%
+  add_count(primary_cluster, level_6, wt = !is.na(level_6), name = "level_6_percentage") %>% ungroup() %>%
+  add_count(primary_cluster, level_5, wt = !is.na(level_5), name = "level_5_percentage") %>% ungroup() %>%
+  add_count(primary_cluster, level_4, wt = !is.na(level_4), name = "level_4_percentage") %>% ungroup() %>%
+  add_count(primary_cluster, level_3, wt = !is.na(level_3), name = "level_3_percentage") %>% ungroup() %>% 
+  add_count(primary_cluster, level_2, wt = !is.na(level_2), name = "level_2_percentage") %>% ungroup() %>%
+  add_count(primary_cluster, level_1, wt = !is.na(level_1), name = "level_1_percentage") %>% mutate(level_2_percentage = level_2_percentage/level_1_percentage, level_3_percentage = level_3_percentage/level_1_percentage, level_4_percentage = level_4_percentage/level_1_percentage, level_5_percentage = level_5_percentage/level_1_percentage, level_6_percentage = level_6_percentage/level_1_percentage, level_7_percentage = level_7_percentage/level_1_percentage, level_1_percentage = level_1_percentage/level_1_percentage)  
+#unify taxon according to pseudocode above
+drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy %>% group_by(primary_cluster) %>%
+  filter(if(any(level_7_percentage  > 0.5,  na.rm = T)) level_7_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_6_percentage  > 0.5,  na.rm = T)) level_6_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_5_percentage  > 0.5,  na.rm = T)) level_5_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_4_percentage  > 0.5,  na.rm = T)) level_4_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_3_percentage  > 0.5,  na.rm = T)) level_3_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_2_percentage  > 0.5,  na.rm = T)) level_2_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_1_percentage  > 0.5,  na.rm = T)) level_1_percentage > 0.5 else TRUE ) %>% ungroup() %>% select(-c("genome","secondary_cluster","threshold", "cluster_method", "comparison_algorithm", "n_genes_with_taxonomy", "agreement", "taxid")) %>% distinct()
+#looks good
+#unite lineage
+drep_clusters_fin_taxonomy_unified = drep_clusters_fin_taxonomy_unified %>% 
+  unite("lineage", c("level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7"), sep = ";", remove = FALSE)
+#add marker genes counts
+geneabund_drep_marker_taxonomy <- left_join(geneabund_drep_marker, drep_clusters_fin_taxonomy_unified, by = "primary_cluster")
+#make a taxonomy boxplot
+#read metadata 
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/"
+metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) 
+#sum by lineage and add metadata - but first make it long format 
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy %>% pivot_longer(cols = starts_with("GROS"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% group_by(lineage, sampleid) %>% summarise(counts=sum(counts)) %>% ungroup() %>% group_by(lineage, sampleid) %>% summarise(counts=sum(counts)) %>% left_join(metadata) 
+#add poly- meso- oligo - haline labels
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>%  mutate(Salinity_level = case_when(Salinity_PSU <= 5  ~ 'oligohaline', Salinity_PSU > 5 & Salinity_PSU <= 18  ~ 'measohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+#box plot
+ tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lineage)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + theme(axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust=1, size=7))
+dev.off()
+ tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lineage)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions") + theme(axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust=1, size=7))
+dev.off()
+tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lineage)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level) + ggtitle("Relative abundace across different fractions") + theme(axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust=1, size=7))
+dev.off()
+#no as much differences in taxonomy as expected - taking into account PCA of genomic potential viral diversity -
+#but there are things to corre -NA  from metadata and different colours for level 3/4 
 #FL
 viral_expression_FL = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/viral_expression_FL.RDS")
 metadata_METAG_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_FL.RDS")
 metadata_METAT_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_FL.RDS")
 
-colnames_FL <- colnames(geneabund_drep_marker_taxa)[which(grepl(paste(metadata_METAG_FL$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker_taxa)))]
+colnames_FL <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_FL$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
 colnames_METAG_FL <- colnames_FL[grep("METAG", colnames_FL)]
 
-viral_diversity_FL <- geneabund_drep_marker_taxa[,colnames_METAG_FL] 
+viral_diversity_FL <- geneabund_drep_marker[,colnames_METAG_FL] 
 colnames_METAT_FL <- colnames_FL[grep("METAT", colnames_FL)]
-viral_activity_FL <- geneabund_drep_marker_taxa[,colnames_METAT_FL] 
+viral_activity_FL <- geneabund_drep_marker[,colnames_METAT_FL] 
 #LF
 
 viral_expression_LF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_expression_LF.RDS")
 metadata_METAG_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_LF.RDS")
 metadata_METAT_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_LF.RDS")
-colnames_METAG_LF <- colnames(geneabund_drep_marker_taxa)[which(grepl(paste(metadata_METAG_LF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker_taxa)))]
+colnames_METAG_LF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_LF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
 colnames_METAG_LF <- colnames_METAG_LF[which(grepl("METAG", colnames_METAG_LF))]
 
-viral_diversity_LF <- geneabund_drep_marker_taxa[,colnames_METAG_LF] 
+viral_diversity_LF <- geneabund_drep_marker[,colnames_METAG_LF] 
 colnames_METAT_LF <- colnames_METAG_LF[which(grepl("METAT", colnames_METAG_LF))]
-viral_activity_LF <- geneabund_drep_marker_taxa[,colnames_METAT_LF] 
+viral_activity_LF <- geneabund_drep_marker[,colnames_METAT_LF] 
 #HF
 viral_expression_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_expression_HF.RDS")
 metadata_METAG_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_HF.RDS")
 metadata_METAT_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_HF.RDS")
-colnames_METAG_HF <- colnames(geneabund_drep_marker_taxa)[which(grepl(paste(metadata_METAG_HF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker_taxa)))]
+colnames_METAG_HF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_HF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
 colnames_METAG_HF <- colnames_METAG_HF[which(grepl("METAG", colnames_METAG_HF))]
 
-viral_diversity_HF <- geneabund_drep_marker_taxa[,colnames_METAG_HF] 
+viral_diversity_HF <- geneabund_drep_marker[,colnames_METAG_HF] 
 colnames_METAT_HF <- colnames_METAG_HF[which(grepl("METAT", colnames_METAG_HF))]
-viral_activity_HF <- geneabund_drep_marker_taxa[,colnames_METAT_HF] 
+viral_activity_HF <- geneabund_drep_marker[,colnames_METAT_HF] 
 #vector of numeric parameters columns from metadata
 env_numeric <- colnames(metadata_METAG_LF)[9:45]
 #reformat metadata - sample names into rownames  
