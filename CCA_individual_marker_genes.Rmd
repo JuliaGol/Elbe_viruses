@@ -78,19 +78,28 @@ geneabund_drep_marker_taxonomy <- left_join(geneabund_drep_marker, drep_clusters
 #read metadata 
 path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/"
 metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) 
+metadata$Station <- factor(metadata$Station, levels = c("BunthausSpitze", "Muhlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuttel","Meedem Grund"))
+
 #sum by lineage and add metadata - but first make it long format 
-geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy %>% pivot_longer(cols = starts_with("GROS"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% group_by(lineage, sampleid) %>% summarise(counts=sum(counts)) %>% ungroup() %>% group_by(lineage, sampleid) %>% summarise(counts=sum(counts)) %>% left_join(metadata) 
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy %>% pivot_longer(cols = starts_with("GROS"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% group_by(lineage, sampleid, level_5) %>% summarise(counts=sum(counts)) %>% ungroup() %>% group_by(lineage, sampleid, level_5) %>% summarise(counts=sum(counts), level_5) %>% left_join(metadata) 
 #add poly- meso- oligo - haline labels
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>%  mutate(Salinity_level = case_when(Salinity_PSU <= 5  ~ 'oligohaline', Salinity_PSU > 5 & Salinity_PSU <= 18  ~ 'measohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+#remove stations  - counts without metadata 
+#think about finding metadata for them 
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% filter(!is.na(Station))
+#change NA to unknown label for plotting
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% mutate(level_5 = replace_na(level_5, "unknown"))
 #box plot
+#simplified lineages for plotting
+
  tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
-ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lineage)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + theme(axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust=1, size=7))
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=10), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=10)) + guides(fill=guide_legend(title="Viral class")) 
 dev.off()
  tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
-ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lineage)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions") + theme(axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust=1, size=7))
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions")+ ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=12)) + guides(fill=guide_legend(title="Viral class")) 
 dev.off()
 tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
-ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lineage)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level) + ggtitle("Relative abundace across different fractions") + theme(axis.title.x = element_blank(), axis.text.x = element_text(angle=45, hjust=1, size=7))
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level, scales= "free") + ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + guides(fill=guide_legend(title="Viral class")) 
 dev.off()
 #no as much differences in taxonomy as expected - taking into account PCA of genomic potential viral diversity -
 #but there are things to corre -NA  from metadata and different colours for level 3/4 
