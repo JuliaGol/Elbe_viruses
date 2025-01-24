@@ -20,7 +20,9 @@ library(ggplot2)
 library(ggrepel)
 library(dplyr)
 library(tidyverse)
+library(ggforce)
 ```
+
 ## Viral diversity 
 
 ##1. Read data and metadata for each fraction and data type
@@ -109,31 +111,35 @@ metadata_METAG_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICES
 metadata_METAT_FL = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_FL.RDS")
 
 colnames_FL <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_FL$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
+#lets work with data frame as wll be easlier to 
+geneabund_drep_marker <- as.data.frame(geneabund_drep_marker)
+#set rownames as primary cluster to track particular viral cluster in cca plots
+rownames(geneabund_drep_marker) <- geneabund_drep_marker$primary_cluster
 colnames_METAG_FL <- colnames_FL[grep("METAG", colnames_FL)]
-
-viral_diversity_FL <- geneabund_drep_marker[,colnames_METAG_FL] 
+#keep rownames
+viral_diversity_FL <- geneabund_drep_marker[,colnames_METAG_FL]
 colnames_METAT_FL <- colnames_FL[grep("METAT", colnames_FL)]
 viral_activity_FL <- geneabund_drep_marker[,colnames_METAT_FL] 
 #LF
 
-viral_expression_LF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_expression_LF.RDS")
+viral_activity_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_activity_HF.RDS")
 metadata_METAG_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_LF.RDS")
 metadata_METAT_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_LF.RDS")
-colnames_METAG_LF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_LF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
-colnames_METAG_LF <- colnames_METAG_LF[which(grepl("METAG", colnames_METAG_LF))]
-
+colnames_LF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_LF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
+colnames_METAG_LF <- colnames_LF[which(grepl("METAG", colnames_LF))]
+#remove na fromm colnames_METAG_LF
 viral_diversity_LF <- geneabund_drep_marker[,colnames_METAG_LF] 
-colnames_METAT_LF <- colnames_METAG_LF[which(grepl("METAT", colnames_METAG_LF))]
+colnames_METAT_LF <- colnames_LF[which(grepl("METAT", colnames_LF))]
 viral_activity_LF <- geneabund_drep_marker[,colnames_METAT_LF] 
 #HF
 viral_expression_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_expression_HF.RDS")
 metadata_METAG_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_HF.RDS")
 metadata_METAT_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_HF.RDS")
-colnames_METAG_HF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_HF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
+colnames_HF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_HF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
 colnames_METAG_HF <- colnames_METAG_HF[which(grepl("METAG", colnames_METAG_HF))]
 
 viral_diversity_HF <- geneabund_drep_marker[,colnames_METAG_HF] 
-colnames_METAT_HF <- colnames_METAG_HF[which(grepl("METAT", colnames_METAG_HF))]
+colnames_METAT_HF <- colnames_HF[which(grepl("METAT", colnames_HF))]
 viral_activity_HF <- geneabund_drep_marker[,colnames_METAT_HF] 
 #vector of numeric parameters columns from metadata
 env_numeric <- colnames(metadata_METAG_LF)[9:45]
@@ -206,7 +212,6 @@ rownames(t_viral_diversity_FL) <- gsub("_METAG.genecount.profile", "", rownames(
 
 cca_diversity_FL <- cca(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
 summary(cca_diversity_FL) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
-
 ```
 ```{r}
 cc_diversity_FL <- cancor(as.matrix(t_viral_diversity_FL), as.matrix(metadata_METAG_FL_filled))
@@ -222,19 +227,21 @@ veg_1["env"] = row.names(veg_1)
 
 #extracting the data; genusv
 veg_2 = as.data.frame(cca_diversity_FL$CCA$v)
-veg_2["genus"] = row.names(veg_2)
-
+veg_2["primary_claster"] = row.names(veg_2)
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
 plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = class, alpha=0.5)) + geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
+#+  geom_point(data = veg_1, aes(x = CCA1, y = CCA2), colour = "blue")
 
 plot
 ```
 ```{r}
 
-veg_1 = veg_1[which(!rownames(veg_1) %in% c("Sat_O2_Perc", "O2_uM", "Nitrite_uM", "dCH4_uM", "SPM_mgperL")),]
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU", "Total_DIN_uM")),]
 FL_vir_diversity_plot <- plot +
   #geom_text_repel(data = veg_2,
   #                aes(x = CCA1, y = CCA2, label =),
@@ -255,11 +262,13 @@ FL_vir_diversity_plot <- plot +
     aes(x = CCA1, y = CCA2, label = veg_1$env),
     nudge_y = -0.05,
     color = "blue",
-    size = 5
+    size = 3
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+tiff("FL_vir_diversity_biplot.tiff", unit="px", width = 1000, height = 1000)
 FL_vir_diversity_plot
+dev.off()
 ```
 
 Salinity and temperature looks prominent.
@@ -291,20 +300,22 @@ veg_1["env"] = row.names(veg_1)
 veg_2 = as.data.frame(cca_expression_FL$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
 plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) +
+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot
 ```
 
 ```{r}
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("Sat_O2_TBDHereon", "TotalDissolvedPhosphate_mg.L
-","Silicate_mg.L","Salinity_TBDHereon","O2_TBDHereon", "pH_TBDHereon", "Temperature_TBDHereon
-0", "pH_TBDHereon", "Silicate_mg.L", "dCO2_uM")),]
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU")),]
 plot +
   # geom_text_repel(data = veg_2,
     #              aes(x = CCA1, y = CCA2, label = F),
@@ -329,6 +340,75 @@ plot +
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+```
+###2.3 Activity FL
+
+```{r CCA activity FL}
+#reformat viruses
+t_viral_activity_FL <- t(viral_activity_FL)
+t_viral_activity_FL <- as.data.frame(t_viral_activity_FL)
+
+rownames(t_viral_activity_FL) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_activity_FL))
+rownames(t_viral_activity_FL) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_activity_FL))
+
+cca_activity_FL <- cca(as.matrix(t_viral_activity_FL), as.matrix(metadata_METAT_FL_filled))
+summary(cca_activity_FL) #scalling of the parameters doesnt matter sqrt of activity results makes proportion explained lower
+
+```
+```{r}
+plot(cca_activity_FL)
+```
+```{r}
+veg_1 = as.data.frame(cca_activity_FL$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genus
+veg_2 = as.data.frame(cca_activity_FL$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) +
+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in%  c("TotalDissolvedPhosphate_mg.L", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU")),]
+FL_vir_activity_plot <- plot +
+  # geom_text_repel(data = veg_2,
+    #              aes(x = CCA1, y = CCA2, label = F),
+    #              nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+
+tiff("FL_vir_activity_biplot.tiff", unit="px", width = 1000, height = 1000)
+FL_vir_activity_plot
+dev.off()
 ```
 ## 3. Light fraction CCA
 ### 3.1 Diversity LF  
@@ -361,19 +441,25 @@ veg_1["env"] = row.names(veg_1)
 #extracting the data; genusv
 veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
 veg_2["genus"] = row.names(veg_2)
-
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
 plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
+#+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot
 ```
 ```{r}
+#veg_1 = veg_1[which(!rownames(veg_1) %in% c("Sat_O2_Perc", "O2_uM", "Nitrite_uM", "dCH4_uM", "SPM_mgperL")),]
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("O2_TBDHereon", "pH_TBDHereon", "Phosphate_µM", "Silicate_mg.L", "Temperature_TBDHereon", "Total_DIN_µM")),]
-plot +
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Sat_O2_Perc", "Temperature_TBDHereon", "Turbidity_NTU")),]
+
+
+LF_vir_diversity_plot <- plot +
   theme_bw() +
   geom_segment(
     data = veg_1,
@@ -390,10 +476,14 @@ plot +
     aes(x = CCA1, y = CCA2, label = veg_1$env),
     nudge_y = -0.05,
     color = "blue",
-    size = 5
+    size = 3
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+
+tiff("LF_vir_diversity_plot_biplot.tiff", unit="px", width = 1000, height = 1000)
+LF_vir_diversity_plot
+dev.off()
 ```
 
 Salinity and temperature looks prominent.
@@ -436,7 +526,7 @@ plot
 
 ```{r}
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("Ammonium_mg.L", "Temperature_TBDHereon", "Salinity_TBDHereon", "TotalDissolvedPhosphate_mg.L")),]
+veg_1 = veg_1[which(rownames(veg_1) %in% c("TotalDissolvedPhosphate_mg.L", "Salinity_PSU", "Temperature_TBDHereon", "Silicate_mg.L")),]
 plot +
   # geom_text_repel(data = veg_2,
   #                 aes(x = CCA1, y = CCA2, label = veg_2$genus),
@@ -457,58 +547,56 @@ plot +
     aes(x = CCA1, y = CCA2, label = veg_1$env),
     nudge_y = -0.05,
     color = "blue",
-    size = 5
+    size = 3
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+
 ```
-##4. Heavy fraction CCA
-### 4.1. Diversity HF
-```{r CCA diversity HF}
+###3.3 Activity LF
+
+```{r CCA activity FL}
 #reformat viruses
-t_viral_diversity_LF <- t(viral_diversity_LF)
-t_viral_diversity_LF <- as.data.frame(t_viral_diversity_LF)
-ps <- 0.000001
+t_viral_activity_LF <- t(viral_activity_LF)
+t_viral_activity_LF <- as.data.frame(t_viral_activity_LF)
 
-t_viral_diversity_LF <- t_viral_diversity_LF 
-rownames(t_viral_diversity_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_LF))
-rownames(t_viral_diversity_LF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_LF))
+rownames(t_viral_activity_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_activity_LF))
+rownames(t_viral_activity_LF) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_activity_LF))
 
-cca_diversity_LF <- cca(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
-summary(cca_diversity_LF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+cca_activity_LF <- cca(as.matrix(t_viral_activity_LF), as.matrix(metadata_METAT_LF_filled))
+summary(cca_activity_LF) #scalling of the parameters doesnt matter sqrt of activity results makes proportion explained lower
 
 ```
 ```{r}
-cc_diversity_LF <- cancor(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
-cc_diversity_LF$cor
-#why correlation is one???
+plot(cca_activity_LF)
 ```
 ```{r}
-plot(cca_diversity_LF)
-```
-```{r}
-veg_1 = as.data.frame(cca_diversity_LF$CCA$biplot)
+veg_1 = as.data.frame(cca_activity_LF$CCA$biplot)
 veg_1["env"] = row.names(veg_1)
 
-#extracting the data; genusv
-veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
+#extracting the data; genus
+veg_2 = as.data.frame(cca_activity_LF$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
 plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) +
+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot
 ```
 ```{r}
 
-veg_1 = veg_1 = veg_1[which(rownames(veg_1) %in% c("Total_DIN_µM", "O2_TBDHereon","Phosphate_µM", "pH_TBDHereon", "Temperature_TBDHereon")),]
-plot +
-  geom_text_repel(data = veg_2,
-                  aes(x = CCA1, y = CCA2, label = veg_2$genus),
-                  nudge_y = -0.05) +
+veg_1 = veg_1[which(rownames(veg_1) %in% c("TotalDissolvedPhosphate_mg.L", "Salinity_PSU", "Temperature_TBDHereon", "Silicate_mg.L")),]
+LF_vir_activity_plot <- plot +
+  # geom_text_repel(data = veg_2,
+    #              aes(x = CCA1, y = CCA2, label = F),
+    #              nudge_y = -0.05) +
   theme_bw() +
   geom_segment(
     data = veg_1,
@@ -529,6 +617,90 @@ plot +
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+
+tiff("LF_vir_activity_biplot.tiff", unit="px", width = 1000, height = 1000)
+LF_vir_activity_plot
+dev.off()
+```
+##4. Heavy fraction CCA
+### 4.1. Diversity HF
+```{r CCA diversity HF}
+#reformat viruses
+t_viral_diversity_LF <- t(viral_diversity_LF)
+t_viral_diversity_LF <- as.data.frame(t_viral_diversity_LF)
+ps <- 0.000001
+
+t_viral_diversity_LF <- t_viral_diversity_LF 
+rownames(t_viral_diversity_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_LF))
+rownames(t_viral_diversity_LF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_LF))
+
+cca_diversity_LF <- cca(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
+summary(cca_diversity_LF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+
+```
+```{r}
+plot(cca_diversity_LF)
+```
+
+```{r}
+cc_diversity_LF <- cancor(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
+cc_diversity_LF$cor
+#why correlation is one???
+```
+```{r}
+plot(cca_diversity_LF)
+```
+```{r}
+veg_1 = as.data.frame(cca_diversity_LF$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genusv
+veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class), alpha =0.5) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
+#+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "DOC_mg", "Ammonium_mg.L", "dCO2_uM", "Salinity_PSU", "Temperature_TBDHereon", "Silicate_mg.L")),]
+
+HF_vir_diversity_plot <- plot +
+  # geom_text_repel(data = veg_2,
+  #                 aes(x = CCA1, y = CCA2, label = veg_2$genus),
+  #                 nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("HF_vir_diversity_biplot.tiff", unit="px", width = 1000, height = 1000)
+HF_vir_diversity_plot
+dev.off()
 ```
 
 Salinity and temperature looks prominent.
@@ -563,17 +735,15 @@ veg_2["genus"] = row.names(veg_2)
 
 plot = ggplot() +
   geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "red") +
-  geom_point(data =
-               veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+  # geom_point(data =
+  #              veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot
 ```
 
 ```{r}
 
-veg_1 = veg_1[which(rownames(veg_1) %in% c("TotalDissolvedPhosphate_mg.L
-", "Temperature_TBDHereon
-0", "pH_TBDHereon", "Salinity_TBDHereon")),]
+veg_1 = veg_1[which(rownames(veg_1) %in% c("TotalDissolvedPhosphate_mg.L", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU")),]
 plot +
   # geom_text_repel(data = veg_2,
   #                 aes(x = CCA1, y = CCA2, label = veg_2$genus),
@@ -598,4 +768,98 @@ plot +
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
+```
+
+###3.3 Activity HF
+
+```{r CCA activity HF}
+#reformat viruses
+t_viral_activity_HF <- t(viral_activity_HF)
+t_viral_activity_HF <- as.data.frame(t_viral_activity_HF)
+
+rownames(t_viral_activity_HF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_activity_HF))
+rownames(t_viral_activity_HF) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_activity_HF))
+
+cca_activity_HF <- cca(as.matrix(t_viral_activity_HF), as.matrix(metadata_METAT_HF_filled))
+summary(cca_activity_HF) #scalling of the parameters doesnt matter sqrt of activity results makes proportion explained lower
+
+```
+```{r}
+plot(cca_activity_HF)
+```
+
+```{r}
+cc_activity_HF <- cancor(as.matrix(t_viral_activity_HF), as.matrix(metadata_METAT_HF_filled))
+cc_activity_HF$cor
+#why correlation is one???
+```
+```{r}
+veg_1 = as.data.frame(cca_activity_HF$CCA$biplot)
+veg_1["env"] = row.names(veg_1)
+
+#extracting the data; genus
+veg_2 = as.data.frame(cca_activity_HF$CCA$v)
+veg_2["genus"] = row.names(veg_2)
+
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+#rename the column
+colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
+veg_2$class[which(is.na(veg_2$class))] <- "unknown"
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class), alpha=0.5) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
+#+                     geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
+
+plot
+```
+
+```{r}
+
+veg_1 = veg_1[which(rownames(veg_1) %in%  c("TotalDissolvedPhosphate_mg.L", "Silicate_mg.L", "Salinity_PSU", "Temperature_TBDHereon")),]
+HF_vir_activity_plot <- plot +
+  # geom_text_repel(data = veg_2,
+  #                 aes(x = CCA1, y = CCA2, label = veg_2$genus),
+  #                 nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 5
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("HF_vir_activity_biplot.tiff", unit="px", width = 1000, height = 1000)
+HF_vir_activity_plot
+dev.off()
+```
+
+##5. All fractions
+```{r CCA activity HF}
+#reformat viruses
+t_viral_diversity <- t(geneabund_drep_marker)
+t_viral_diversity <- as.data.frame(t_viral_diversity)
+
+rownames(t_viral_diversity) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity))
+rownames(t_viral_diversity) <- gsub("_METAT.genecount.profile", "", rownames(t_viral_diversity))
+metadata$Sample_type <- as.factor(metadata$Sample_type)
+metadata_all <- metadata[, c("Temperature_TBDHereon", "Salinity_PSU")]
+cca_diversity <- cca(as.matrix(t_viral_diversity), as.matrix(metadata_all))
+summary(cca_diversity) #scalling of the parameters doesnt matter sqrt of activity results makes proportion explained lower
+
+```
+```{r}
+plot(cca_diversity)
 ```
