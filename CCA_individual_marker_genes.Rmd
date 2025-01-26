@@ -72,12 +72,14 @@ drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy %>% group_by(pr
   filter(if(any(level_2_percentage  > 0.5,  na.rm = T)) level_2_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>% 
   filter(if(any(level_1_percentage  > 0.5,  na.rm = T)) level_1_percentage > 0.5 else TRUE ) %>% ungroup() %>% select(-c("genome","secondary_cluster","threshold", "cluster_method", "comparison_algorithm", "n_genes_with_taxonomy", "agreement", "taxid")) %>% distinct()
   
-drep_clusters_fin_taxonomy_unified_test <- drep_clusters_fin_taxonomy_unified %>% rowwise() %>% mutate(lineage=case_when(level_7_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5, level_6, level_7), collapse=";"), level_6_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5, level_6), collapse=";"), level_5_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5), collapse=";"), level_4_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4), collapse=";"),  level_3_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3), collapse=";"), level_2_percentage > 0.5 ~ str_c(c(level_1, level_2), collapse=";"),  level_1_percentage > 0.5  ~ level_1)) 
+drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy_unified %>% rowwise() %>% mutate(lineage=case_when(level_7_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5, level_6, level_7), collapse=";"), level_6_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5, level_6), collapse=";"), level_5_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5), collapse=";"), level_4_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4), collapse=";"),  level_3_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3), collapse=";"), level_2_percentage > 0.5 ~ str_c(c(level_1, level_2), collapse=";"),  level_1_percentage > 0.5  ~ level_1))
 
-#looks good
-#unite lineage
+#unite lineage and remove repeating rows
 drep_clusters_fin_taxonomy_unified = drep_clusters_fin_taxonomy_unified %>% 
-  separate("lineage", c("level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7"), sep = ";", remove = FALSE)
+  separate("lineage", c("level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7"), sep = ";", remove = FALSE) %>% select(c("primary_cluster", "level_1", "level_2", "level_3", "level_4", "level_5", "level_6", "level_7", "lineage")) %>% distinct()
+#test if we have one line per cluster
+drep_clusters_fin_taxonomy_unified %>% group_by(primary_cluster) %>% summarise(n=n()) %>% arrange(desc(n))  
+#good
 #add marker genes counts
 geneabund_drep_marker_taxonomy <- left_join(geneabund_drep_marker, drep_clusters_fin_taxonomy_unified, by = "primary_cluster")
 #make a taxonomy boxplot
@@ -137,13 +139,48 @@ drep_clusters_fin_taxonomy_description <-
 #add data to dataframe with primary clusters only to have all calculated taxonomy, 
 drep_clusters_fin_taxonomy_unified <- merge(drep_clusters_fin_taxonomy_unified, distinct(drep_clusters_fin_taxonomy_description[, c("count_genomes", "Salinity_niche", "Fraction_niche", "primary_cluster")]), all.x = T, all.y = F, by="primary_cluster") 
 #ok with prepared table lets do the basic statistics for clster which are bigger then 5 
-drep_clusters_fin_taxonomy_unified$Salinity_niche <- as.factor(drep_clusters_fin_taxonomy_unified$Salinity_niche)
-drep_clusters_fin_taxonomy_unified$Fraction_niche <- as.factor(drep_clusters_fin_taxonomy_unified$Fraction_niche)
+drep_clusters_fin_taxonomy_unified$Salinity_niche <- as.character(drep_clusters_fin_taxonomy_unified$Salinity_niche)
+drep_clusters_fin_taxonomy_unified$Fraction_niche <- as.character(drep_clusters_fin_taxonomy_unified$Fraction_niche)
+#check correlation between salinity and fraction niche  
+corr_spearman <- cor(x=rank(drep_clusters_fin_taxonomy_unified$Salinity_niche), y=rank(drep_clusters_fin_taxonomy_unified$Fraction_niche), method = 'spearman')
+#0.2 weak positive corelation
+#for statistic choose clusters size of more then 4
 drep_clusters_fin_taxonomy_unified %>% filter(count_genomes>4) %>% summary() 
-drep_clusters_fin_taxonomy_unified_stat <- drep_clusters_fin_taxonomy_unified %>% filter(count_genomes>4) %>% summary() 
+drep_clusters_fin_taxonomy_unified_stat <- drep_clusters_fin_taxonomy_unified %>% filter(count_genomes>4)
+drep_clusters_fin_taxonomy_unified %>% filter(count_genomes>4) %>% summary() 
 #do venn diagrams
-#####sth wrong should be one per primary cluster !!! debug 
-drep_clusters_fin_taxonomy_unified %>% group_by(primary_cluster) %>% summarise(n=n()) %>% arrange(desc(n))  
+library(VennDiagram)
+ 
+# Generate 3 sets of 200 words
+#debug
+oligo <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(grepl("oligo", drep_clusters_fin_taxonomy_unified_stat$Salinity_niche))]
+meso <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(grepl("meso", drep_clusters_fin_taxonomy_unified_stat$Salinity_niche))]
+poly <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(grepl("poly", drep_clusters_fin_taxonomy_unified_stat$Salinity_niche))]
+
+ 
+# Chart
+venn.diagram(
+  x = list(oligo, meso, poly),
+  category.names = c("oligohaline" , "mesohaline" , "polyhaline"),
+  filename = 'salinity_venn_diagramm.png',
+  output=TRUE
+)
+#most viral clusters have specificity towards salinity. The least in polyhaline only but these samples has the lowest frequencies. The intersections with mesohaline for both polyhaline and oligohaline has also high values as - mesohaine water are neigbouring for both of these conditions. Interesting there is no intersection for polyhaline and oligohaline water and very few for all three categories what strongly suggest seperate viral saline niches. 
+###for fraction
+# Generate 3 sets of 200 words
+#debug
+Free_living <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(grepl("Free", drep_clusters_fin_taxonomy_unified_stat$Fraction_niche))]
+Light_fraction <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(grepl("Light", drep_clusters_fin_taxonomy_unified_stat$Fraction_niche))]
+Heavy_fraction <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(grepl("Heavy", drep_clusters_fin_taxonomy_unified_stat$Fraction_niche))]
+ 
+# Chart
+venn.diagram(
+  x = list(Free_living, Light_fraction, Heavy_fraction),
+  category.names = c("Free-living" , "Light fraction" , "Heavyfraction"),
+  filename = 'fraction_venn_diagramm.png',
+  output=TRUE
+)
+#In contrary for fractions there is no such specificity. Most clusters are present in all fraction or as a second category in particulate fractions
 
 ```
 ## 2.Read metadata for each fraction and data type
@@ -180,7 +217,7 @@ viral_expression_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BI
 metadata_METAG_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_HF.RDS")
 metadata_METAT_HF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_HF.RDS")
 colnames_HF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_HF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
-colnames_METAG_HF <- colnames_METAG_HF[which(grepl("METAG", colnames_METAG_HF))]
+colnames_METAG_HF <- colnames_HF[which(grepl("METAG", colnames_HF))]
 
 viral_diversity_HF <- geneabund_drep_marker[,colnames_METAG_HF] 
 colnames_METAT_HF <- colnames_HF[which(grepl("METAT", colnames_HF))]
@@ -272,21 +309,21 @@ veg_1["env"] = row.names(veg_1)
 #extracting the data; genusv
 veg_2 = as.data.frame(cca_diversity_FL$CCA$v)
 veg_2["primary_claster"] = row.names(veg_2)
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+drep_clusters_fin_taxonomy_unified$Salinity_niche <- factor(drep_clusters_fin_taxonomy_unified$Salinity_niche, levels = c("oligohaline", "mesohaline;oligohaline", "mesohaline", "mesohaline;polyhaline", "polyhaline", "oligohaline;polyhaline", "mesohaline;oligohaline;polyhaline"))
+
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = class, alpha=0.5)) + geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
-#+  geom_point(data = veg_1, aes(x = CCA1, y = CCA2), colour = "blue")
 
-plot
 ```
 ```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = class), alpha=0.5) + geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
 
 veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU", "Total_DIN_uM")),]
-FL_vir_diversity_plot <- plot +
+FL_vir_diversity_plot_class <- plot +
   #geom_text_repel(data = veg_2,
   #                aes(x = CCA1, y = CCA2, label =),
   #                nudge_y = -0.05) +
@@ -310,8 +347,75 @@ FL_vir_diversity_plot <- plot +
   ) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18))
-tiff("FL_vir_diversity_biplot.tiff", unit="px", width = 1000, height = 1000)
-FL_vir_diversity_plot
+tiff("FL_vir_diversity_plot_class_biplot.tiff", unit="px", width = 1000, height = 1000)
+FL_vir_diversity_plot_class
+dev.off()
+```
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Salinity_niche), alpha=1)  + scale_color_manual(values=c(brewer.pal(n = 5, name = "Blues"), "yellow", "purple"))
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU", "Total_DIN_uM")),]
+FL_vir_diversity_plot_salinity <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("FL_vir_diversity_salinity_biplot.tiff", unit="px", width = 1000, height = 1000)
+FL_vir_diversity_plot_salinity
+dev.off()
+```
+
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Fraction_niche), alpha=1)  
+
+veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU", "Total_DIN_uM")),]
+FL_vir_diversity_plot_fraction <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("FL_vir_diversity_fraction_biplot.tiff", unit="px", width = 1000, height = 1000)
+FL_vir_diversity_plot_fraction
 dev.off()
 ```
 
@@ -344,7 +448,7 @@ veg_1["env"] = row.names(veg_1)
 veg_2 = as.data.frame(cca_expression_FL$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
@@ -410,20 +514,19 @@ veg_1["env"] = row.names(veg_1)
 veg_2 = as.data.frame(cca_activity_FL$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
-  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) +
-                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
-plot
 ```
 ```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class))
 
+plot
 veg_1 = veg_1[which(rownames(veg_1) %in%  c("TotalDissolvedPhosphate_mg.L", "pH_TBDHereon", "Salinity_PSU", "Temperature_TBDHereon", "Turbidity_NTU")),]
 FL_vir_activity_plot <- plot +
   # geom_text_repel(data = veg_2,
@@ -452,6 +555,39 @@ FL_vir_activity_plot <- plot +
 
 tiff("FL_vir_activity_biplot.tiff", unit="px", width = 1000, height = 1000)
 FL_vir_activity_plot
+dev.off()
+```
+
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Salinity_niche), alpha=1)  + scale_color_manual(values=c(brewer.pal(n = 5, name = "Blues"), "yellow", "purple"))
+
+FL_vir_activity_plot_salinity <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("FL_vir_activity_salinity_biplot.tiff", unit="px", width = 1000, height = 1000)
+FL_vir_activity_plot_salinity
 dev.off()
 ```
 ## 3. Light fraction CCA
@@ -485,21 +621,21 @@ veg_1["env"] = row.names(veg_1)
 #extracting the data; genusv
 veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
 veg_2["genus"] = row.names(veg_2)
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
+
+```
+```{r}
+#veg_1 = veg_1[which(!rownames(veg_1) %in% c("Sat_O2_Perc", "O2_uM", "Nitrite_uM", "dCH4_uM", "SPM_mgperL")),]
 plot = ggplot() +
   geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
   geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
 #+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
 plot
-```
-```{r}
-#veg_1 = veg_1[which(!rownames(veg_1) %in% c("Sat_O2_Perc", "O2_uM", "Nitrite_uM", "dCH4_uM", "SPM_mgperL")),]
-
 veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "pH_TBDHereon", "Salinity_PSU", "Sat_O2_Perc", "Temperature_TBDHereon", "Turbidity_NTU")),]
 
 
@@ -531,7 +667,38 @@ dev.off()
 ```
 
 Salinity and temperature looks prominent.
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Salinity_niche), alpha=1)  + scale_color_manual(values=c(brewer.pal(n = 5, name = "Blues"), "yellow", "purple"))
 
+LF_vir_diversity_plot_salinity <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("LF_vir_diversity_salinity_biplot.tiff", unit="px", width = 1000, height = 1000)
+LF_vir_diversity_plot_salinity
+dev.off()
+```
 ###2.2 Expression LF
 
 ```{r CCA expression LF}
@@ -622,19 +789,17 @@ veg_1["env"] = row.names(veg_1)
 veg_2 = as.data.frame(cca_activity_LF$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
-  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) +
-                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
 
-plot
 ```
 ```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class)) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class))
 
 veg_1 = veg_1[which(rownames(veg_1) %in% c("TotalDissolvedPhosphate_mg.L", "Salinity_PSU", "Temperature_TBDHereon", "Silicate_mg.L")),]
 LF_vir_activity_plot <- plot +
@@ -666,55 +831,86 @@ tiff("LF_vir_activity_biplot.tiff", unit="px", width = 1000, height = 1000)
 LF_vir_activity_plot
 dev.off()
 ```
+
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Salinity_niche), alpha=1)  + scale_color_manual(values=c(brewer.pal(n = 5, name = "Blues"), "yellow", "purple"))
+
+LF_vir_activity_plot_salinity <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("LF_vir_activity_salinity_biplot.tiff", unit="px", width = 1000, height = 1000)
+LF_vir_activity_plot_salinity
+dev.off()
+```
 ##4. Heavy fraction CCA
 ### 4.1. Diversity HF
 ```{r CCA diversity HF}
 #reformat viruses
-t_viral_diversity_LF <- t(viral_diversity_LF)
-t_viral_diversity_LF <- as.data.frame(t_viral_diversity_LF)
+t_viral_diversity_HF <- t(viral_diversity_HF)
+t_viral_diversity_HF <- as.data.frame(t_viral_diversity_HF)
 ps <- 0.000001
 
-t_viral_diversity_LF <- t_viral_diversity_LF 
-rownames(t_viral_diversity_LF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_LF))
-rownames(t_viral_diversity_LF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_LF))
+t_viral_diversity_HF <- t_viral_diversity_HF 
+rownames(t_viral_diversity_HF) <- gsub("GROS22.(1|2)_", "", rownames(t_viral_diversity_HF))
+rownames(t_viral_diversity_HF) <- gsub("_METAG.genecount.profile", "", rownames(t_viral_diversity_HF))
 
-cca_diversity_LF <- cca(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
-summary(cca_diversity_LF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
+cca_diversity_HF <- cca(as.matrix(t_viral_diversity_HF), as.matrix(metadata_METAG_HF_filled))
+summary(cca_diversity_HF) #scalling of the parameters doesnt matter sqrt of diversity results makes proportion explained lower
 
 ```
 ```{r}
-plot(cca_diversity_LF)
+plot(cca_diversity_HF)
 ```
 
 ```{r}
-cc_diversity_LF <- cancor(as.matrix(t_viral_diversity_LF), as.matrix(metadata_METAG_LF_filled))
-cc_diversity_LF$cor
+cc_diversity_HF <- cancor(as.matrix(t_viral_diversity_HF), as.matrix(metadata_METAG_HF_filled))
+cc_diversity_HF$cor
 #why correlation is one???
 ```
 ```{r}
-plot(cca_diversity_LF)
+plot(cca_diversity_HF)
 ```
 ```{r}
-veg_1 = as.data.frame(cca_diversity_LF$CCA$biplot)
+veg_1 = as.data.frame(cca_diversity_HF$CCA$biplot)
 veg_1["env"] = row.names(veg_1)
 
 #extracting the data; genusv
-veg_2 = as.data.frame(cca_diversity_LF$CCA$v)
+veg_2 = as.data.frame(cca_diversity_HF$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
+
+```
+```{r}
 plot = ggplot() +
   geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class), alpha =0.5) + 
   geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
-#+                      geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
-
-plot
-```
-```{r}
 
 veg_1 = veg_1[which(rownames(veg_1) %in% c("Phosphate_uM", "Nitrate_uM", "DOC_mg", "Ammonium_mg.L", "dCO2_uM", "Salinity_PSU", "Temperature_TBDHereon", "Silicate_mg.L")),]
 
@@ -746,7 +942,38 @@ tiff("HF_vir_diversity_biplot.tiff", unit="px", width = 1000, height = 1000)
 HF_vir_diversity_plot
 dev.off()
 ```
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Salinity_niche), alpha=1)  + scale_color_manual(values=c(brewer.pal(n = 5, name = "Blues"), "yellow", "purple"))
 
+HF_vir_diversity_plot_salinity <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("HF_vir_diversity_salinity_biplot.tiff", unit="px", width = 1000, height = 1000)
+HF_vir_diversity_plot_salinity
+dev.off()
+```
 Salinity and temperature looks prominent.
 
 ###2.2 Expression HF
@@ -845,20 +1072,18 @@ veg_1["env"] = row.names(veg_1)
 veg_2 = as.data.frame(cca_activity_HF$CCA$v)
 veg_2["genus"] = row.names(veg_2)
 
-veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5")], by.x = "row.names", by.y = "primary_cluster")
+veg_2 <- merge(veg_2, drep_clusters_fin_taxonomy_unified[, c("primary_cluster", "level_5", "Salinity_niche", "Fraction_niche")], by.x = "row.names", by.y = "primary_cluster")
 #rename the column
 colnames(veg_2)[which(colnames(veg_2)=="level_5")] <- "class"
 veg_2$class[which(is.na(veg_2$class))] <- "unknown"
 
-plot = ggplot() +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class), alpha=0.5) + 
-  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
-#+                     geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "blue")
-
-plot
 ```
 
 ```{r}
+
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, color = class), alpha=0.5) + 
+  geom_mark_ellipse(data = veg_2, aes(x = CCA1, y = CCA2, color=class)) 
 
 veg_1 = veg_1[which(rownames(veg_1) %in%  c("TotalDissolvedPhosphate_mg.L", "Silicate_mg.L", "Salinity_PSU", "Temperature_TBDHereon")),]
 HF_vir_activity_plot <- plot +
@@ -887,6 +1112,38 @@ HF_vir_activity_plot <- plot +
         axis.title = element_text(size = 18))
 tiff("HF_vir_activity_biplot.tiff", unit="px", width = 1000, height = 1000)
 HF_vir_activity_plot
+dev.off()
+```
+```{r}
+plot = ggplot() +
+  geom_point(data = veg_2, aes(x = CCA1, y = CCA2, colour = Salinity_niche), alpha=1)  + scale_color_manual(values=c(brewer.pal(n = 5, name = "Blues"), "yellow", "purple"))
+
+HF_vir_activity_plot_salinity <- plot +
+  #geom_text_repel(data = veg_2,
+  #                aes(x = CCA1, y = CCA2, label =),
+  #                nudge_y = -0.05) +
+  theme_bw() +
+  geom_segment(
+    data = veg_1,
+    aes(
+      x = 0,
+      y = 0,
+      xend = CCA1,
+      yend = CCA2
+    ),
+    arrow = arrow(length = unit(0.25, "cm")), size=1
+  ) +
+  geom_text_repel(
+    data = veg_1,
+    aes(x = CCA1, y = CCA2, label = veg_1$env),
+    nudge_y = -0.05,
+    color = "blue",
+    size = 3
+  ) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18))
+tiff("HF_vir_activity_salinity_biplot.tiff", unit="px", width = 1000, height = 1000)
+HF_vir_activity_plot_salinity
 dev.off()
 ```
 
