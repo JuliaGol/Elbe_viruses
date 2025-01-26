@@ -21,11 +21,12 @@ library(ggrepel)
 library(dplyr)
 library(tidyverse)
 library(ggforce)
+library(stringr)
 ```
 
 ## Viral diversity 
 
-##1. Read data and metadata for each fraction and data type
+##1. Read taxonomy data and unify within clusters 
 
 
 ```{r , echo=FALSE}
@@ -63,17 +64,20 @@ drep_clusters_fin_taxonomy <- drep_clusters %>%  add_count(primary_cluster, leve
   add_count(primary_cluster, level_1, wt = !is.na(level_1), name = "level_1_percentage") %>% mutate(level_2_percentage = level_2_percentage/level_1_percentage, level_3_percentage = level_3_percentage/level_1_percentage, level_4_percentage = level_4_percentage/level_1_percentage, level_5_percentage = level_5_percentage/level_1_percentage, level_6_percentage = level_6_percentage/level_1_percentage, level_7_percentage = level_7_percentage/level_1_percentage, level_1_percentage = level_1_percentage/level_1_percentage)  
 #unify taxon according to pseudocode above
 drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy %>% group_by(primary_cluster) %>%
-  filter(if(any(level_7_percentage  > 0.5,  na.rm = T)) level_7_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_7_percentage  > 0.5,  na.rm = T)) level_7_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>% 
   filter(if(any(level_6_percentage  > 0.5,  na.rm = T)) level_6_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
   filter(if(any(level_5_percentage  > 0.5,  na.rm = T)) level_5_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
   filter(if(any(level_4_percentage  > 0.5,  na.rm = T)) level_4_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
   filter(if(any(level_3_percentage  > 0.5,  na.rm = T)) level_3_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
-  filter(if(any(level_2_percentage  > 0.5,  na.rm = T)) level_2_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>%
+  filter(if(any(level_2_percentage  > 0.5,  na.rm = T)) level_2_percentage > 0.5 else TRUE ) %>% ungroup() %>% group_by(primary_cluster) %>% 
   filter(if(any(level_1_percentage  > 0.5,  na.rm = T)) level_1_percentage > 0.5 else TRUE ) %>% ungroup() %>% select(-c("genome","secondary_cluster","threshold", "cluster_method", "comparison_algorithm", "n_genes_with_taxonomy", "agreement", "taxid")) %>% distinct()
+  
+drep_clusters_fin_taxonomy_unified_test <- drep_clusters_fin_taxonomy_unified %>% rowwise() %>% mutate(lineage=case_when(level_7_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5, level_6, level_7), collapse=";"), level_6_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5, level_6), collapse=";"), level_5_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4, level_5), collapse=";"), level_4_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3, level_4), collapse=";"),  level_3_percentage > 0.5 ~ str_c(c(level_1, level_2, level_3), collapse=";"), level_2_percentage > 0.5 ~ str_c(c(level_1, level_2), collapse=";"),  level_1_percentage > 0.5  ~ level_1)) 
+
 #looks good
 #unite lineage
 drep_clusters_fin_taxonomy_unified = drep_clusters_fin_taxonomy_unified %>% 
-  unite("lineage", c("level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7"), sep = ";", remove = FALSE)
+  separate("lineage", c("level_1", "level_2", "level_3", "level_4", "level_5",  "level_6", "level_7"), sep = ";", remove = FALSE)
 #add marker genes counts
 geneabund_drep_marker_taxonomy <- left_join(geneabund_drep_marker, drep_clusters_fin_taxonomy_unified, by = "primary_cluster")
 #make a taxonomy boxplot
@@ -85,7 +89,7 @@ metadata$Station <- factor(metadata$Station, levels = c("BunthausSpitze", "Muhle
 #sum by lineage and add metadata - but first make it long format 
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy %>% pivot_longer(cols = starts_with("GROS"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% group_by(lineage, sampleid, level_5) %>% summarise(counts=sum(counts)) %>% ungroup() %>% group_by(lineage, sampleid, level_5) %>% summarise(counts=sum(counts), level_5) %>% left_join(metadata) 
 #add poly- meso- oligo - haline labels
-geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>%  mutate(Salinity_level = case_when(Salinity_PSU <= 5  ~ 'oligohaline', Salinity_PSU > 5 & Salinity_PSU <= 18  ~ 'measohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% mutate(Salinity_level = case_when(Salinity_PSU <= 5  ~ 'oligohaline', Salinity_PSU > 5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
 #remove stations  - counts without metadata 
 #think about finding metadata for them 
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% filter(!is.na(Station))
@@ -103,6 +107,47 @@ dev.off()
 tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
 ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level, scales= "free") + ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + guides(fill=guide_legend(title="Viral class")) 
 dev.off()
+```
+## 3. Characterise clusters by salinity preferences and fractions
+
+
+```{r}
+drep_clusters_fin_taxonomy <- drep_clusters_fin_taxonomy %>% mutate(AccessionNumber_TBDSven = str_extract(genome, "SAMEA[0-9]+"))
+drep_clusters_fin_taxonomy_description <- merge(drep_clusters_fin_taxonomy, distinct(geneabund_drep_marker_taxonomy_long[, c("AccessionNumber_TBDSven", "Sample_type", "Salinity_level")]), all.x = T, all.y = F, by="AccessionNumber_TBDSven") 
+find_niche <-function(x, threshold){
+  #calculate rel frequencies
+  tab = prop.table(table(x))
+  #check id=f there are values >= 0.8
+  #then take this value
+  if(any(tab>=threshold)){
+    names(tab[which(tab>=threshold)])
+  }
+  #else concatinate values which are higher the 0.2
+  else {
+    paste0(names(tab[which(tab>= 0.2)]), collapse = ";")
+  }}
+#statistics for each cluster
+drep_clusters_fin_taxonomy_description <- 
+  drep_clusters_fin_taxonomy_description %>% 
+  add_count(primary_cluster,  name = "count_genomes", wt = !is.na(genome)) %>% ungroup() %>% 
+  add_count(primary_cluster, Salinity_level,  name = "percentage_salinity", wt = !is.na(Salinity_level)) %>% ungroup() %>%
+  mutate(percentage_salinity = (percentage_salinity/count_genomes)*100) %>% ungroup() %>% 
+  add_count(primary_cluster, Sample_type,  name = "percentage_fraction", wt = !is.na(Sample_type)) %>% ungroup()  %>% 
+  mutate(percentage_fraction = (percentage_fraction/count_genomes)*100) %>% ungroup() %>% group_by(primary_cluster) %>% mutate(Salinity_niche= find_niche(Salinity_level, 0.8), Fraction_niche= find_niche(Sample_type, 0.8)) %>% ungroup()
+#add data to dataframe with primary clusters only to have all calculated taxonomy, 
+drep_clusters_fin_taxonomy_unified <- merge(drep_clusters_fin_taxonomy_unified, distinct(drep_clusters_fin_taxonomy_description[, c("count_genomes", "Salinity_niche", "Fraction_niche", "primary_cluster")]), all.x = T, all.y = F, by="primary_cluster") 
+#ok with prepared table lets do the basic statistics for clster which are bigger then 5 
+drep_clusters_fin_taxonomy_unified$Salinity_niche <- as.factor(drep_clusters_fin_taxonomy_unified$Salinity_niche)
+drep_clusters_fin_taxonomy_unified$Fraction_niche <- as.factor(drep_clusters_fin_taxonomy_unified$Fraction_niche)
+drep_clusters_fin_taxonomy_unified %>% filter(count_genomes>4) %>% summary() 
+drep_clusters_fin_taxonomy_unified_stat <- drep_clusters_fin_taxonomy_unified %>% filter(count_genomes>4) %>% summary() 
+#do venn diagrams
+#####sth wrong should be one per primary cluster !!! debug 
+drep_clusters_fin_taxonomy_unified %>% group_by(primary_cluster) %>% summarise(n=n()) %>% arrange(desc(n))  
+
+```
+## 2.Read metadata for each fraction and data type
+```{r}
 #no as much differences in taxonomy as expected - taking into account PCA of genomic potential viral diversity -
 #but there are things to corre -NA  from metadata and different colours for level 3/4 
 #FL
@@ -122,7 +167,6 @@ colnames_METAT_FL <- colnames_FL[grep("METAT", colnames_FL)]
 viral_activity_FL <- geneabund_drep_marker[,colnames_METAT_FL] 
 #LF
 
-viral_activity_HF = readRDS( file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/viral_activity_HF.RDS")
 metadata_METAG_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAG_LF.RDS")
 metadata_METAT_LF = readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/metadata_METAT_LF.RDS")
 colnames_LF <- colnames(geneabund_drep_marker)[which(grepl(paste(metadata_METAG_LF$AccessionNumber_TBDSven, collapse="|"), colnames(geneabund_drep_marker)))]
