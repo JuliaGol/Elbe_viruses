@@ -22,6 +22,9 @@ library(dplyr)
 library(tidyverse)
 library(ggforce)
 library(stringr)
+library(RColorBrewer)
+
+setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene")
 ```
 
 ## Viral diversity 
@@ -89,7 +92,9 @@ metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod3.csv"), header=
 metadata$Station <- factor(metadata$Station, levels = c("BunthausSpitze", "Muhlenberger Loch","Twielenfleth", "Schwarztonnensand", "Brunsbuttel","Meedem Grund"))
 
 #sum by lineage and add metadata - but first make it long format 
-geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy %>% pivot_longer(cols = starts_with("GROS"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% group_by(lineage, sampleid, level_5) %>% summarise(counts=sum(counts)) %>% ungroup() %>% group_by(lineage, sampleid, level_5) %>% summarise(counts=sum(counts), level_5) %>% left_join(metadata) 
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy %>% pivot_longer(cols = starts_with("GROS"), names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% group_by(lineage, sampleid, level_5, primary_cluster) %>% summarise(counts=sum(counts)) %>% filter(counts>0) %>% left_join(metadata)
+# %>% group_by(sampleid, level_5) %>% summarise(counts=sum(counts), level_5, primary_cluster) 
+# %>% ungroup() %>% group_by(lineage, sampleid, level_5, primary_cluster) %>% summarise(counts=sum(counts)) 
 #add poly- meso- oligo - haline labels
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% mutate(Salinity_level = case_when(Salinity_PSU <= 5  ~ 'oligohaline', Salinity_PSU > 5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
 #remove stations  - counts without metadata 
@@ -106,8 +111,11 @@ dev.off()
  tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
 ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions")+ ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=12)) + guides(fill=guide_legend(title="Viral class")) 
 dev.off()
+
+viruses_taxonomy_salinity <- ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level, scales= "free") + ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.text.x=element_blank()) + guides(fill=guide_legend(title="Viral class")) + scale_x_discrete(labels = NULL, breaks = NULL) 
+
 tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
-ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level, scales= "free") + ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + guides(fill=guide_legend(title="Viral class")) 
+viruses_taxonomy_salinity
 dev.off()
 ```
 ## 3. Characterise clusters by salinity preferences and fractions
@@ -182,6 +190,20 @@ venn.diagram(
 )
 #In contrary for fractions there is no such specificity. Most clusters are present in all fraction or as a second category in particulate fractions
 
+```
+```{r}
+#add niche description
+#and do plots
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% merge(drep_clusters_fin_taxonomy_description[,c("primary_cluster", "Salinity_niche", "Fraction_niche")], all.x=T, by="primary_cluster")
+Salinity_niche_taxa_plot <- ggplot(na.omit(geneabund_drep_marker_taxonomy_long[, c("sampleid", "counts", "level_5", "data_type", "Salinity_niche")])) + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = level_5)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace across different salinity niches") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + guides(fill=guide_legend(title="Viral class"))
+tiff("Salinity_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
+Salinity_niche_taxa_plot
+dev.off()
+#facet_wrap(~data_type *Salinity_niche, scales="free")
+Fraction_niche_taxa_plot <- ggplot(na.omit(geneabund_drep_marker_taxonomy_long[, c("sampleid", "counts", "level_5", "data_type", "Fraction_niche")])) + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = level_5)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_x_discrete(labels = NULL, breaks = NULL) + scale_y_continuous(labels=scales::percent_format())  + ggtitle("Relative abundace across different fraction niches") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + guides(fill=guide_legend(title="Viral class")) 
+tiff("Fraction_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
+Fraction_niche_taxa_plot
+dev.off()
 ```
 ## 2.Read metadata for each fraction and data type
 ```{r}
