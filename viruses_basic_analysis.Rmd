@@ -179,5 +179,120 @@ length(unique(drep_clusters$secondary_cluster)) - nrow(drep_sec_clusters_hosts_s
 #viruses associted with fraction
 #viruses vs env param
 ```
+## 3. Metabolism an pathways analysis
+```{r plot metabolism}
+#Prepare data
+pathways <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_AMG_pathways_Combined_viruses.tsv", sep='\t')
+geneabund <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog/BICEST_cellabund.tsv", sep="\t", skip=1, header = TRUE, row.names = 1)
 
+# geneabund$gene_cluster <- rownames(geneabund)
+colnames(vir_genecluster_annot)[1] <- "genome"
+#merge with pathways to include mtabolism information related to gene
+vir_genecluster_annot <- vir_genecluster_annot[, c("genome", "KO", "DESCRIPTION", "gene_cluster")] %>% merge(pathways, by.x="KO", by.y="Present.AMG.KOs") # find more pathways 
+#add drep clusters 
+#but first unify genome names
+vir_genecluster_annot <- vir_genecluster_annot %>% 
+  mutate(genome=str_remove(genome, "_[0-9]+$"))
+vibrant_genecluster_drep = merge(drep_clusters, vir_genecluster_annot, by="genome", all.y = T)  %>%
+  select(genome, gene_cluster, KO, primary_cluster, secondary_cluster, DESCRIPTION, Metabolism, Pathway)
+# add gene abundance for plotting
+# 
+vibrant_genecluster_drep_abund <- merge(vibrant_genecluster_drep, geneabund, by.x="gene_cluster", by.y=0, all.x = T)
+#saveRDS(vibrant_genecluster_drep_abund, file ="vibrant_genecluster_drep_abund.RDS")
+#change to long format for convenient analysis with metadata
+#merge metadata so we are not analysis genomes without metadata
+vibrant_genecluster_drep_abund <- vibrant_genecluster_drep_abund %>% pivot_longer(!colnames(vibrant_genecluster_drep_abund)[1:9], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% merge(metadata, by="sampleid")
+saveRDS(vibrant_genecluster_drep_abund, file ="vibrant_genecluster_drep_abund.RDS")
 
+```
+
+```{r}
+#visualisations
+#fractions
+pathways_fractions_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_type)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_type, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) +xlab("")
+tiff("Pathways_fractions_plot.tiff", unit="px", width = 1000, height = 1000)
+pathways_fractions_plot
+dev.off()
+
+#fractions metabolsim
+metabolism_fractions_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_type)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_type, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) +xlab("")
+#hard to interpret - big variablity - probably fraction is not the most important factor
+#differences between fl and PA for pathways for metabolism in metag quite similar but for both inmetat quite the difference even between heavy and light fraction
+tiff("Metabolism_fractions_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_fractions_plot
+dev.off()
+#sampling date
+
+pathways_date_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12))
+tiff("Pathways_date_plot.tiff", unit="px", width = 1000, height = 1000)
+pathways_date_plot
+dev.off()
+
+#fractions metabolism
+metabolism_date_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = round(vibrant_genecluster_drep_abund$Stromkilometer,0)) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.text.x = element_text(angle = 90, hjust = 1)) #hard to interpret - big variablity - check stations more variability in metat 
+tiff("metabolism_date_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_date_plot
+dev.off()
+#lets check stations 
+metabolism_Station_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km")
+
+tiff("metabolism_station_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_Station_plot
+dev.off()
+#nice!
+palette <- c(
+  "dodgerblue2", "#E31A1C", # red
+  "green4",
+  "#6A3D9A", # purple
+  "#FF7F00", # orange
+  "black", "gold1",
+  "skyblue2", "#FB9A99", # lt pink
+  "palegreen2",
+  "#CAB2D6", # lt purple
+  "#FDBF6F", # lt orange
+  "gray70", "khaki2",
+  "maroon", "orchid1", "deeppink1", "blue1", "steelblue4",
+  "darkturquoise", "green1", "yellow4", "yellow3",
+  "darkorange4", "brown", "dodgerblue2"
+)
+pathway_Station_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Sample_date, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+tiff("pathway_station_plot.tiff", unit="px", width = 1000, height = 1000)
+pathway_Station_plot
+dev.off()
+
+```
+```{r}
+#check if viruses of different niches have different functions - exhibit different pathways 
+drep_clusters_fin_taxonomy_unified <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/drep_clusters_fin_taxonomy_unified.RDS")
+#keep only clusters with salinity data - some scaffolds form cruises without salinity
+drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy_unified %>% filter(!is.na(Salinity_niche))
+vibrant_genecluster_drep_abund_niche <- merge(vibrant_genecluster_drep_abund, drep_clusters_fin_taxonomy_unified, by="primary_cluster")
+salinity_niche_pathways_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Pathway)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+#weird - very different specialize functions ... many NA for alinity niche - correct it 
+tiff("salinity_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000)
+salinity_niche_pathways_plot
+dev.off()
+
+salinity_niche_Metabolism_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+tiff("salinity_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
+salinity_niche_Metabolism_plot
+dev.off()
+#fraction niche
+
+Fraction_niche_pathways_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Fraction_niche, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, Stromkilometer), y=counts, fill = Pathway)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+Fraction_niche_pathways_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Fraction_niche, y=counts, fill = Pathway)) + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+#weird - very different specialize functions ... many NA for alinity niche - correct it 
+tiff("Fraction_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000)
+Fraction_niche_pathways_plot
+dev.off()
+
+Fraction_niche_Metabolism_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Fraction_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+tiff("Fraction_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
+Fraction_niche_Metabolism_plot
+dev.off()
+
+```
