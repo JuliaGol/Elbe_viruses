@@ -102,6 +102,7 @@ geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% m
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% filter(!is.na(Station))
 #change NA to unknown label for plotting
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% mutate(level_5 = replace_na(level_5, "unknown"))
+saveRDS(geneabund_drep_marker_taxonomy_long, file ="geneabund_drep_marker_taxonomy_long.RDS")
 #box plot
 #simplified lineages for plotting
 
@@ -1186,3 +1187,62 @@ summary(cca_diversity) #scalling of the parameters doesnt matter sqrt of activit
 ```{r}
 plot(cca_diversity)
 ```
+
+##6. Build model
+
+We will try to use viral abundance data based on individual marker genes 
+```{r}
+library(glmnet)
+#divide dataset by test and train
+#try METAG first
+#we have to transform data so we have counts of each primary cluster in separate column and each row is a different samples with a parameter
+
+geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% pivot_wider(names_from=primary_cluster, values_from=counts, names_prefix="cluster_", values_fill=0) %>% distinct()
+geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG" & Sample_type !="Free_living")
+geneabund_drep_marker_taxonomy_wide_METAT <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAT")
+#draw randomly train and test set 80:20
+set.seed(123)
+p <- nrow(geneabund_drep_marker_taxonomy_wide_METAG)
+train_rows <- sample(size=p*0.8, 1:p)
+geneabund_drep_marker_taxonomy_wide_METAG_train <- geneabund_drep_marker_taxonomy_wide_METAG[train_rows,]
+geneabund_drep_marker_taxonomy_wide_METAG_train_x <- geneabund_drep_marker_taxonomy_wide_METAG_train %>% ungroup() %>% select(starts_with("cluster"))
+geneabund_drep_marker_taxonomy_wide_METAG_test <- geneabund_drep_marker_taxonomy_wide_METAG[-train_rows,]
+geneabund_drep_marker_taxonomy_wide_METAG_test_x <- geneabund_drep_marker_taxonomy_wide_METAG_test %>% ungroup() %>% select(starts_with("cluster"))
+y_train <- geneabund_drep_marker_taxonomy_wide_METAG_train$Salinity_PSU 
+y_test <- geneabund_drep_marker_taxonomy_wide_METAG_test$Salinity_PSU 
+
+models <- list()
+#train for different alpha values
+for (i in 0:20) {
+  name <- paste0("alpha", i/20)
+  
+
+  models[[name]] <- cv.glmnet(as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_train_x), y_train, type.measure="mae", alpha=i/20)
+}
+
+
+#test models
+results <- data.frame()
+for (i in 0:20) {
+  name <- paste0("alpha", i/20)
+  
+  ## Use each model to predict 'y' given the Testing dataset
+  predicted <- predict(models[[name]], 
+                       s=models[[name]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+  
+  ## Calculate the Mean Squared Error...
+  mse <- mean((y_test - predicted)^2)
+  mae <- mean((y_test - predicted))
+  ## Store the results
+  temp <- data.frame(alpha=i/20, mse=mse, name=name, mae =mae)
+  results <- rbind(results, temp)
+}
+```
+```{r}
+
+predicted_y <- predict(models[["alpha0.7"]], s=models[["alpha0.7"]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+plot(y_test, predicted_y)
+#looks like two groups - 
+#try to find wich samples have the biggest mae ~ 7 - check if they have sth in common
+```
+## 7. Viral diversity indexes - shanon simpson, richness based on occurence and niches
