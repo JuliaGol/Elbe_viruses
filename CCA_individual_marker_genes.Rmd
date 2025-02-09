@@ -1196,9 +1196,16 @@ library(glmnet)
 #divide dataset by test and train
 #try METAG first
 #we have to transform data so we have counts of each primary cluster in separate column and each row is a different samples with a parameter
+geneabund_drep_marker_taxonomy_long <- readRDS(file="geneabund_drep_marker_taxonomy_long.RDS")
+#remove taxonomy distribution so we dont we multiple separe vectors for the same sample but one which represents community
+geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% ungroup() %>% select(-c("lineage", "level_5"))  %>%  pivot_wider(names_from=primary_cluster, values_from=counts, values_fill = 0, names_prefix="cluster_") %>% distinct()
+geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG") 
+                                                                                            
+#keep rows where we have collected param
+param ="Phosphate_uM"
+#param= "DOC_mg.L"
+geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide_METAG %>% filter(!is.na(Salinity_PSU))
 
-geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% pivot_wider(names_from=primary_cluster, values_from=counts, names_prefix="cluster_", values_fill=0) %>% distinct()
-geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG" & Sample_type !="Free_living")
 geneabund_drep_marker_taxonomy_wide_METAT <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAT")
 #draw randomly train and test set 80:20
 set.seed(123)
@@ -1210,6 +1217,129 @@ geneabund_drep_marker_taxonomy_wide_METAG_test <- geneabund_drep_marker_taxonomy
 geneabund_drep_marker_taxonomy_wide_METAG_test_x <- geneabund_drep_marker_taxonomy_wide_METAG_test %>% ungroup() %>% select(starts_with("cluster"))
 y_train <- geneabund_drep_marker_taxonomy_wide_METAG_train$Salinity_PSU 
 y_test <- geneabund_drep_marker_taxonomy_wide_METAG_test$Salinity_PSU 
+# #try the same for phosphate 
+# y_train <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_train$Phosphate_uM) 
+# y_test <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_test$Phosphate_uM)
+
+models <- list()
+#train for different alpha values
+for (i in 0:20) {
+  name <- paste0("alpha", i/20)
+  
+
+  models[[name]] <- cv.glmnet(as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_train_x), y_train, alpha=i/20)
+  
+}
+
+
+#test models
+results <- data.frame()
+for (i in 0:20) {
+  name <- paste0("alpha", i/20)
+  
+  ## Use each model to predict 'y' given the Testing dataset
+  predicted <- predict(models[[name]], 
+                       s=models[[name]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+  
+  ## Calculate the Mean Squared Error...
+  mse <- mean((y_test - predicted)^2)
+  mae <- mean((y_test - predicted))
+  #add pseudo counts so no inf values
+  #y_test= y_test + 0.001
+  mape <- mean(abs((y_test - predicted)/(y_test)))*100
+  ## Store the results
+  rsq <- 1-models[[name]]$cvm/var(y_test)
+  temp <- data.frame(alpha=i/20, mse = mse,  mae = mae, mape = mape, rsq=rsq)
+  results <- rbind(results, temp)
+}
+```
+```{r}
+
+predicted_y <- predict(models[["alpha0.25"]], s=models[["alpha0.25"]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+plot(y_test, predicted_y, ylim=c(0,20))
+linear_model<-lm(y_test ~ predicted_y)
+R2<-summary(linear_model)$r.squared
+abline(a=0, b=1, col ="black")
+#looks like two groups - 
+#try to find wich samples have the biggest mae ~ 7 - check if they have sth in common
+```
+We will try to use viral abundance data based on individual marker genes 
+```{r}
+
+geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide_METAG %>% filter(!is.na(Phosphate_uM))
+
+geneabund_drep_marker_taxonomy_wide_METAT <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAT")
+#draw randomly train and test set 80:20
+set.seed(123)
+p <- nrow(geneabund_drep_marker_taxonomy_wide_METAG)
+train_rows <- sample(size=p*0.8, 1:p)
+geneabund_drep_marker_taxonomy_wide_METAG_train <- geneabund_drep_marker_taxonomy_wide_METAG[train_rows,]
+geneabund_drep_marker_taxonomy_wide_METAG_train_x <- geneabund_drep_marker_taxonomy_wide_METAG_train %>% ungroup() %>% select(starts_with("cluster"))
+geneabund_drep_marker_taxonomy_wide_METAG_test <- geneabund_drep_marker_taxonomy_wide_METAG[-train_rows,]
+geneabund_drep_marker_taxonomy_wide_METAG_test_x <- geneabund_drep_marker_taxonomy_wide_METAG_test %>% ungroup() %>% select(starts_with("cluster"))
+y_train <- geneabund_drep_marker_taxonomy_wide_METAG_train$Salinity_PSU 
+y_test <- geneabund_drep_marker_taxonomy_wide_METAG_test$Salinity_PSU 
+# #try the same for phosphate 
+y_train <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_train$Phosphate_uM)
+y_test <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_test$Phosphate_uM)
+
+models <- list()
+#train for different alpha values
+for (i in 0:20) {
+  name <- paste0("alpha", i/20)
+  
+
+  models[[name]] <- cv.glmnet(as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_train_x), y_train, alpha=i/20)
+}
+
+
+#test models
+results <- data.frame()
+for (i in 0:20) {
+  name <- paste0("alpha", i/20)
+  
+  ## Use each model to predict 'y' given the Testing dataset
+  predicted <- predict(models[[name]], 
+                       s=models[[name]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+  
+  ## Calculate the Mean Squared Error...
+  mse <- mean((y_test - predicted)^2)
+  mae <- mean((y_test - predicted))
+  #add pseudo counts so no inf values
+  #y_test= y_test + 0.001
+  mape <- mean(abs((y_test - predicted)/(y_test)))*100
+  ## Store the results
+  rsq <- 1-cvfit$cvm/var(y)
+  temp <- data.frame(alpha=i/20, mse = mse, name = name, mae = mae, mape = mape, rsq=rsq)
+  results <- rbind(results, temp)
+}
+```
+```{r}
+
+predicted_y <- predict(models[["alpha0.15"]], s=models[["alpha0.15"]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+plot(y_test, predicted_y, ylim=c(0,4))
+#abline(lm(y_test ~ predicted_y), b=1, col=c("red")
+abline(a=0, b=1, col ="black")
+#looks like two groups - 
+#try to find wich samples have the biggest mae ~ 7 - check if they have sth in common
+```
+```{r}
+
+geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide_METAG %>% filter(!is.na(DOC_mg.L))
+
+geneabund_drep_marker_taxonomy_wide_METAT <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAT")
+#draw randomly train and test set 80:20
+set.seed(123)
+p <- nrow(geneabund_drep_marker_taxonomy_wide_METAG)
+train_rows <- sample(size=p*0.8, 1:p)
+geneabund_drep_marker_taxonomy_wide_METAG_train <- geneabund_drep_marker_taxonomy_wide_METAG[train_rows,]
+geneabund_drep_marker_taxonomy_wide_METAG_train_x <- geneabund_drep_marker_taxonomy_wide_METAG_train %>% ungroup() %>% select(starts_with("cluster"))
+geneabund_drep_marker_taxonomy_wide_METAG_test <- geneabund_drep_marker_taxonomy_wide_METAG[-train_rows,]
+geneabund_drep_marker_taxonomy_wide_METAG_test_x <- geneabund_drep_marker_taxonomy_wide_METAG_test %>% ungroup() %>% select(starts_with("cluster"))
+
+# #try the same for phosphate 
+y_train <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_train$DOC_mg.L)
+y_test <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_test$DOC_mg.L)
 
 models <- list()
 #train for different alpha values
@@ -1233,16 +1363,22 @@ for (i in 0:20) {
   ## Calculate the Mean Squared Error...
   mse <- mean((y_test - predicted)^2)
   mae <- mean((y_test - predicted))
+  #add pseudo counts so no inf values
+  #y_test= y_test + 0.001
+  mape <- mean(abs((y_test - predicted)/(y_test)))*100
   ## Store the results
-  temp <- data.frame(alpha=i/20, mse=mse, name=name, mae =mae)
+  temp <- data.frame(alpha=i/20, mse = mse, name = name, mae = mae, mape = mape)
   results <- rbind(results, temp)
 }
 ```
 ```{r}
 
-predicted_y <- predict(models[["alpha0.7"]], s=models[["alpha0.7"]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
-plot(y_test, predicted_y)
+predicted_y <- predict(models[["alpha0.5"]], s=models[["alpha0.5"]]$lambda.1se, newx=as.matrix(geneabund_drep_marker_taxonomy_wide_METAG_test_x))
+plot(y_test, predicted_y, ylim=c(0,8))
+#abline(lm(y_test ~ predicted_y), b=1, col=c("red")
+abline(a=0, b=1, col ="black")
 #looks like two groups - 
 #try to find wich samples have the biggest mae ~ 7 - check if they have sth in common
 ```
+
 ## 7. Viral diversity indexes - shanon simpson, richness based on occurence and niches
