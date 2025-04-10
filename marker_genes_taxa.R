@@ -302,7 +302,7 @@ host_prediction_genus_counts_metadata <- host_prediction_genus_counts_metadata  
   mutate(counts=counts/1000) %>%
   mutate(phylum=str_remove(phylum, "p__")) %>% 
   distinct() 
-
+host_prediction_genus_counts_metadata$Sample_date <- factor(host_prediction_genus_counts_metadata$Sample_date, levels=c("May-21", "Jul-21", "Feb-22", "May-22", "Jun-22", "Nov-22"))
 tiff("geneabund_drep_marker_iphop_genus_plots.tiff", unit="px", width = 700, height = 1000) 
 host_prediction_genus_counts_metadata  %>%
   ggplot() + 
@@ -343,7 +343,8 @@ host_prediction_genome_counts_metadata <- host_prediction_genome_counts_metadata
   mutate(counts=counts/1000) %>%
   mutate(phylum=str_remove(phylum, "p__")) %>% distinct()
   
-  
+host_prediction_genome_counts_metadata$Sample_date <- factor(host_prediction_genome_counts_metadata$Sample_date, levels=c("May-21", "Jul-21", "Feb-22", "May-22", "Jun-22", "Nov-22"))
+
 tiff("geneabund_drep_marker_iphop_genome_plots.tiff", unit="px", width = 700, height = 1300) 
 host_prediction_genome_counts_metadata  %>% 
   ggplot() + 
