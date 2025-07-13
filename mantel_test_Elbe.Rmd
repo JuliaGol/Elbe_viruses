@@ -53,7 +53,7 @@ metadata_more$Station[metadata_more$Station=="Medem Grund"] <- "Meedem grund"
 colnames(metadata_more)[which(colnames(metadata_more)=="Chla_µg/l")] <- "Chla_ug/l"
 # colnames(metadata_more)[which(colnames(metadata_more)=="dCO2_µM")] <- "dCO2_uM"
 #left_join with the CO2 CH4 Chlorophyll values from  metadata_more by Sample date
-metadata <- metadata %>% merge(metadata_more[, c("Sample_date", "Station", "Chlorophyll_Fluoresence", "Chla_ug/l")], by = c("Sample_date", "Station"), all.x = T, all.y = F)
+metadata <- metadata %>% merge(metadata_more[, c("Sample_date", "Station", "Chla_ug/l")], by = c("Sample_date", "Station"), all.x = T, all.y = F)
 #accession numbers for fractions will be used for splitting data
 FL_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Free_living")] 
 LF_accnum <- metadata$AccessionNumber_TBDSven[which(metadata$Sample_type=="Light_fraction")] 
@@ -339,7 +339,7 @@ list.param.df.dist.METAT_FL <- list()
 j=0
 z=0
 
-vec_param <- colnames(metadata_METAG_FL)[-c(1:6, 8, 35,36, 37)]
+vec_param <- colnames(metadata_METAG_FL)[-c(1:7, 35,36, 37)]
 #kepp only samples with enougth sequencing depth 
 metadata_METAG_FL <- metadata_METAG_FL[which(metadata_METAG_FL$AccessionNumber_TBDSven %in% keep_samples_metag),]
 # metadata_METAT_FL <- metadata_METAT_FL[which(metadata_METAT_FL$AccessionNumber_TBDSven %in% keep_samples_metat),]
@@ -489,8 +489,9 @@ matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL, matrix_res_sta
   filter(data == "Metagenome") %>% 
  # filter(Var1 != "MOTUs") %>% 
  # filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=factor(Var1), y=Var2)) +
+   mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+  mutate(Var2=str_replace(Var2, "_", " ")) %>%
+  mutate(Var1=str_replace(Var1, "_", " "))  %>% ggplot(aes(x=factor(Var1), y=Var2)) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
   #scale_colour_gradient(low = "white", high = "darkgreen", ) +
@@ -505,8 +506,7 @@ matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL, matrix_res_sta
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2, size=15), 
-        axis.text.y = element_text(size=15), 
+        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2), base_size = 20, 
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 
@@ -526,9 +526,9 @@ dev.off()
   filter(data == "Metatranscriptome") %>% 
 # filter(Var1 != "MOTUs") %>% 
   filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_expression", "hosts_MOTUs")))) +
-  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
+ mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+  mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
   #scale_colour_gradient(low = "blue", high = "red",) + 
   scale_colour_gradient2(low = "blue", high = "red", mid = "white", 
@@ -542,8 +542,7 @@ dev.off()
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2, size=15), 
-        axis.text.y = element_text(size=15), 
+        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), base_size = 20, 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
 # png("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_plots/mantel_test_expression_FL_plot.png")
 # mantel_test_METAT_FL_plot
@@ -576,7 +575,7 @@ list.param.df.dist.METAT_LF <- list()
 j=0
 z=0
 
-vec_param <- colnames(metadata_METAG_LF)[-c(1:6, 8, 35,36, 37)]
+vec_param <- colnames(metadata_METAG_LF)[-c(1:7, 35,36, 37)]
 metadata_METAG_LF <- metadata_METAG_LF[which(metadata_METAG_LF$AccessionNumber_TBDSven %in% keep_samples_metag),]
 # metadata_METAT_LF <- metadata_METAT_LF[which(metadata_METAT_LF$AccessionNumber_TBDSven %in% keep_samples_metat),]
 for (param_name in vec_param) { #columns with parameters
@@ -722,7 +721,8 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundance
   filter(data == "Metagenome") %>% 
  # filter(Var1 != "MOTUs") %>% 
  # filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
+   mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+    mutate(Var2=str_replace(Var2, "_", " "))  %>%
   ggplot(aes(x=factor(Var1), y=Var2)) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -738,8 +738,7 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundance
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2, size=15), 
-        axis.text.y = element_text(size=15), 
+        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), base_size = 20,
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 
@@ -759,8 +758,10 @@ dev.off()
   filter(data == "Metatranscriptome") %>% 
 # filter(Var1 != "MOTUs") %>% 
   filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_expression", "hosts_MOTUs")))) +
+ mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+ mutate(Var1=str_replace(Var1, "_", " "))  %>%
+  mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
   #scale_colour_gradient(low = "blue", high = "red",) + 
@@ -775,8 +776,8 @@ dev.off()
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2, size=15), 
-        axis.text.y = element_text(size=15), 
+        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2),
+        base_size = 20,
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
 # png("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_plots/mantel_test_expression_LF_plot.png")
 # mantel_test_METAT_LF_plot
@@ -810,7 +811,7 @@ list.param.df.dist.METAT_HF <- list()
 j=0
 z=0
 
-vec_param <- colnames(metadata_METAG_HF)[-c(1:6, 8, 35,36, 37)]
+vec_param <- colnames(metadata_METAG_HF)[-c(1:7, 35,36, 37)]
 metadata_METAG_HF <- metadata_METAG_HF[which(metadata_METAG_HF$AccessionNumber_TBDSven %in% keep_samples_metag),]
 
 for (param_name in vec_param) { #columns with parameters
@@ -953,12 +954,20 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundance
 
 
 ```{r}
+# x_axis_labels <- sort(as.vector(matrix_res_stat_HF_mantel_plot$Var1[which(matrix_res_stat_HF_mantel_plot$data=="Metagenome" & matrix_res_stat_HF_mantel_plot$Var2=="MOTUs")]))
+# x_axis_labels <-  str_remove(x_axis_labels, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")
+# x_axis_labels <-  str_replace(x_axis_labels, "_", " ")
+# x_axis_labels <-  gsub("O2", expression("O"[2]), x_axis_labels)
+# x_axis_labels <-  gsub("O4", "expression(O[4])", x_axis_labels)
+
   mantel_test_METAG_HF_plot <- matrix_res_stat_HF_mantel_plot %>%
   filter(R_statistic != "NA") %>% 
   filter(data == "Metagenome") %>% 
- # filter(Var1 != "MOTUs") %>% 
- # filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
+ filter(Var1 != "MOTUs") %>%
+ filter(!grepl("µM|uM", Var1)) %>%
+ mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+ mutate(Var1=str_replace(Var1, "_", " "))  %>%
+    mutate(Var2=str_replace(Var2, "_", " "))  %>%
   ggplot(aes(x=factor(Var1), y=Var2)) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -968,14 +977,13 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundance
    name="R statistic") +
   guides(colour = guide_colorbar(title = "Mantel's r", frame.colour = "black", barwidth = 1.5)) + #title.theme = element_text(angle=90, vjust=1))) +
   scale_size_continuous(guide="none") +
-  scale_x_discrete()+ theme_bw() +
+  scale_x_discrete() + theme_bw() +
   scale_y_discrete(position = "right") +
   coord_fixed(ratio = 1) +
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
-  theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95,vjust=0.2, size=15), 
-        axis.text.y = element_text(size=15), 
+  theme(rect = element_blank(), 
+        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), base_size = 20,
         legend.position = "right") +
   geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .0001)+1])))
 
@@ -995,8 +1003,10 @@ dev.off()
   filter(data == "Metatranscriptome") %>% 
 # filter(Var1 != "MOTUs") %>% 
   filter(!grepl("µM|uM", Var1)) %>% 
-  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l")) %>%
-  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral_expression", "hosts_MOTUs")))) +
+ mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+ mutate(Var1=str_replace(Var1, "_", " "))  %>%
+  mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
   #scale_colour_gradient(low = "blue", high = "red",) + 
@@ -1011,13 +1021,26 @@ dev.off()
   theme(axis.title = element_blank(), axis.ticks = element_blank(), line =element_blank(),
         strip.background = element_blank()) +
   theme(rect = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2, size=15), 
-        axis.text.y = element_text(size=15), 
+        axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), 
+         base_size = 20, 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])))
 # png("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_plots/mantel_test_expression_HF_plot.png")
 # mantel_test_METAT_HF_plot
 # dev.off()
 tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/mantel_test/mantel_plots/mantel_test_METAT_HF_plot_log_euclidean_bac_counts.tiff",width=750,height=300)
 mantel_test_METAT_HF_plot
+dev.off()
+```
+
+```{r combine plots}
+library(ggpubr)
+
+grid_METAG <- ggarrange(mantel_test_METAG_FL_plot, mantel_test_METAG_LF_plot, mantel_test_METAG_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto") 
+grid_METAT <- ggarrange(mantel_test_METAT_FL_plot, mantel_test_METAT_LF_plot,  mantel_test_METAT_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto") 
+tiff("mantel_plots/grid_METAG.tiff", unit="px", width = 700, height = 1000)
+grid_METAG
+dev.off()
+tiff("mantel_plots/grid_METAT.tiff", unit="px", width = 700, height = 1000)
+grid_METAT
 dev.off()
 ```
