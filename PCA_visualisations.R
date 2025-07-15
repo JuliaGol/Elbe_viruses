@@ -2,21 +2,23 @@
 library(ggplot2)
 library(FactoMineR)
 library(factoextra)
+library(dplyr)
 #library(missMDA)
 #set up import and upload files/objects
-setwd("C:/Users/jgolebiowska/Documents/IGB_phd/virus/viral_abundances/PCA")
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/virus/metadata"
+setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/PCA")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata"
 #read new polished metadata file 
 metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod2.txt"), sep="\t")
 #remove last empty column
 metadata <- metadata[,-c(ncol(metadata))]
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/workshop_gene_catalog"
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog"
 metadata_all <- read.csv(paste0(path,"/metadata_all.csv"))
 #connect by associated number those two - this way we have all values from final metadata with important linking columns from metadata_all
 metadata <- merge(metadata, metadata_all[, c( "sampleid", "AccessionNumber_TBDSven", "Associatednumber", "data_type")], by = "Associatednumber", all.x = T, all.y = F) 
 #save_it
-write.csv(metadata, file= "C:/Users/jgolebiowska/Documents/IGB_phd/virus/metadata/PhysicochemicalParameters_mod3.csv")
-metadata$Salinity_TBDHereon <- as.numeric(metadata$Salinity_TBDHereon)
+#write.csv(metadata, file= "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/PhysicochemicalParameters_mod3.csv")
+metadata <- read.csv(file= "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/PhysicochemicalParameters_mod3.csv")
+metadata$Salinity_PSU <- as.numeric(metadata$Salinity_PSU)
 
 #read pathway annotation for PCA colouring
 pathways <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_AMG_pathways_Combined_viruses.tsv")
@@ -57,10 +59,10 @@ saveRDS(PCA_log_abund_all, file="PCA_outputs/PCA_log_abund_all.RDS")
 
 #take only numeric data 
 #metadata_num <-metadata[,c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L",
-                           "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM",
-                           "Nitrite_µM", "Nitrate_µM", "SRP_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL",
-                           "PTH_mgperL", "dCH4_nM", "Chlorophyll", "dCO2_uM")]
-#and ensure they have point instead of comma 
+#                            "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM",
+#                            "Nitrite_µM", "Nitrate_µM", "SRP_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL",
+#                            "PTH_mgperL", "dCH4_nM", "Chlorophyll", "dCO2_uM")]
+# #and ensure they have point instead of comma 
 #and there are set as numeric
 # metadata_num <- apply(apply(metadata_num, 2, gsub, patt=",", replace="."), 2, as.numeric)
 # metadata_num <- cbind(metadata_num, metadata$sampleid) 
@@ -80,6 +82,9 @@ PCA_log_expression_meta <- merge(PCA_log_expression$ind$coord, metadata[, c("Sam
 #for right order in the legend
 PCA_log_expression_meta$Station <- factor(PCA_log_expression_meta$Station , levels = rev(c("Muhlenberger Loch", "Twielenfleth", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
 PCA_log_abund_all_meta$Station <- factor(PCA_log_abund_all_meta$Station , levels =  rev(c("BunthausSpitze", "Seemanshöft", "Muhlenberger Loch", "Twielenfleth", "Kollmar", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
+PCA_log_abund_all_meta <- PCA_log_abund_all_meta %>% mutate(Salinity_level = case_when(Salinity_PSU <= .5  ~ 'freshwater',  Salinity_PSU > .5 & Salinity_PSU <= 5.5  ~ 'oligohaline', Salinity_PSU > 5.5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+PCA_log_abund_all_meta$Salinity_level <- factor(PCA_log_abund_all_meta$Salinity_level,  levels = c("freshwater", "oligohaline", "mesohaline", "polyhaline"))
+
 
 #get eigenvalues 
 PCA_log_expression.eig.val <- get_eigenvalue(PCA_log_expression)
@@ -134,6 +139,27 @@ ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU)) + geo
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) + scale_color_continuous(trans='reverse', name="Salinity [PSU]") + theme(axis.text=element_text(size=12), axis.title=element_text(size=14))
 dev.off()
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type_Salinity_Station_legend.tiff")
+ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU, shape=Station)) + geom_point(size=3) +
+  ggtitle("Viral log-gene counts") +
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) + scale_color_continuous(trans='reverse', name="Salinity [PSU]") + theme(axis.text=element_text(size=12), axis.title=element_text(size=20), plot.title=element_text(size=25, hjust = 0.5))
+dev.off()
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type_Salinity_level_Station_legend.tiff")
+library(RColorBrewer)
+colors <- brewer.pal(n = 4, name = "Blues")
+PCA_log_abund_all_meta$Stromkilometer <- round(PCA_log_abund_all_meta$Stromkilometer)
+#unify
+PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==715)] <- 712 
+PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==692)] <- 694 
+PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==666)] <- 665 
+PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==652)] <- 651
+
+ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shape=as.factor(Stromkilometer))) + geom_point(size=3) + xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) + theme(axis.text=element_text(size=12), axis.title=element_text(size=20), plot.title=element_text(size=25, hjust = 0.5)) +
+  scale_color_manual(values=colors) + theme_dark(base_size=20) + guides(colour=guide_legend("Salinity"), shape =guide_legend("Elbe km"))
+dev.off()
+
 tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type.tiff")
 ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point(size=2) + ggtitle("Viral log-gene counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
@@ -160,6 +186,12 @@ ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU)) + ge
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) + ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%")) + 
   scale_color_continuous(trans='reverse', name = "Salinity [PSU]" )  + theme(axis.text=element_text(size=12), axis.title=element_text(size=14))
 dev.off()
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_expression_Station_Sample_type_salinity_station.tiff")
+ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU, shape=Station)) + geom_point(size=5) + ggtitle("Viral log-expression counts") + 
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) + ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%")) + 
+  scale_color_continuous(trans='reverse', name = "Salinity [PSU]" )  + theme(axis.text=element_text(size=12), axis.title=element_text(size=20), plot.title= element_text(size=25, hjust=0.5))
+dev.off()
+
 #remove some objects to empty some space 
 rm(PCA_log_transcript)
 rm(PCA_log_transcript_meta)
