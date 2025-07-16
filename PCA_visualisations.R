@@ -159,7 +159,12 @@ ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shap
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) + theme(axis.text=element_text(size=12), axis.title=element_text(size=20), plot.title=element_text(size=25, hjust = 0.5)) +
   scale_color_manual(values=colors) + theme_dark(base_size=20) + guides(colour=guide_legend("Salinity"), shape =guide_legend("Elbe km"))
 dev.off()
-
+manova_salinity <- manova(data=PCA_log_abund_all_meta, formula = cbind(Dim.1, Dim.2) ~ Salinity_level)
+summary(manova_salinity)        # Pillai's trace, Wilks' Lambda, etc.
+summary.aov(manova_salinity)    #
+manovakm <- manova(data=PCA_log_abund_all_meta, formula = cbind(Dim.1, Dim.2) ~ Stromkilometer)
+summary(manovakm)        # Pillai's trace, Wilks' Lambda, etc.
+summary.aov(manovakm)  
 tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type.tiff")
 ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Sample_type)) + geom_point(size=2) + ggtitle("Viral log-gene counts") +
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
