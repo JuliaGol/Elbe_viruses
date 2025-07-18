@@ -126,21 +126,28 @@ saveRDS(geneabund_drep_marker_taxonomy_long, file ="geneabund_drep_marker_taxono
 geneabund_drep_marker_taxonomy_long$level_5 <- as.factor(geneabund_drep_marker_taxonomy_long$level_5)
 levels(geneabund_drep_marker_taxonomy_long$level_5) <- c("aunknown", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes")
 
-taxa_seasons <- ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) +
-  scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=10), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=10), legend.key = element_rect(fill = "transparent"))
-tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
-taxa_seasons
+# taxa_seasons <- ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) +
+#   scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=10), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=10), legend.key = element_rect(fill = "transparent"))
+# tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
+# taxa_seasons
+# dev.off()
+tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
+viruses_taxonomy_fractions <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format())  + ylab("Relative abundace")  + guides(fill=guide_legend(title="Viral class")) + facet_grid(rows=vars(data_type), cols=vars(Sample_type), scales= "free") + facet_wrap(~data_type *Sample_type, scales = "free_x")  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + scale_x_discrete(labels = NULL, breaks = NULL)  + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) + theme_bw(base_size=20)  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank())
+viruses_taxonomy_fractions
 dev.off()
- tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
-ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions")+ ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=12), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=12)) + scale_fill_brewer(palette = "Set2") + guides(fill=guide_legend(title="Viral class")) 
+
+geneabund_drep_marker_taxonomy_long$Sample_date <- factor(geneabund_drep_marker_taxonomy_long$Sample_date, levels=c("May-21", "Jul-21", "Feb-22", "May-22", "Jun-22","Nov-22"))
+
+viruses_taxonomy_seasons <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format())  + ylab("Relative abundace")  + guides(fill=guide_legend(title="Viral class")) + facet_grid(rows=vars(data_type), cols=vars(Sample_date), scales= "free") + facet_wrap(~data_type *Sample_date, scales = "free_x")  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + scale_x_discrete(labels = NULL, breaks = NULL)  + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) + theme_bw(base_size=20)  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank())
+
+tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
+viruses_taxonomy_seasons
 dev.off()
 #investigate low abundance viruses pointoviricetes
 
 #ggplot(data.frame(geneabund_drep_marker_taxonomy_long[which(geneabund_drep_marker_taxonomy_long$level_5=="Polintoviricetes"),c(5, 7,9,11,12,13)]), aes(x=Station, y=counts)) + geom_bar(stat='identity' ) + facet_grid(vars(Sample_date))
 
-viruses_taxonomy_salinity <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type, scales = "free") + #facet_grid(rows=vars(data_type), cols=vars(Salinity_level), scales= "free") + 
-  ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + guides(fill=guide_legend(title="Viral class")) + scale_x_discrete(labels = NULL, breaks = NULL) + scale_fill_brewer(palette = "Set2") #+ theme_minimal()
-
+viruses_taxonomy_salinity <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level, scales = "free_x", nrow = 2) + ylab("Relative abundace") + guides(fill=guide_legend(title="Viral class")) + scale_x_discrete(labels = NULL, breaks = NULL) + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) + theme_bw(base_size=20) + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank())
 tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
 viruses_taxonomy_salinity
 dev.off()
@@ -247,6 +254,13 @@ Fraction_niche_taxa_plot <- na.omit(geneabund_drep_marker_taxonomy_long[, c("sam
   scale_y_continuous(labels=scales::percent_format())  + ggtitle("Relative abundace across different fraction niches") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + guides(fill=guide_legend(title="Class")) + facet_wrap(~data_type *Fraction_niche, scales= "free_x")
 tiff("Fraction_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
 Fraction_niche_taxa_plot
+dev.off()
+
+
+Season_niche_taxa_plot <- na.omit(geneabund_drep_marker_taxonomy_long[, c("sampleid", "Associatednumber", "counts", "level_5", "data_type", "Sample_date")]) %>% filter(counts>0) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Associatednumber, y=counts, fill = level_5)) + scale_x_discrete(labels = NULL, breaks = NULL) +
+  scale_y_continuous(labels=scales::percent_format())  + ggtitle("Relative abundace across different fraction niches") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + guides(fill=guide_legend(title="Class")) + facet_wrap(~data_type *Sample_date, scales= "free_x")
+tiff("Season_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
+Season_niche_taxa_plot
 dev.off()
 ```
 ## 3.Read metadata for each fraction and data type
