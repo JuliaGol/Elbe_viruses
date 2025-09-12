@@ -164,6 +164,11 @@ host_prediction_genome %>%
 #427 
 host_prediction_genome %>% 
   group_by(primary_cluster) %>% 
+  summarise(count_hosts = n_distinct(species)) %>%
+  filter(count_hosts == 1)  %>% nrow
+#490 
+host_prediction_genome %>% 
+  group_by(primary_cluster) %>% 
   summarise(count_hosts = n_distinct(lineage_genus)) %>%
   filter(count_hosts > 1)  %>% nrow
 #257
