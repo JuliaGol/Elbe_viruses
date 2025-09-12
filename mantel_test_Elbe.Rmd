@@ -490,7 +490,8 @@ matrix_res_stat_FL_mantel_plot <- rbind(matrix_res_stat_METAG_FL, matrix_res_sta
  # filter(Var1 != "MOTUs") %>% 
  # filter(!grepl("µM|uM", Var1)) %>% 
    mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
-  mutate(Var2=str_replace(Var2, "_", " ")) %>%
+  mutate(Var2=str_replace(Var2, "_", " ")) %>%  
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
   mutate(Var1=str_replace(Var1, "_", " "))  %>% ggplot(aes(x=factor(Var1), y=Var2)) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -526,8 +527,9 @@ dev.off()
   filter(data == "Metatranscriptome") %>% 
 # filter(Var1 != "MOTUs") %>% 
   filter(!grepl("µM|uM", Var1)) %>% 
- mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
   mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
   ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +  geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
   #scale_colour_gradient(low = "blue", high = "red",) + 
@@ -721,8 +723,10 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundance
   filter(data == "Metagenome") %>% 
  # filter(Var1 != "MOTUs") %>% 
  # filter(!grepl("µM|uM", Var1)) %>% 
-   mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
-    mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+  mutate(Var1=str_replace(Var1, "_", " "))  %>%
+  mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
   ggplot(aes(x=factor(Var1), y=Var2)) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -758,9 +762,10 @@ dev.off()
   filter(data == "Metatranscriptome") %>% 
 # filter(Var1 != "MOTUs") %>% 
   filter(!grepl("µM|uM", Var1)) %>% 
- mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
- mutate(Var1=str_replace(Var1, "_", " "))  %>%
+  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
+  mutate(Var1=str_replace(Var1, "_", " "))  %>%
   mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
   ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -967,7 +972,8 @@ save.image("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundance
  filter(!grepl("µM|uM", Var1)) %>%
  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
  mutate(Var1=str_replace(Var1, "_", " "))  %>%
-    mutate(Var2=str_replace(Var2, "_", " "))  %>%
+ mutate(Var2=str_replace(Var2, "_", " "))  %>%
+ mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
   ggplot(aes(x=factor(Var1), y=Var2)) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -1006,6 +1012,7 @@ dev.off()
  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
  mutate(Var1=str_replace(Var1, "_", " "))  %>%
   mutate(Var2=str_replace(Var2, "_", " "))  %>%
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
   ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5) + 
@@ -1035,12 +1042,47 @@ dev.off()
 ```{r combine plots}
 library(ggpubr)
 
-grid_METAG <- ggarrange(mantel_test_METAG_FL_plot, mantel_test_METAG_LF_plot, mantel_test_METAG_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto") 
-grid_METAT <- ggarrange(mantel_test_METAT_FL_plot, mantel_test_METAT_LF_plot,  mantel_test_METAT_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto") 
-tiff("mantel_plots/grid_METAG.tiff", unit="px", width = 700, height = 1000)
-grid_METAG
+grid_METAG <- ggarrange(mantel_test_METAG_FL_plot, mantel_test_METAG_LF_plot, mantel_test_METAG_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto", align = "v") 
+grid_METAT <- ggarrange(mantel_test_METAT_FL_plot, mantel_test_METAT_LF_plot,  mantel_test_METAT_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto", align = "v") 
+tiff("mantel_plots/grid_METAG.tiff", unit="px", width = 750, height = 650)
+grid_METAG  
 dev.off()
-tiff("mantel_plots/grid_METAT.tiff", unit="px", width = 700, height = 1000)
+tiff("mantel_plots/grid_METAT.tiff", unit="px", width = 750, height = 650)
 grid_METAT
 dev.off()
+```
+#6. Run Anosim
+```{r}
+geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vibrant_annot_drep_marker_abund.RDS")
+#keep only unique rows 
+# geneabund_drep_marker_taxa <- distinct(geneabund_drep_marker_taxa[,c(ncol(geneabund_drep_marker_taxa)-9:ncol(geneabund_drep_marker_taxa))])
+viral_diversity <- geneabund_drep_marker_taxa %>%
+  select(contains("METAG")) %>% select(contains(sampleid_MOTUs)) 
+colnames(viral_diversity) <- sub("GROS22.[1-2]_", "", colnames(viral_diversity))
+colnames(viral_diversity) <- sub("_METAG.genecount.profile", "", colnames(viral_diversity))
+metadata <- metadata %>% mutate(Salinity_level = case_when(Salinity_PSU <= .5  ~ 'freshwater',  Salinity_PSU > .5 & Salinity_PSU <= 5.5  ~ 'oligohaline', Salinity_PSU > 5.5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+metadata_diversity <- metadata %>% filter(data_type =="METAG") %>% arrange(AccessionNumber_TBDSven)
+diversity_acc <- metadata_diversity$AccessionNumber_TBDSven
+viral_activity <- viral_activity %>% ungroup() %>% select(contains("SAMEA"))
+diversity_acc <-  diversity_acc[which(diversity_acc %in% colnames(viral_diversity) )]
+viral_diversity <- viral_diversity %>% ungroup() %>% select(diversity_acc)
+dist_activity <-  vegdist(t(viral_activity), "bray", na.rm = T)
+dist_diversity <-  vegdist(t(viral_diversity), "bray", na.rm = T)
+#prepare grouping factors in right order
+activity_acc <- rownames(as.matrix(dist_activity))
+#diversity_acc <- rownames(as.matrix(dist_diversity))
+#add salinity level to metadata
+
+metadata_activity <- metadata %>% filter(AccessionNumber_TBDSven %in% activity_acc) %>% filter(data_type =="METAT") %>% arrange(AccessionNumber_TBDSven)
+metadata_diversity <- metadata %>% filter(AccessionNumber_TBDSven %in% diversity_acc) %>% filter(data_type =="METAG") %>% arrange(AccessionNumber_TBDSven)
+ 
+
+#check if the order is the same crucia!
+metadata_activity$AccessionNumber_TBDSven == activity_acc #good
+anosim_activity_StationNumber <- anosim(dist_activity, metadata_activity$StationNumber, permutation = 9999)
+anosim_activity_Salinity_level <- anosim(dist_activity, metadata_activity$Salinity_level, permutations = 9999)
+metadata_diversity$AccessionNumber_TBDSven == rownames(as.matrix(dist_diversity)) #good
+anosim_diversity_StationNumber <- anosim(dist_diversity, metadata_diversity$StationNumber, permutation = 9999)
+anosim_diversity_Salinity_level <- anosim(dist_diversity, metadata_diversity$Salinity_level, permutations = 9999)
+
 ```
