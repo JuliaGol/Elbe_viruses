@@ -126,28 +126,18 @@ saveRDS(geneabund_drep_marker_taxonomy_long, file ="geneabund_drep_marker_taxono
 geneabund_drep_marker_taxonomy_long$level_5 <- as.factor(geneabund_drep_marker_taxonomy_long$level_5)
 levels(geneabund_drep_marker_taxonomy_long$level_5) <- c("aunknown", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes")
 
-# taxa_seasons <- ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) +
-#   scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=10), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=10), legend.key = element_rect(fill = "transparent"))
-# tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
-# taxa_seasons
-# dev.off()
-tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
-viruses_taxonomy_fractions <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format())  + ylab("Relative abundace")  + guides(fill=guide_legend(title="Viral class")) + facet_grid(rows=vars(data_type), cols=vars(Sample_type), scales= "free") + facet_wrap(~data_type *Sample_type, scales = "free_x")  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + scale_x_discrete(labels = NULL, breaks = NULL)  + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) + theme_bw(base_size=20)  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank())
-viruses_taxonomy_fractions
-dev.off()
-
-geneabund_drep_marker_taxonomy_long$Sample_date <- factor(geneabund_drep_marker_taxonomy_long$Sample_date, levels=c("May-21", "Jul-21", "Feb-22", "May-22", "Jun-22","Nov-22"))
-
-viruses_taxonomy_seasons <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format())  + ylab("Relative abundace")  + guides(fill=guide_legend(title="Viral class")) + facet_grid(rows=vars(data_type), cols=vars(Sample_date), scales= "free") + facet_wrap(~data_type *Sample_date, scales = "free_x")  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + scale_x_discrete(labels = NULL, breaks = NULL)  + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) + theme_bw(base_size=20)  + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank())
-
+taxa_seasons <- ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) +
+  scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_date) + ggtitle("Relative abundace across different seasons") + ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=10), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=10), legend.key = element_rect(fill = "transparent"))
 tiff("Relative_abundace_taxonomy_across_different_seasons.tiff", unit="px", width = 1000, height = 1000)
-viruses_taxonomy_seasons
+taxa_seasons
 dev.off()
-#investigate low abundance viruses pointoviricetes
+ tiff("Relative_abundace_taxonomy_across_different_fraction.tiff", unit="px", width = 1000, height = 1000)
+ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions")+ ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=12), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=12)) + scale_fill_brewer(palette = "Set2") + guides(fill=guide_legend(title="Viral class")) 
+dev.off()
 
-#ggplot(data.frame(geneabund_drep_marker_taxonomy_long[which(geneabund_drep_marker_taxonomy_long$level_5=="Polintoviricetes"),c(5, 7,9,11,12,13)]), aes(x=Station, y=counts)) + geom_bar(stat='identity' ) + facet_grid(vars(Sample_date))
+viruses_taxonomy_salinity <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type, scales = "free") + #facet_grid(rows=vars(data_type), cols=vars(Salinity_level), scales= "free") + 
+  ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + guides(fill=guide_legend(title="Viral class")) + scale_x_discrete(labels = NULL, breaks = NULL) + scale_fill_brewer(palette = "Set2") #+ theme_minimal()
 
-viruses_taxonomy_salinity <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Salinity_level, scales = "free_x", nrow = 2) + ylab("Relative abundace") + guides(fill=guide_legend(title="Viral class")) + scale_x_discrete(labels = NULL, breaks = NULL) + scale_fill_manual(name ="Class", values=c( "NA", brewer.pal(6, "Set2")), na.value=NA, labels = c("", "Caudoviricetes", "Duplopiviricetes", "Megaviricetes",  "Maveriviricetes",  "Polintoviricetes"), na.translate = FALSE) + theme_bw(base_size=20) + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank())
 tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
 viruses_taxonomy_salinity
 dev.off()
@@ -169,7 +159,7 @@ find_niche <-function(x, threshold){
   }
   #else concatenate values which are higher the 0.2
   else {
-    paste0(names(tab[which(tab>= 0.2)]), collapse = ";")
+    paste0(names(tab[which(tab>= 1-threshold)]), collapse = ";")
   }}
 #statistics for each cluster
 drep_clusters_fin_taxonomy_description <- 
@@ -178,13 +168,12 @@ drep_clusters_fin_taxonomy_description <-
   add_count(primary_cluster, Salinity_level,  name = "percentage_salinity", wt = !is.na(Salinity_level)) %>% ungroup() %>%
   mutate(percentage_salinity = (percentage_salinity/count_genomes)*100) %>% ungroup() %>% 
   add_count(primary_cluster, Sample_type,  name = "percentage_fraction", wt = !is.na(Sample_type)) %>% ungroup()  %>% 
-  mutate(percentage_fraction = (percentage_fraction/count_genomes)*100) %>% ungroup() %>% group_by(primary_cluster) %>% mutate(Salinity_niche= find_niche(Salinity_level, 0.8), Fraction_niche= find_niche(Sample_type, 0.8)) %>% ungroup()
+  mutate(percentage_fraction = (percentage_fraction/count_genomes)*100) %>% ungroup() %>% group_by(primary_cluster) %>% mutate(Salinity_niche= find_niche(Salinity_level, 0.8), Fraction_niche= find_niche(Sample_type,  0.8)) %>% ungroup()
 #add data to dataframe with primary clusters only to have all calculated taxonomy, 
 drep_clusters_fin_taxonomy_unified <- merge(drep_clusters_fin_taxonomy_unified, distinct(drep_clusters_fin_taxonomy_description[, c("count_genomes", "Salinity_niche", "Fraction_niche", "primary_cluster")]), by="primary_cluster", all.x = T, all.y = F,) 
 #ok with prepared table lets do the basic statistics for cluster which are bigger then 5 
 drep_clusters_fin_taxonomy_unified$Salinity_niche <- factor(drep_clusters_fin_taxonomy_unified$Salinity_niche, levels = c("freshwater", "freshwater;oligohaline", "oligohaline", "freshwater;mesohaline", "mesohaline;oligohaline", "mesohaline", "mesohaline;polyhaline", "polyhaline", "oligohaline;polyhaline", "mesohaline;oligohaline;polyhaline", ""))
-#save as RDS
-saveRDS(drep_clusters_fin_taxonomy_unified, file="drep_clusters_fin_taxonomy_unified.rds")
+
 #check correlation between salinity and fraction niche  
 corr_spearman <- cor(x=rank(drep_clusters_fin_taxonomy_unified$Salinity_niche), y=rank(drep_clusters_fin_taxonomy_unified$Fraction_niche), method = 'spearman')
 #0.2 weak positive corelation
@@ -204,7 +193,9 @@ D_polyhaline <- drep_clusters_fin_taxonomy_unified_stat$primary_cluster[which(gr
 library(ggvenn)
 colors <- brewer.pal(n = 4, name = "Blues") 
 # Chart
-ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors)
+tiff("salinity_venn_diagram.tiff", unit="px", height=800, width=1000)
+ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors, text_size=10, set_name_size=10, digits=0) 
+dev.off()
 
 #most viral clusters have specificity towards salinity. The least in polyhaline only but these samples has the lowest frequencies. The intersections with mesohaline for both polyhaline and oligohaline has also high values as - mesohaline water are neighbouring for both of these conditions. Interesting there is no intersection for polyhaline and oligohaline water and very few for all three categories what strongly suggest separate viral saline niches. 
 ###for fraction
@@ -221,17 +212,12 @@ venn.diagram(
   filename = 'fraction_venn_diagramm.png',
   output=TRUE
 )
-# Chart
-venn.diagram(
-  x = list(Free_living, Light_fraction, Heavy_fraction),
-  category.names = c("Free-living" , "Light fraction" , "Heavyfraction"),
-  filename = 'fraction_venn_diagramm.tiff',
-  output=TRUE
-)
-tiff("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/fraction_venn_diagramm.tiff")
-ggvenn(list(`Free-living`=Free_living, `Light fraction`=Light_fraction, `Heavy fraction`=Heavy_fraction))
-#In contrary for fractions there is no such specificity. Most clusters are present in all fraction or as a second category in particulate fractions
+
+tiff("fraction_venn_diagram_ggvenn.tiff", unit="px", height=800, width=1000)
+ggvenn(list(`Free-living` = Free_living, `Suspended particles`= Light_fraction, `Sinking particles` = Heavy_fraction), text_size=10, set_name_size=10, fill_color=c("white", "white","white"), digits=0) 
 dev.off()
+#In contrary for fractions there is no such specificity. Most clusters are present in all fraction or as a second category in particulate fractions
+
 ```
 ```{r}
 #add niche description
@@ -254,13 +240,6 @@ Fraction_niche_taxa_plot <- na.omit(geneabund_drep_marker_taxonomy_long[, c("sam
   scale_y_continuous(labels=scales::percent_format())  + ggtitle("Relative abundace across different fraction niches") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + guides(fill=guide_legend(title="Class")) + facet_wrap(~data_type *Fraction_niche, scales= "free_x")
 tiff("Fraction_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
 Fraction_niche_taxa_plot
-dev.off()
-
-
-Season_niche_taxa_plot <- na.omit(geneabund_drep_marker_taxonomy_long[, c("sampleid", "Associatednumber", "counts", "level_5", "data_type", "Sample_date")]) %>% filter(counts>0) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Associatednumber, y=counts, fill = level_5)) + scale_x_discrete(labels = NULL, breaks = NULL) +
-  scale_y_continuous(labels=scales::percent_format())  + ggtitle("Relative abundace across different fraction niches") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + guides(fill=guide_legend(title="Class")) + facet_wrap(~data_type *Sample_date, scales= "free_x")
-tiff("Season_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
-Season_niche_taxa_plot
 dev.off()
 ```
 ## 3.Read metadata for each fraction and data type
@@ -815,7 +794,7 @@ geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% 
 geneabund_drep_marker_taxonomy_wide_METAG_salinity <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG") %>% filter(Salinity_PSU < 17.0) 
 set.seed(123)
 #divide by train and test set to get balanced datasets
-trainIndex <- createDataPartition(geneabund_drep_marker_taxonomy_wide_METAG$Salinity_level, p = .8, 
+trainIndex <- createDataPartition(geneabund_drep_marker_taxonomy_wide_METAG$Salinity_PSU, p = .8, 
                                   list = FALSE, 
                                   times = 1)
 virusTrain <- geneabund_drep_marker_taxonomy_wide_METAG[ trainIndex,]
@@ -859,6 +838,8 @@ cv_eval <- model_salinity$resample
 ```{r eval_salinity}
 pred<-predict(object=model_salinity, newdata = as.matrix(virusTest[,clusters_model]))
 
+
+
 plot(virusTest$Salinity_PSU, pred, ylim=c(0,20))
 lm_pred<-lm(virusTest$Salinity_PSU ~ pred, b=1)
 abline(lm_pred, col=c("red"))
@@ -868,8 +849,8 @@ summary(lm_pred)
 
 r2 <- summary(lm_pred)$r.squared
 tiff("model_salinity_validation2.tiff")
-pred_validation <- ggplot() + geom_point(aes(x=virusTest$Salinity_PSU, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Salinity_PSU, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=7.5, y=15, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted PSU") + xlab("Observed PSU") + theme(axis.title.x = element_text(size = 20),
-        axis.title.y = element_text(size = 20)) + theme_bw(base_size = 20)
+pred_validation <- ggplot() + geom_point(aes(x=virusTest$Salinity_PSU, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Salinity_PSU, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=7.5, y=15, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted") + xlab("Observed") + theme(axis.title.x = element_text(size = 20),
+        axis.title.y = element_text(size = 20))
 pred_validation
 dev.off()
 #looks like two groups - 
@@ -999,7 +980,8 @@ summary(lm_pred)
 
 
 r2 <- summary(lm_pred)$r.squared
-model_temp_validation<-ggplot() + geom_point(aes(x=virusTest$Temperature_TBDHereon, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Temperature_TBDHereon, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=8, y=20, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted") + xlab("Observed" ) + ylim(c(0,25)) + theme(axis.title.x = element_text(size = 20), axis.title.y = element_text(size = 20)) + theme_bw(base_size = 20)
+model_temp_validation<-ggplot() + geom_point(aes(x=virusTest$Temperature_TBDHereon, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Temperature_TBDHereon, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=8, y=20, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted") + xlab("Observed") + ylim(c(0,25)) + theme(axis.title.x = element_text(size = 20),
+        axis.title.y = element_text(size = 20))
 tiff("model_temp_validation.tiff")
 model_temp_validation
 dev.off()
@@ -1024,19 +1006,7 @@ otu1 <- otu_table(geneabund_drep_marker_taxonomy_wide_METAG[, grepl("cluster", c
 geneabund_drep_marker_taxonomy_wide_METAG$Salinity_level <- factor(geneabund_drep_marker_taxonomy_wide_METAG$Salinity_level, levels=c("freshwater", "oligohaline", "mesohaline", "polyhaline" ))
 phyloseq <- phyloseq(otu1, my_sample_data=sample_data(geneabund_drep_marker_taxonomy_wide_METAG))
 a_my_comparisons <- list(c("oligohaline", "freshwater"), c("oligohaline", "mesohaline"), c("oligohaline","polyhaline"), c("freshwater", "mesohaline"), c("freshwater", "polyhaline"), c("mesohaline", "polyhaline"))
-richness <- estimate_richness(phyloseq, measures=c("Simpson", "Shannon")) 
-observed_otu<-100*geneabund_drep_marker_taxonomy_wide_METAG[, grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide_METAG))]
-otu2 <- otu_table(observed_otu, taxa_are_rows = F)
-
-phyloseq2 <- phyloseq(otu2, my_sample_data=sample_data(geneabund_drep_marker_taxonomy_wide_METAG))
-richness2 <- estimate_richness(phyloseq2, measures=c("Observed")) 
-symnum<- list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, Inf), symbols = c("****", "***", "**", "*", "ns"))
-#all alpha diversity meassurments
-
-tiff("Alpha_diversity_Salinity.tiff",units = 'px', width = 1000, height = 500)
-plot_richness(phyloseq2, x="Salinity_level", measures=c( "Observed", "Simpson", "Shannon")) + geom_boxplot(fill=rep(colors,3))  + geom_pwc(method ="dunn_test", hide.ns ="p", label = "p.signif", symnum.args=symnum) + xlab("Salinity") + theme_bw(base_size=20) + theme(axis.text.x = element_text(angle = 90)) + scale_x_discrete(labels = c("Freshwater", "Oligohaline",  "Mesohaline", "Polyhaline"))
-dev.off()
-
+richness <- estimate_richness(phyloseq, measures=c( "Simpson", "Shannon")) 
 kruskal.test(richness$Shannon ~ sample_data(phyloseq)$Salinity_level)
 kruskal.test(richness$Simpson ~ sample_data(phyloseq)$Salinity_level)
 library(FSA)

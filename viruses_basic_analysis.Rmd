@@ -344,23 +344,23 @@ find_niche <-function(x, threshold){
   else {
     "not identifiable"
   }}
+#check again %>% group_by(primary_cluster) #mistake should not be a type here
+drep_clusters_lytic <- drep_clusters_lytic %>% group_by(primary_cluster) %>% mutate(lytic_lysogenic= find_niche(type, 0.8)) %>% ungroup() %>% filter(lytic_lysogenic!="not identifiable")
 
-drep_clusters_lytic <- drep_clusters_lytic %>% group_by(primary_cluster, type) %>% mutate(lytic_lysogenic= find_niche(type, 0.8)) %>% ungroup() %>% filter(lytic_lysogenic!="not identifiable")
-
-geneabund_drep_marker_taxonomy_long_type <- left_join(geneabund_drep_marker_taxonomy_long, drep_clusters_lytic[,c("primary_cluster", "lytic_lysogenic")], by = "primary_cluster")
+geneabund_drep_marker_taxonomy_long_type <- left_join(geneabund_drep_marker_taxonomy_long, drep_clusters_lytic[,c("primary_cluster", "type")], by = "primary_cluster")
 #plot against spatio-temporal
 lytic_lysogenic_barplot<- geneabund_drep_marker_taxonomy_long_type %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = lytic_lysogenic)) + scale_x_discrete(labels = NULL, breaks = NULL) +
   scale_y_continuous(labels=scales::percent_format())  + ggtitle("Relative abundace of lytic and lysogenic viruses across spatio-temporal scales") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + guides(fill=guide_legend(title="Class")) + facet_wrap(~data_type *Sample_date)
 tiff("Lytic_lysogenic_bar.tiff", unit="px", width = 1000, height = 1000)
 lytic_lysogenic_barplot
 dev.off()
-geneabund_drep_marker_taxonomy_wide_type <- geneabund_drep_marker_taxonomy_long_type %>% group_by(Salinity_level, Salinity_PSU, Stromkilometer, lytic_lysogenic, Station, Sample_date, AccessionNumber_TBDSven) %>% summarise(sum=sum(counts), Salinity_level, Salinity_PSU, Stromkilometer, lytic_lysogenic, Station, Sample_date, data_type, Sample_type, AccessionNumber_TBDSven) %>% distinct() %>% ungroup() %>% select(c(sum, Salinity_PSU, Stromkilometer, lytic_lysogenic, Station, Sample_date, data_type, Sample_type, Salinity_level,  AccessionNumber_TBDSven)) %>% pivot_wider(values_from = sum, names_from = lytic_lysogenic) %>% mutate(ratio=lytic/lysogenic)
+geneabund_drep_marker_taxonomy_wide_type <- geneabund_drep_marker_taxonomy_long_type %>% group_by(Salinity_level, Salinity_PSU, Stromkilometer, type, Station, Sample_date, AccessionNumber_TBDSven) %>% summarise(sum=sum(counts), Salinity_level, Salinity_PSU, Stromkilometer, type, Station, Sample_date, data_type, Sample_type, AccessionNumber_TBDSven) %>% distinct() %>% ungroup() %>% select(c(sum, Salinity_PSU, Stromkilometer, type, Station, Sample_date, data_type, Sample_type, Salinity_level,  AccessionNumber_TBDSven)) %>% pivot_wider(values_from = sum, names_from = type) %>% mutate(ratio=lytic/lysogenic)
 #
 lytic_lysogenic_scatter_fraction <- geneabund_drep_marker_taxonomy_wide_type %>% ungroup()%>% ggplot(aes(x=Stromkilometer, y=ratio)) + geom_point(aes(x=Stromkilometer, y=ratio)) + geom_smooth(aes(x=Stromkilometer, y=ratio)) + ggtitle("Lytic to lysogenic ratios across spatio-temporal scales") + ylab("Lytic to lysogenic ratio")+ xlab("Elbe km") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + facet_wrap( ~Sample_type *data_type)  
 
-lytic_lysogenic_scatter_season <- geneabund_drep_marker_taxonomy_wide_type %>% ggplot(aes(x=Stromkilometer, y=ratio)) + geom_point() + ggtitle("Lytic to lysogenic ratios across spatio-temporal scales") + ylab("Lytic to lysogenic ratio")+ xlab("Elbe km") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + facet_wrap( ~data_type *Sample_date ) + geom_smooth()
+lytic_lysogenic_scatter_season <- geneabund_drep_marker_taxonomy_wide_type %>% ggplot(aes(x=Stromkilometer, y=ratio)) + geom_point() + ggtitle("Lytic to lysogenic ratios across spatio-temporal scales") + ylab("Lytic to lysogenic ratio")+ xlab("Elbe km") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + facet_wrap( ~data_type *Sample_date, scales='free') + geom_smooth()
 
-lytic_lysogenic_scatter_salinity <- geneabund_drep_marker_taxonomy_wide_type %>% ggplot(aes(x=Salinity_PSU, y=ratio)) + geom_point() + geom_smooth(span=2) + ggtitle("Lytic to lysogenic ratios across salinity") + ylab("Lytic to lysogenic ratio")+ xlab("Salinity PSU") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + facet_wrap( ~data_type)
+lytic_lysogenic_scatter_salinity <- geneabund_drep_marker_taxonomy_wide_type %>% ggplot(aes(x=Salinity_PSU, y=ratio)) + geom_point() + geom_smooth(span=2) + ggtitle("Lytic to lysogenic ratios across salinity") + ylab("Lytic to lysogenic ratio")+ xlab("Salinity PSU") + theme(axis.title.y = element_text(angle=90, size=12), legend.key = element_rect(fill = "transparent")) + facet_wrap( ~data_type, scales='free')
 
 #try to visualise lytic-to-lysogenic ratios
 tiff("lytic_lysogenic_scatter_fraction.tiff")
@@ -379,6 +379,7 @@ IP <- read.csv("Isolectric_proteom.csv")
 #separate header column into multiple informative columns
 IP <- IP %>%  separate_wider_delim(header,"\t", names=c("genome", "range", "no", "VOG", "protein name"))
 #edit genome to marge with drep cluster
+#colnames(IP) <- c("x", "genome", "IP")
 IP$genome <- gsub("_[1-9]$", "", IP$genome)
 IP_drep <- merge(IP, drep_clusters)
 IP_drep <- merge(IP_drep, drep_clusters_fin_taxonomy_unified)
@@ -391,7 +392,10 @@ mean(IP_meso)
 mean(IP_poly)
 mean(IP_fresh)
 #select MCP
-MCP_list <- c("VOG00035", "VOG004IP_drep_MCP61", "VOG01150", "VOG01000", "VOG01164", "VOG01920", "VOG02155", "VOG02220", "VOG02554", "VOG03097", "VOG03553", "VOG03780", "VOG03813", "VOG33139")
+MCP_list <- c("VOG00035", "VOG00461", "VOG01150", "VOG01000", "VOG01164", "VOG01920", "VOG02155", "VOG02220", "VOG02554", "VOG03097", "VOG03553", "VOG03780", "VOG03813", "VOG33139")
+#MCP_list <- c("VOG4553, VOG4773")
+MCP_list <- c("PF03864.15", "PF04451.12", "PF05125.12", "VOG00633", "VOG01437", "VOG06289", "VOG06316", "VOG10260", "VOG10754")
+#look for major capsid proteins these are false
 IP_drep_MCP <- IP_drep %>% filter(VOG %in% MCP_list)
 IP_oligo <- IP_drep_MCP$IP[which(IP_drep_MCP$Salinity_niche=="oligohaline")]
 IP_fresh <- IP_drep_MCP$IP[which(IP_drep_MCP$Salinity_niche=="freshwater")]
@@ -436,5 +440,21 @@ anosim_salinity <- anosim(IP_drep[which(!is.na(IP_drep$Salinity_niche)), "IP" ],
 summary(aov_fraction)
 
 ```
+```{r}
 
+IP_hist_MCP <-IP_drep_MCP %>% filter(Salinity_niche %in% c("freshwater", "oligohaline", "mesohaline", "polyhaline")) %>% ggplot(aes(x=IP, y = ..density.., color =Salinity_niche))  + #geom_histogram(bin=30, na.rm = T,  alpha=0.5, color=NA,  aes(fill =Salinity_niche))  + 
+  scale_x_continuous(name="pI [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent_format(scale = 1)) + scale_color_manual(values=c(brewer.pal(n = 4, name = "Blues")), name = "Salinity niche") + scale_fill_manual(values=c(brewer.pal(n = 4, name = "Blues")))  + 
+ geom_density(size =1, adjust = 0.6) + theme_dark(base_size = 18) #+ facet_wrap(~Salinity_niche)
+tiff("Pi_hist_MCPs.tiff")
+IP_hist_MCP
+dev.off()
+```
+
+```{r}
+IP_hist <-IP_drep %>% filter(Salinity_niche %in% c("freshwater", "oligohaline", "mesohaline", "polyhaline")) %>% ggplot(aes(x=IP, y = ..density.., color =Salinity_niche)) + 
+  scale_x_continuous(name="Isoelectric point [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent) + scale_color_manual(values=c(brewer.pal(n = 4, name = "Blues")), name = "Salinity niche") + geom_density(size =1, adjust = 0.3) + theme_dark(base_size = 18)
+tiff("Pi_hist.tiff")
+IP_hist
+dev.off()
+```
 
