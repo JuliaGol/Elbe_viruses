@@ -1164,7 +1164,7 @@ anosim_expression_Salinity_level <- anosim(dist_expression, metadata_expression$
 
 ```
 
-7.Venn diagram of MOTUs and hosts
+#7.Venn diagram of MOTUs and hosts
 
 ```{r}
 #define a function
@@ -1189,7 +1189,7 @@ motus_final_taxa_metadata <- motus_final_taxa_metadata  %>% filter(!is.na(Salini
 host_motus_final_taxa_metadata <- motus_final_taxa_metadata[which(motus_final_taxa_metadata$mOTU %in% host_motus),]
 ```
 
-#7. Venn diagram for microbial communities and hosts
+
 
 ```{r}
 library(VennDiagram)
@@ -1233,10 +1233,15 @@ ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mes
 ```
 
 ```{r}
-bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>10) %>% group_by(genus, Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Salinity_level, y=counts, fill = genus), show.legend = FALSE)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche")
+bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>10) %>% group_by(genus, Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Salinity_level, y=counts, fill = genus), show.legend = FALSE)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche") 
 bac_rel_abund_plot
 ```
 ```{r}
 bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>0) %>% group_by(genus, Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Salinity_level, y=counts, fill = genus), show.legend = FALSE)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche")
+bac_rel_abund_plot
+```
+
+```{r}
+bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>10) %>% group_by(class, station_km, data_type, date,  Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x= station_km, y=counts, fill = class), show.legend = T)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche") + facet_grid(~date)
 bac_rel_abund_plot
 ```
