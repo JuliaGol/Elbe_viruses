@@ -135,11 +135,11 @@ dev.off()
 ggplot(geneabund_drep_marker_taxonomy_long) + geom_bar(position ="fill", stat = "identity", aes(x=Station, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type) + ggtitle("Relative abundace across different fractions")+ ylab("Relative abundance") + theme(axis.title.y = element_text(angle=90, size=12), axis.title.x = element_blank(), axis.text.x = element_text(angle=90, hjust=1, size=12)) + scale_fill_brewer(palette = "Set2") + guides(fill=guide_legend(title="Viral class")) 
 dev.off()
 
-viruses_taxonomy_salinity <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type, scales = "free") + #facet_grid(rows=vars(data_type), cols=vars(Salinity_level), scales= "free") + 
+viruses_taxonomy_fractions <- geneabund_drep_marker_taxonomy_long %>% filter(counts!=0 ) %>% ggplot() + geom_bar(position ="fill", stat = "identity",  na.rm = TRUE, aes(x=AccessionNumber_TBDSven, y=counts, fill = level_5)) + scale_y_continuous(labels=scales::percent_format()) + facet_wrap(~data_type *Sample_type, scales = "free") + #facet_grid(rows=vars(data_type), cols=vars(Salinity_level), scales= "free") + 
   ggtitle("Relative abundace across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=20), axis.title.x=element_blank(), axis.text.x=element_blank()) + guides(fill=guide_legend(title="Viral class")) + scale_x_discrete(labels = NULL, breaks = NULL) + scale_fill_brewer(palette = "Set2") #+ theme_minimal()
 
-tiff("Relative_abundace_taxonomy_across_different_salinity.tiff", unit="px", width = 1000, height = 1000)
-viruses_taxonomy_salinity
+tiff("Relative_abundace_taxonomy_across_different_fractions.tiff", unit="px", width = 1000, height = 1000)
+viruses_taxonomy_fractions
 dev.off()
 ```
 ##2. Characterise clusters by salinity preferences and fractions
@@ -163,16 +163,16 @@ find_niche <-function(x, threshold){
   }}
 #statistics for each cluster
 drep_clusters_fin_taxonomy_description <- 
-  drep_clusters_fin_taxonomy_description %>% 
+  drep_clusters_fin_taxonomy_description  %>%
   add_count(primary_cluster,  name = "count_genomes", wt = !is.na(genome)) %>% ungroup() %>% 
   add_count(primary_cluster, Salinity_level,  name = "percentage_salinity", wt = !is.na(Salinity_level)) %>% ungroup() %>%
   mutate(percentage_salinity = (percentage_salinity/count_genomes)*100) %>% ungroup() %>% 
   add_count(primary_cluster, Sample_type,  name = "percentage_fraction", wt = !is.na(Sample_type)) %>% ungroup()  %>% 
   mutate(percentage_fraction = (percentage_fraction/count_genomes)*100) %>% ungroup() %>% group_by(primary_cluster) %>% mutate(Salinity_niche= find_niche(Salinity_level, 0.8), Fraction_niche= find_niche(Sample_type,  0.8)) %>% ungroup()
 #add data to dataframe with primary clusters only to have all calculated taxonomy, 
-drep_clusters_fin_taxonomy_unified <- merge(drep_clusters_fin_taxonomy_unified, distinct(drep_clusters_fin_taxonomy_description[, c("count_genomes", "Salinity_niche", "Fraction_niche", "primary_cluster")]), by="primary_cluster", all.x = T, all.y = F,) 
+drep_clusters_fin_taxonomy_unified <- merge(drep_clusters_fin_taxonomy_unified, distinct(drep_clusters_fin_taxonomy_description[, c("count_genomes", "Salinity_niche", "Fraction_niche", "primary_cluster")]), by="primary_cluster", all.x = T, all.y = F,)  %>% filter(Salinity_niche!="" & !is.na(Salinity_niche))
 #ok with prepared table lets do the basic statistics for cluster which are bigger then 5 
-drep_clusters_fin_taxonomy_unified$Salinity_niche <- factor(drep_clusters_fin_taxonomy_unified$Salinity_niche, levels = c("freshwater", "freshwater;oligohaline", "oligohaline", "freshwater;mesohaline", "mesohaline;oligohaline", "mesohaline", "mesohaline;polyhaline", "polyhaline", "oligohaline;polyhaline", "mesohaline;oligohaline;polyhaline", ""))
+drep_clusters_fin_taxonomy_unified$Salinity_niche <- factor(drep_clusters_fin_taxonomy_unified$Salinity_niche, levels = c("freshwater", "freshwater;oligohaline", "oligohaline", "freshwater;mesohaline", "mesohaline;oligohaline", "mesohaline", "mesohaline;polyhaline", "polyhaline", "oligohaline;polyhaline", "mesohaline;oligohaline;polyhaline"))
 
 #check correlation between salinity and fraction niche  
 corr_spearman <- cor(x=rank(drep_clusters_fin_taxonomy_unified$Salinity_niche), y=rank(drep_clusters_fin_taxonomy_unified$Fraction_niche), method = 'spearman')
@@ -196,7 +196,7 @@ colors <- brewer.pal(n = 4, name = "Blues")
 tiff("salinity_venn_diagram.tiff", unit="px", height=800, width=1000)
 ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors, text_size=10, set_name_size=10, digits=0) 
 dev.off()
-
+venn_salinity<- ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors, text_size=10, set_name_size=10, digits=0) 
 #most viral clusters have specificity towards salinity. The least in polyhaline only but these samples has the lowest frequencies. The intersections with mesohaline for both polyhaline and oligohaline has also high values as - mesohaline water are neighbouring for both of these conditions. Interesting there is no intersection for polyhaline and oligohaline water and very few for all three categories what strongly suggest separate viral saline niches. 
 ###for fraction
 # Generate 3 sets of 200 words
@@ -241,6 +241,28 @@ Fraction_niche_taxa_plot <- na.omit(geneabund_drep_marker_taxonomy_long[, c("sam
 tiff("Fraction_niche_taxa_plot.tiff", unit="px", width = 1000, height = 1000)
 Fraction_niche_taxa_plot
 dev.off()
+```
+```{r}
+library(ggh4x)
+
+#bubble plot version of taxonomy
+geneabund_drep_marker_taxonomy_long_percent <- na.omit(geneabund_drep_marker_taxonomy_long[, c( "counts", "level_5", "data_type", "Sample_date", "Salinity_niche")]) %>% filter(Salinity_niche %in% c("freshwater",  "oligohaline", "mesohaline", "polyhaline")) %>% group_by(Sample_date,  data_type, Salinity_niche, level_5)  %>% reframe(counts = sum(counts)) %>%  group_by(Sample_date,  data_type, Salinity_niche) %>% reframe(total =  sum(counts), across()) %>% mutate(Percentage = counts / total * 100) %>%  ungroup()  %>%  filter(Percentage>0, counts>0, !is.na(Salinity_niche), !is.na(level_5)) 
+#date as factor
+geneabund_drep_marker_taxonomy_long_percent$Sample_date <- factor(geneabund_drep_marker_taxonomy_long_percent$Sample_date, levels= c("May-21", "Jul-21", "Feb-22", "Jun-22",  "May-22", "Nov-22"))
+xx =  geneabund_drep_marker_taxonomy_long_percent %>%ggplot(aes(x = Salinity_niche, y=level_5)) + 
+  geom_point(aes(size = Percentage, color=level_5), alpha = 0.75) + 
+  scale_size_continuous(limits = c(0.000001, 100), breaks = c(1,10,50,75))+ facet_grid2(data_type ~ Sample_date, render_empty=F, scales="free", space = "free", drop=T) + 
+  labs( x= "", y = "", size = "Relative Abundance (%)", color = "class") +  
+ # scale_fill_manual(values = colours, guide = FALSE) + 
+#  scale_y_discrete(limits = rev(levels(geneabund_drep_marker_taxonomy_long$level_5)))
+  theme_clean(base_size=20)  + 
+  theme(legend.key=element_blank(), 
+  axis.text.x = element_text(colour = "black", size = 12, face = "bold", angle = 90, vjust = 0.3, hjust = 1), 
+  axis.text.y = element_text(colour = "black", face = "bold", size = 11), 
+  legend.text = element_text(size = 10, face ="bold", colour ="black"), 
+  legend.title = element_text(size = 12, face = "bold"), 
+  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") + guides(color = guide_legend(override.aes = list(size=5)))
+xx
 ```
 ## 3.Read metadata for each fraction and data type
 ```{r}
@@ -287,7 +309,7 @@ viral_activity_HF <- geneabund_drep_marker[,colnames_METAT_HF]
 #vector of numeric parameters columns from metadata
 # env_numeric <- colnames(metadata_METAG_LF)[9:40]
 # env_numeric <- c("Sat_O2_Perc", "Temperature_TBDHereon", "Salinity_PSU", "Turbidity_NTU", "pH", "O2_uM", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Phosphate_uM", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "TEP_um2perL", "CSP_um2perL", "ParticleArea_um2perL", "dCH4_uM", "dCO2_uM", "Chlorophyll_Fluoresence", "Chla_ug.l", "bacteria_counts")
-env_numeric <- c("Sat_O2_Perc", "Temperature_TBDHereon", "Salinity_PSU", "Turbidity_NTU", "pH", "O2_uM", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Phosphate_uM", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "TEP_um2perL", "CSP_um2perL", "ParticleArea_um2perL", "dCH4_uM", "dCO2_uM", "Chlorophyll_Fluoresence",  "Chla_ug/l","bacteria_counts")
+env_numeric <- c("Sat_O2_Perc", "Temperature_TBDHereon", "Salinity_PSU", "Turbidity_NTU", "pH", "O2_uM", "SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Phosphate_uM", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "TEP_um2perL", "CSP_um2perL", "ParticleArea_um2perL", "dCH4_uM", "dCO2_uM",  "Chla_ug/l","bacteria_counts")
 #for plotting we will change labels
 # env_numeric_sim <- c("O2%", "Temp", "Salinity", "Turbidity", "pH", "O2", "SPM", "DOC", "TN", "DIC", "Si", "NH4", "NO2", "NO3", "SRP", "TDP", "PO43-", "POC", "PTC", "PTN", "PTH", "TEP", "CSP", "ParticleArea", "CH4", "CO2", "Chla_Fluoresence", "Chla_ug.l", "bacteria_counts") 
 #reformat metadata - sample names into rownames  
@@ -311,61 +333,59 @@ metadata_METAT_HF <- data.frame(apply(metadata_METAT_HF,2, as.numeric))
 #apply(metadata_METAT_FL,2, FUN=function(x) sum(!is.na(x))/length(x))
 not_any_na <- function(x) all(!is.na(x))
 #imput pH using O2 saturation and CO2
-fit_pH <- lm(pH ~ Sat_O2_Perc + dCO2_uM , metadata_METAG_FL)
-#imput SRP
-# fit_SRP <- lm(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L + Chlorophyll_Fluoresence, metadata_METAG_FL)
-metadata_METAG_FL <- metadata_METAG_FL %>% 
-  rowwise() %>% 
-  mutate(pH = ifelse(is.na(pH), predict(fit_pH, .cols = c(Sat_O2_Perc, dCO2_uM)), pH)) %>% 
-  ungroup()
+ fit_pH <- lm(pH ~ Sat_O2_Perc + dCO2_uM , metadata_METAG_FL)
+ #imput SRP
+ # fit_SRP <- lm(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L, metadata_METAG_FL)
+ metadata_METAG_FL <- metadata_METAG_FL %>%
+   rowwise() %>%
+   mutate(pH = ifelse(is.na(pH), predict(fit_pH, .cols = c(Sat_O2_Perc, dCO2_uM)), pH)) %>%
+   ungroup()
 #remove incomplete columns
-METAG_FL_param_keep <- apply(metadata_METAG_FL, 2, not_any_na)
-metadata_METAG_FL <- data.frame(metadata_METAG_FL[,METAG_FL_param_keep])
+ METAG_FL_param_keep <- apply(metadata_METAG_FL, 2, not_any_na)
+ metadata_METAG_FL <- data.frame(metadata_METAG_FL[,METAG_FL_param_keep])
 
 #METAT FL
 METAT_FL_param_keep <- apply(metadata_METAT_FL, 2, not_any_na)
 metadata_METAT_FL <- data.frame(metadata_METAT_FL[,METAT_FL_param_keep])
 #METAG LF
 #to impute
-#Silicate_mg.L - Temperature_TBDHereon     Turbidity_NTU                O2_uM    DIC_mg.L    Nitrate_mg.L         
-#POC_mgperL                   PTC_mgperL                   PTN_mgperL     - Turbidity_NTU                                     
-#SRP_mgperL - as above Sat_O2_Perc + TN_mg.L + Chlorophyll_Fluoresence
+#Silicate_mg.L - Temperature_TBDHereon     Turbidity_NTU                O2_uM    DIC_mg.L    Nitrate_mg.L
+#POC_mgperL                   PTC_mgperL                   PTN_mgperL     - Turbidity_NTU
+#SRP_mgperL - as above Sat_O2_Perc + TN_mg.L
 #imput SRP
-fit_SRP <- lm(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L + Chlorophyll_Fluoresence, metadata_METAG_LF)
+fit_SRP <- lm(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L, metadata_METAG_LF)
 fit_POC <- lm(POC_mgperL  ~  Turbidity_NTU, metadata_METAG_LF)
 fit_PTC <- lm(PTC_mgperL  ~  Turbidity_NTU, metadata_METAG_LF)
 fit_PTN <- lm(PTN_mgperL  ~  Turbidity_NTU, metadata_METAG_LF)
 fit_Silicate <- lm(Silicate_mg.L ~  Temperature_TBDHereon  + Turbidity_NTU + O2_uM + DIC_mg.L +  Nitrate_mg.L, metadata_METAG_LF)
-
-metadata_METAG_LF <- metadata_METAG_LF %>% 
-  rowwise() %>% 
-  mutate(POC_mgperL = ifelse(is.na(POC_mgperL), predict(fit_POC, .cols = c(Turbidity_NTU)), POC_mgperL),
-         PTC_mgperL = ifelse(is.na(PTC_mgperL), predict(fit_PTC, .cols = c(Turbidity_NTU)), PTC_mgperL),
-         PTN_mgperL = ifelse(is.na(PTN_mgperL), predict(fit_PTN, .cols = c(Turbidity_NTU)), PTN_mgperL),
-         Silicate_mg.L = ifelse(is.na(Silicate_mg.L), predict(fit_Silicate, .cols = c(Temperature_TBDHereon, Turbidity_NTU, O2_uM, DIC_mg.L, Nitrate_mg.L)), Silicate_mg.L),
-         SRP_mgperL = ifelse(is.na(SRP_mgperL), predict(fit_SRP, .cols = c(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L + Chlorophyll_Fluoresence)), SRP_mgperL)) %>% 
-  ungroup()
-
-METAG_LF_param_keep <- apply(metadata_METAG_LF, 2, not_any_na)
-metadata_METAG_LF <- metadata_METAG_LF[,METAG_LF_param_keep]
+#
+metadata_METAG_LF <- metadata_METAG_LF %>%
+rowwise() %>%
+   mutate(POC_mgperL = ifelse(is.na(POC_mgperL), predict(fit_POC, .cols = c(Turbidity_NTU)), POC_mgperL),
+          PTC_mgperL = ifelse(is.na(PTC_mgperL), predict(fit_PTC, .cols = c(Turbidity_NTU)), PTC_mgperL),
+          PTN_mgperL = ifelse(is.na(PTN_mgperL), predict(fit_PTN, .cols = c(Turbidity_NTU)), PTN_mgperL),
+          Silicate_mg.L = ifelse(is.na(Silicate_mg.L), predict(fit_Silicate, .cols = c(Temperature_TBDHereon, Turbidity_NTU, O2_uM, DIC_mg.L, Nitrate_mg.L)), Silicate_mg.L),
+          SRP_mgperL = ifelse(is.na(SRP_mgperL), predict(fit_SRP, .cols = c(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L)), SRP_mgperL)) %>%
+   ungroup()
+ METAG_LF_param_keep <- apply(metadata_METAG_LF, 2, not_any_na)
+ metadata_METAG_LF <- metadata_METAG_LF[,METAG_LF_param_keep]
 #METAT LF
 METAT_LF_param_keep <- apply(metadata_METAT_LF, 2, not_any_na)
 metadata_METAT_LF <-metadata_METAT_LF[,METAT_LF_param_keep]
 #METAG HF
-# fit_SRP <- lm(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L + Chlorophyll_Fluoresence, metadata_METAG_HF)
+fit_SRP <- lm(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L, metadata_METAG_HF)
 fit_POC <- lm(POC_mgperL  ~  Turbidity_NTU, metadata_METAG_HF)
 fit_PTC <- lm(PTC_mgperL  ~  Turbidity_NTU, metadata_METAG_HF)
 fit_PTN <- lm(PTN_mgperL  ~  Turbidity_NTU, metadata_METAG_HF)
 fit_Silicate <- lm(Silicate_mg.L ~  Temperature_TBDHereon  + Turbidity_NTU + O2_uM + DIC_mg.L +  Nitrate_mg.L, metadata_METAG_HF)
-
-metadata_METAG_HF <- metadata_METAG_HF %>% 
-  rowwise() %>% 
-  mutate(POC_mgperL = ifelse(is.na(POC_mgperL), predict(fit_POC, .cols = c(Turbidity_NTU)), POC_mgperL),
-         PTC_mgperL = ifelse(is.na(PTC_mgperL), predict(fit_PTC, .cols = c(Turbidity_NTU)), PTC_mgperL),
-         PTN_mgperL = ifelse(is.na(PTN_mgperL), predict(fit_PTN, .cols = c(Turbidity_NTU)), PTN_mgperL),
-         Silicate_mg.L = ifelse(is.na(Silicate_mg.L), predict(fit_Silicate, .cols = c(Temperature_TBDHereon, Turbidity_NTU, O2_uM, DIC_mg.L, Nitrate_mg.L)), Silicate_mg.L),
-         SRP_mgperL = ifelse(is.na(SRP_mgperL), predict(fit_SRP, .cols = c(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L + Chlorophyll_Fluoresence)), SRP_mgperL)) %>% 
-  ungroup()
+metadata_METAG_HF <- metadata_METAG_HF %>%
+   rowwise() %>%
+   mutate(POC_mgperL = ifelse(is.na(POC_mgperL), predict(fit_POC, .cols = c(Turbidity_NTU)), POC_mgperL),
+          PTC_mgperL = ifelse(is.na(PTC_mgperL), predict(fit_PTC, .cols = c(Turbidity_NTU)), PTC_mgperL),
+          PTN_mgperL = ifelse(is.na(PTN_mgperL), predict(fit_PTN, .cols = c(Turbidity_NTU)), PTN_mgperL),
+          Silicate_mg.L = ifelse(is.na(Silicate_mg.L), predict(fit_Silicate, .cols = c(Temperature_TBDHereon, Turbidity_NTU, O2_uM, DIC_mg.L, Nitrate_mg.L)), Silicate_mg.L),
+          SRP_mgperL = ifelse(is.na(SRP_mgperL), predict(fit_SRP, .cols = c(SRP_mgperL ~ Sat_O2_Perc + TN_mg.L)), SRP_mgperL)) %>%
+   ungroup()
 
 METAG_HF_param_keep <- apply(metadata_METAG_HF, 2, not_any_na)
 metadata_METAG_HF <- metadata_METAG_HF[,METAG_HF_param_keep]
@@ -373,14 +393,14 @@ metadata_METAG_HF <- metadata_METAG_HF[,METAG_HF_param_keep]
 fit_POC <- lm(POC_mgperL  ~  Turbidity_NTU, metadata_METAT_HF)
 fit_PTC <- lm(PTC_mgperL  ~  Turbidity_NTU, metadata_METAT_HF)
 fit_PTN <- lm(PTN_mgperL  ~  Turbidity_NTU, metadata_METAT_HF)
-
-metadata_METAT_HF <- metadata_METAT_HF %>% 
-  rowwise() %>% 
-  mutate(POC_mgperL = ifelse(is.na(POC_mgperL), predict(fit_POC, .cols = c(Turbidity_NTU)), POC_mgperL),
-         PTC_mgperL = ifelse(is.na(PTC_mgperL), predict(fit_PTC, .cols = c(Turbidity_NTU)), PTC_mgperL),
-         PTN_mgperL = ifelse(is.na(PTN_mgperL), predict(fit_PTN, .cols = c(Turbidity_NTU)), PTN_mgperL)) %>% 
-  ungroup()
-
+#
+metadata_METAT_HF <- metadata_METAT_HF %>%
+   rowwise() %>%
+   mutate(POC_mgperL = ifelse(is.na(POC_mgperL), predict(fit_POC, .cols = c(Turbidity_NTU)), POC_mgperL),
+          PTC_mgperL = ifelse(is.na(PTC_mgperL), predict(fit_PTC, .cols = c(Turbidity_NTU)), PTC_mgperL),
+          PTN_mgperL = ifelse(is.na(PTN_mgperL), predict(fit_PTN, .cols = c(Turbidity_NTU)), PTN_mgperL)) %>%
+   ungroup()
+#
 METAT_HF_param_keep <- apply(metadata_METAT_HF, 2, not_any_na)
 metadata_METAT_HF <- metadata_METAT_HF[,METAT_HF_param_keep]
 ```
@@ -455,7 +475,7 @@ FL_vir_diversity_plot_class <- plot +
       xend = CCA1 * arrow_factor,
       yend = CCA2 * arrow_factor
     ),
-    arrow = arrow(length = unit(0.25, "cm"))
+    arrow = arrow(length = unit(0.25, "cm")), colour="black",
   )   +
   geom_text_repel( parse= TRUE,
     data = veg_1,
@@ -745,268 +765,54 @@ grid
 dev.off()
 ```
 
-
-##8. Build models
-Building models for salinity and phosphate predictions
-
-We will try to use viral abundance data based on individual marker genes 
-```{r salinity }
-library(glmnet)
-library(caret)
+## 7. Viral diversity indexes - shannon simpson, richness based on an occurence and niches
+```{r}
 #divide dataset by test and train
 #try METAG first
 #we have to transform data so we have counts of each primary cluster in separate column and each row is a different samples with a parameter
 geneabund_drep_marker_taxonomy_long <- readRDS(file="geneabund_drep_marker_taxonomy_long.RDS")
 #remove taxonomy distribution so we dont we multiple separe vectors for the same sample but one which represents community
 #keep only one replicate - keep only even Associated numbers
-geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% ungroup() %>% filter(Associatednumber%%2==0) %>% select(-c("lineage", "level_5", "Salinity_niche", "Fraction_niche"))  %>%  pivot_wider(names_from=primary_cluster, values_from=counts, values_fill = 0, names_prefix="cluster_") %>% distinct()
+
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% merge(drep_clusters_fin_taxonomy_unified[,c("primary_cluster", "Salinity_niche","Fraction_niche") ], by="primary_cluster")
+# permanova_salinity_niche <- adonis2(geneabund_drep_marker_taxonomy_wide[, grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide))] ~ Salinity_niche, data =geneabund_drep_marker_taxonomy_long, permutations = 999)
+# permanova_salinity_level <- adonis2(formula = permanova_salinity_level_pairwise[, grepl("cluster", colnames(permanova_salinity_level_pairwise))] ~ Salinity_level, data = permanova_salinity_level_pairwise, permutations = 999)
+
+library(pairwiseAdonis)
 geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG") 
                                                                                             
 #keep rows where we have collected param
 geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide_METAG %>% filter(!is.na(Salinity_PSU))
 
 geneabund_drep_marker_taxonomy_wide_METAT <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAT")
-#draw randomly train and test set 80:20
-set.seed(123)
-p <- nrow(geneabund_drep_marker_taxonomy_wide_METAG)
-train_rows <- sample(size=p*0.8, 1:p)
-geneabund_drep_marker_taxonomy_wide_METAG_train <- geneabund_drep_marker_taxonomy_wide_METAG[train_rows,]
-geneabund_drep_marker_taxonomy_wide_METAG_train_x <- geneabund_drep_marker_taxonomy_wide_METAG_train %>% ungroup() %>% select(starts_with("cluster"))
-geneabund_drep_marker_taxonomy_wide_METAG_test <- geneabund_drep_marker_taxonomy_wide_METAG[-train_rows,]
-geneabund_drep_marker_taxonomy_wide_METAG_test_x <- geneabund_drep_marker_taxonomy_wide_METAG_test %>% ungroup() %>% select(starts_with("cluster"))
-y_train <- geneabund_drep_marker_taxonomy_wide_METAG_train$Salinity_PSU 
-y_test <- geneabund_drep_marker_taxonomy_wide_METAG_test$Salinity_PSU 
-# #try the same for phosphate 
-# y_train <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_train$Phosphate_uM) 
-# y_test <- as.vector(geneabund_drep_marker_taxonomy_wide_METAG_test$Phosphate_uM)
-
-```
-We will try to use viral abundance data based on individual marker genes 
-```{r model_salinity}
-library(caret)
-#divide dataset by test and train
-#try METAG first
-#we have to transform data so we have counts of each primary cluster in separate column and each row is a different samples with a parameter
-geneabund_drep_marker_taxonomy_long <- readRDS(file="geneabund_drep_marker_taxonomy_long.RDS")
-#remove taxonomy distribution so we dont we multiple separe vectors for the same sample but one which represents community
-geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% ungroup() %>% select(-c("lineage", "level_5"))  %>% filter(Associatednumber%%2==0) %>%  pivot_wider(names_from=primary_cluster, values_from=counts, values_fill = 0, names_prefix="cluster_") %>% distinct()
-#remove outliers - our model can be used for fresh to mesohaline water
-geneabund_drep_marker_taxonomy_wide_METAG_salinity <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG") %>% filter(Salinity_PSU < 17.0) 
-set.seed(123)
-#divide by train and test set to get balanced datasets
-trainIndex <- createDataPartition(geneabund_drep_marker_taxonomy_wide_METAG$Salinity_PSU, p = .8, 
-                                  list = FALSE, 
-                                  times = 1)
-virusTrain <- geneabund_drep_marker_taxonomy_wide_METAG[ trainIndex,]
-virusTest  <- geneabund_drep_marker_taxonomy_wide_METAG[-trainIndex,]
-
-set.seed(123)
-#divide train set to folds
-train_control <- trainControl(method = "cv",
-                              number=5,
-                              savePredictions = TRUE,
-                              verboseIter = TRUE,
-                              allowParallel = FALSE)
-#generate formula so I dont need to generate new data frame for each model - saving memory
-
-#find columns with near zero variance 0 take into account problematic fold 
-colzerovar<- nearZeroVar(virusTrain)
-# #and remove the m from formula
-# 
-clusters_model <- colnames(virusTrain)[-c(colzerovar)]
-#take column names with clusters with more then near zero variance for final model
-clusters_model <- clusters_model[grepl("cluster",clusters_model)]
-#take part of the data as it gives error when trying to create long formula
-#search space
-
-grid <- expand.grid(
-  alpha = seq(0, 1, length = 100),
-  lambda = seq(0, 10, length = 100)
-)
-model_salinity <- train(x=as.matrix(virusTrain[clusters_model]), y=as.numeric(virusTrain$Salinity_PSU), 
-               method = "glmnet", na.action = na.omit,  #preProc = c("center", "scale"),
-               trControl = train_control, tuneGrid = grid, verbose = TRUE,  allowParallel=F,
-               importance=T, metric="Rsquared")
-# save.image(file="cca_individual_marker_gene.RData")
-
-print(model_salinity)
-
-best_model_stats <- model_salinity$results[which(model_salinity$results$alpha == model_salinity$bestTune$alpha & model_salinity$results$lambda == model_salinity$bestTune$lambda ),]
-cv_eval <- model_salinity$resample
-```
-
-```{r eval_salinity}
-pred<-predict(object=model_salinity, newdata = as.matrix(virusTest[,clusters_model]))
-
-
-
-plot(virusTest$Salinity_PSU, pred, ylim=c(0,20))
-lm_pred<-lm(virusTest$Salinity_PSU ~ pred, b=1)
-abline(lm_pred, col=c("red"))
-abline(a=0, b=1, col ="black")
-summary(lm_pred)
-
-
-r2 <- summary(lm_pred)$r.squared
-tiff("model_salinity_validation2.tiff")
-pred_validation <- ggplot() + geom_point(aes(x=virusTest$Salinity_PSU, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Salinity_PSU, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=7.5, y=15, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted") + xlab("Observed") + theme(axis.title.x = element_text(size = 20),
-        axis.title.y = element_text(size = 20))
-pred_validation
-dev.off()
-#looks like two groups - 
-#try to find wich samples have the biggest mae ~ 7 - check if they have sth in common
-
-```
-
-```{r model_phosphate}
-library(caret)
-#divide dataset by test and train
-#try METAG first
-#we have to transform data so we have counts of each primary cluster in separate column and each row is a different samples with a parameter
-# geneabund_drep_marker_taxonomy_long <- readRDS(file="geneabund_drep_marker_taxonomy_long.RDS")
-# #remove taxonomy distribution so we dont we multiple separe vectors for the same sample but one which represents community
-# geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% ungroup() %>% select(-c("lineage", "level_5"))  %>%  pivot_wider(names_from=primary_cluster, values_from=counts, values_fill = 0, names_prefix="cluster_") %>% distinct()
-# geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG") 
-#reshuffle data and draw folds
-set.seed(123)
-#divide by train and test set to get balanced datasets
-geneabund_drep_marker_taxonomy_wide_METAG_phosphate <- geneabund_drep_marker_taxonomy_wide_METAG[which(!is.na(geneabund_drep_marker_taxonomy_wide_METAG$Phosphate_uM)), ]
-trainIndex <- createDataPartition(geneabund_drep_marker_taxonomy_wide_METAG_phosphate$Phosphate_uM, p = .8,
-                                  list = FALSE,
-                                  times = 1)
-virusTrain <- geneabund_drep_marker_taxonomy_wide_METAG_phosphate[ trainIndex,]
-virusTest  <- geneabund_drep_marker_taxonomy_wide_METAG_phosphate[-trainIndex,]
-
-set.seed(123)
-#divide train set to folds
-# folds <- createFolds(y=as.factor(virusTrain$Salinity_level), k = 5)
-train_control <- trainControl(method = "cv",
-                              number=5,
-                              savePredictions = TRUE,
-                              verboseIter = TRUE,
-                              allowParallel = FALSE)
-#generate formula so I dont need to generate new data frame for each model - saving memory
-
-#find columns with near zero variance 0 take into account problematic fold 
-colzerovar<- nearZeroVar(virusTrain)
-# #and remove the m from formula
-# 
-clusters_model <- colnames(virusTrain)[-c(colzerovar)]
-#take column names with clusters with more then near zero variance for final model
-clusters_model <- clusters_model[grepl("cluster",clusters_model)]
-#take part of the data as it gives error when trying to create long formula
-model_Phosphate <- train(x=as.matrix(virusTrain[clusters_model]), y=as.numeric(virusTrain$Phosphate_uM), 
-               method = "glmnet", na.action = na.omit,  #preProc = c("center", "scale"),
-               trControl = train_control, tuneLength = 10, verbose = TRUE,  allowParallel=F,
-               importance=T, metric="Rsquared")
-# save.image(file="cca_individual_marker_gene")
-
-print(model_Phosphate)
-
-best_model_stats <- model_Phosphate$results[which(model_Phosphate$results$alpha == model_Phosphate$bestTune$alpha & model_Phosphate$results$lambda == model_Phosphate$bestTune$lambda ),]
-cv_eval <- model_Phosphate$resample
-```
-```{r eval_phosphate}
-pred<-predict(object=model_Phosphate, newdata = as.matrix(virusTest[,clusters_model]))
-
-plot(virusTest$Phosphate_uM, pred, ylim=c(0,5))
-lm_pred<-lm(virusTest$Phosphate_uM ~ pred, b=1)
-abline(lm_pred, col=c("red"))
-abline(a=0, b=1, col ="black")
-summary(lm_pred)
-
-
-r2 <- summary(lm_pred)$r.squared
-model_Phosphate_validation.tiff<-ggplot() + geom_point(aes(x=virusTest$Phosphate_uM, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Phosphate_uM, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=1.5, y=15, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted") + xlab("Observed") + theme(axis.title.x = element_text(size = 20),
-        axis.title.y = element_text(size = 20))
-tiff("model_Phosphate_validation.tiff")
-model_Phosphate_validation.tiff
-dev.off()
-#looks like two groups - 
-#try to find which samples have the biggest mae ~ 7 - check if they have sth in common
-
-```
-```{r model_temp}
-library(caret)
-#divide dataset by test and train
-#try METAG first
-
-#reshuffle data and draw folds
-set.seed(123)
-#divide by train and test set to get balanced datasets
-geneabund_drep_marker_taxonomy_wide_METAG <- geneabund_drep_marker_taxonomy_wide %>% filter(data_type == "METAG")
-
-trainIndex <- createDataPartition(geneabund_drep_marker_taxonomy_wide_METAG$Temperature_TBDHereon, p = .8, list = FALSE,  times = 1)
-virusTrain <- geneabund_drep_marker_taxonomy_wide_METAG[ trainIndex,]
-virusTest  <- geneabund_drep_marker_taxonomy_wide_METAG[-trainIndex,]
-
-set.seed(123)
-#divide train set to folds
-# folds <- createFolds(y=as.factor(virusTrain$Salinity_level), k = 5)
-train_control <- trainControl(method = "cv",
-                              number=5,
-                              savePredictions = TRUE,
-                              verboseIter = TRUE,
-                              allowParallel = FALSE)
-#generate formula so I dont need to generate new data frame for each model - saving memory
-
-#find columns with near zero variance 0 take into account problematic fold 
-colzerovar<- nearZeroVar(virusTrain)
-# #and remove the m from formula
-# 
-clusters_model <- colnames(virusTrain)[-c(colzerovar)]
-#take column names with clusters with more then near zero variance for final model
-clusters_model <- clusters_model[grepl("cluster",clusters_model)]
-#take part of the data as it gives error when trying to create long formula
-model_temp <- train(x=as.matrix(virusTrain[clusters_model]), y=as.numeric(virusTrain$Temperature_TBDHereon), 
-               method = "glmnet", na.action = na.omit,  #preProc = c("center", "scale"),
-               trControl = train_control, tuneLength = 10, verbose = TRUE,  allowParallel=F,
-               importance=T, metric="Rsquared")
-# save.image(file="cca_individual_marker_gene")
-
-print(model_temp)
-
-best_model_stats <- model_temp$results[which(model_temp$results$alpha == model_temp$bestTune$alpha & model_temp$results$lambda == model_temp$bestTune$lambda ),]
-cv_eval <- model_temp$resample
-```
-```{r eval_temp}
-pred<-predict(object=model_temp, newdata = as.matrix(virusTest[,clusters_model]))
-
-plot(virusTest$Temperature_TBDHereon, pred)
-lm_pred<-lm(virusTest$Temperature_TBDHereon ~ pred, b=1)
-abline(lm_pred, col=c("red"))
-abline(a=0, b=1, col ="black")
-summary(lm_pred)
-
-
-r2 <- summary(lm_pred)$r.squared
-model_temp_validation<-ggplot() + geom_point(aes(x=virusTest$Temperature_TBDHereon, y=pred)) + geom_abline(color="red", size=1) + geom_smooth(aes(x=virusTest$Temperature_TBDHereon, y=pred), method = "lm", se = FALSE) +  annotate(geom="text", x=8, y=20, label=paste("Rsquared = ",round(r2,2)), size= 10, colour = "#3366FF") + ylab("Predicted") + xlab("Observed") + ylim(c(0,25)) + theme(axis.title.x = element_text(size = 20),
-        axis.title.y = element_text(size = 20))
-tiff("model_temp_validation.tiff")
-model_temp_validation
-dev.off()
-#looks like two groups - 
-#try to find which samples have the biggest mae ~ 7 - check if they have sth in common
-
-```
-## 9. Viral diversity indexes - shannon simpson, richness based on an occurence and niches
-```{r}
-geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% merge(drep_clusters_fin_taxonomy_unified[,c("primary_cluster", "Salinity_niche","Fraction_niche") ], by="primary_cluster")
-# permanova_salinity_niche <- adonis2(geneabund_drep_marker_taxonomy_wide[, grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide))] ~ Salinity_niche, data =geneabund_drep_marker_taxonomy_long, permutations = 999)
-# permanova_salinity_level <- adonis2(formula = permanova_salinity_level_pairwise[, grepl("cluster", colnames(permanova_salinity_level_pairwise))] ~ Salinity_level, data = permanova_salinity_level_pairwise, permutations = 999)
-
-library(pairwiseAdonis)
 permanova_salinity_level_pairwise <- pairwise.adonis(geneabund_drep_marker_taxonomy_wide_METAG[, grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide_METAG))], geneabund_drep_marker_taxonomy_wide_METAG$Salinity_level)
 # permanova_fraction_niche <- adonis2(formula = geneabund_drep_marker_taxonomy_wide[$counts] ~ Fraction_niche, data = geneabund_drep_marker_taxonomy_long, permutations = 999)
 ```
-```{r diverity meassurments}
+
+```{r diversity meassurments}
 library(phyloseq)
 library(ggpubr)
+#get votus data 
+geneabund_drep_marker_taxonomy_wide <-  geneabund_drep_marker_taxonomy_long %>% ungroup() %>% filter(Associatednumber%%2==0) %>% select(-c("lineage", "level_5"))  %>%  pivot_wider(names_from=primary_cluster, values_from=counts, values_fill = 0, names_prefix="cluster_") %>% distinct()
+
 otu1 <- otu_table(geneabund_drep_marker_taxonomy_wide_METAG[, grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide_METAG))], taxa_are_rows = F)
 geneabund_drep_marker_taxonomy_wide_METAG$Salinity_level <- factor(geneabund_drep_marker_taxonomy_wide_METAG$Salinity_level, levels=c("freshwater", "oligohaline", "mesohaline", "polyhaline" ))
 phyloseq <- phyloseq(otu1, my_sample_data=sample_data(geneabund_drep_marker_taxonomy_wide_METAG))
 a_my_comparisons <- list(c("oligohaline", "freshwater"), c("oligohaline", "mesohaline"), c("oligohaline","polyhaline"), c("freshwater", "mesohaline"), c("freshwater", "polyhaline"), c("mesohaline", "polyhaline"))
-richness <- estimate_richness(phyloseq, measures=c( "Simpson", "Shannon")) 
+richness <- estimate_richness(phyloseq, measures=c("Simpson", "Shannon")) 
+observed_otu<-100*geneabund_drep_marker_taxonomy_wide_METAG[, grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide_METAG))]
+otu2 <- otu_table(observed_otu, taxa_are_rows = F)
+
+phyloseq2 <- phyloseq(otu2, my_sample_data=sample_data(geneabund_drep_marker_taxonomy_wide_METAG))
+richness2 <- estimate_richness(phyloseq2, measures=c("Observed")) 
+symnum<- list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, Inf), symbols = c("****", "***", "**", "*", "ns"))
+#all alpha diversity meassurments
+
+tiff("Alpha_diversity_Salinity.tiff",units = 'px', width = 1000, height = 500)
+plot_richness(phyloseq2, x="Salinity_level", measures=c( "Observed", "Simpson", "Shannon")) + geom_boxplot(fill=rep(colors,3))  + geom_pwc(method ="dunn_test", hide.ns ="p", label = "p.signif", symnum.args=symnum) + xlab("Salinity") + theme_bw(base_size=20) + theme(axis.text.x = element_text(angle = 90)) + scale_x_discrete(labels = c("Freshwater", "Oligohaline",  "Mesohaline", "Polyhaline"))
+dev.off()
+alpha_diver <- plot_richness(phyloseq2, x="Salinity_level", measures=c( "Observed", "Simpson", "Shannon")) + geom_boxplot(fill=rep(colors,3), color="black")  + geom_pwc(method ="dunn_test", hide.ns ="p", label = "p.signif", symnum.args=symnum) + xlab("Salinity") + theme_bw(base_size=20) + theme(axis.text.x = element_text(angle = 90)) + scale_x_discrete(labels = c("Freshwater", "Oligohaline",  "Mesohaline", "Polyhaline"))
+
 kruskal.test(richness$Shannon ~ sample_data(phyloseq)$Salinity_level)
 kruskal.test(richness$Simpson ~ sample_data(phyloseq)$Salinity_level)
 library(FSA)
@@ -1034,4 +840,43 @@ plot_richness(phyloseq, x="Salinity_level", measures=c( "Shannon")) + geom_boxpl
 plot_richness(phyloseq, x="Station", measures=c( "Shannon")) + geom_boxplot()  + geom_pwc(method ="dunn_test", hide.ns ="p", label = "p.signif", symnum.args=symnum)
 plot_richness(phyloseq, x="Sample_type", measures=c( "Shannon")) + geom_boxplot()  + geom_pwc(method ="dunn_test", hide.ns ="p", label = "p.signif", symnum.args=symnum) 
 plot_richness(phyloseq, x="Sample_date", measures=c( "Shannon")) + geom_boxplot() + geom_pwc(method ="dunn_test", hide.ns ="p", label = "p.signif", symnum.args=symnum)
+#
+
+#beta diversity
+pcoa = ordinate(phyloseq2, "PCoA", "bray") 
+#as factor Stromkilometer
+#unify
+phyloseq2@sam_data$Stromkilometer <- round(phyloseq2@sam_data$Stromkilometer)
+phyloseq2@sam_data$Stromkilometer[which(phyloseq2@sam_data$Stromkilometer==715)] <- 712 
+phyloseq2@sam_data$Stromkilometer[which(phyloseq2@sam_data$Stromkilometer==692)] <- 694 
+phyloseq2@sam_data$Stromkilometer[which(phyloseq2@sam_data$Stromkilometer==666)] <- 665 
+phyloseq2@sam_data$Stromkilometer[which(phyloseq2@sam_data$Stromkilometer==652)] <- 651
+phyloseq2@sam_data$Stromkilometer <- as.factor(phyloseq2@sam_data$Stromkilometer)  
+color_colors<- c("black", colors[2:4])
+beta_diver <- plot_ordination(phyloseq2, pcoa, color = "Salinity_level",  shape="Stromkilometer") +   geom_point(size = 5, stroke=2, aes(fill = Salinity_level)) +  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")    +  scale_shape_manual(values = c(21,22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) + guides(shape =guide_legend(title = "Elbe km", override.aes = list(color = "black"))) #+  guides(shape = FALSE))
+
+library(ggdark)
+#calculate permanova
+phyloseq2_bray <- phyloseq::distance(phyloseq2, method = "bray")
+
+# make a data frame from the sample_data
+sampledf <- data.frame(sample_data(phyloseq2))
+
+# Adonis test
+adonis_station_otus <- adonis2(phyloseq2_bray ~ Station, data = sampledf)
+adonis_salinity_otus <- adonis2(phyloseq2_bray ~ Salinity_level, data = sampledf)
+
+#cowplot
+library(cowplot)
+venn_salinity<- ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors, digits=0, set_name_size=5) 
+row_2 <- plot_grid(beta_diver, venn_salinity, rel_widths = c(1,1),labels = c('B', 'C'),label_size	
+=18)
+tiff("diversity_meassures.tiff", unit="px", width = 1000, height = 1000)
+plot_grid(alpha_diver,  row_2,labels = c('A'), ncol=1, rel_widths = c(1,1),label_size	
+=18)
+dev.off()
+svg("diversity_meassures.svg", width = 19, height = 11)
+plot_grid(alpha_diver,  row_2,labels = c('A'), ncol=1, rel_widths = c(1,2),label_size	=18)
+dev.off()
 ```
+
