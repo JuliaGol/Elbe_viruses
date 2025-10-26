@@ -21,7 +21,7 @@ library(RColorBrewer)
 library(vegan)
 
 setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances")
-#load("~/IGB_phd/BICEST/virus/viral_abundances/viruses_basic_analysis.RData")
+load("~/IGB_phd/BICEST/virus/viral_abundances/viruses_basic_analysis.RData")
 #should be in vir_genecluster_annot
 ##lets load the viral data 
 vir_genecluster_annot <- readRDS(file = "vir_genecluster_annot.RDS")
@@ -38,6 +38,14 @@ path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/"
 metadata <- read.csv(paste0(path,"PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) 
 #$ Tidal freshwater (0-0.5)/oligohaline (0.5–5.5 psu), (B) mesohaline (5.5–15 psu), and (C) polyhaline (15–25 psu).
 #table with cluster salinity niche characterisation
+#unify stromkilometer
+metadata$Stromkilometer <- round(metadata$Stromkilometer)
+metadata$Stromkilometer[which(metadata$Stromkilometer==715)] <- 712 
+metadata$Stromkilometer[which(metadata$Stromkilometer==692)] <- 694 
+metadata$Stromkilometer[which(metadata$Stromkilometer==666)] <- 665 
+metadata$Stromkilometer[which(metadata$Stromkilometer==652)] <- 651
+metadata$Stromkilometer <- as.factor(metadata$Stromkilometer)  
+
 drep_clusters_fin_taxonomy_unified <- readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/drep_clusters_fin_taxonomy_unified.RDS")
 
 geneabund_drep_marker_taxonomy_long <- readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/geneabund_drep_marker_taxonomy_long.RDS")
@@ -144,14 +152,14 @@ pathways <-  pathways %>% separate_rows(Present.AMG.KOs) %>% unique()
 geneabund <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog/BICEST_cellabund.tsv", sep="\t", skip=1, header = TRUE, row.names = 1)
 
 # geneabund$gene_cluster <- rownames(geneabund)
-colnames(vir_genecluster_annot)[1] <- "KO"
+#colnames(vir_genecluster_annot)[1] <- "gene"
 #merge with pathways to include metabolism information related to found axuliary genes by vibrant - selecting axuliary genes
-vir_genecluster_annot <- vir_genecluster_annot[, c("genome", "KO", "DESCRIPTION", "gene_cluster")] %>% merge(pathways, by.x="KO", by.y="Present.AMG.KOs") # find more pathways 
+vir_genecluster_annot <- vir_genecluster_annot[, c("gene", "KO", "DESCRIPTION", "gene_cluster")] %>% merge(pathways, by.x="KO", by.y="Present.AMG.KOs") # find more pathways 
 #add drep clusters 
 #but first unify genome names
 vir_genecluster_annot <- vir_genecluster_annot %>% 
-  mutate(genome=str_remove(genome, "_[0-9]+$"))
-vibrant_genecluster_drep = merge(drep_clusters, vir_genecluster_annot, by.x="contig_id",  by.y="genome", all.y = T) %>% select(contig_id, gene_cluster, KO, primary_cluster, secondary_cluster, DESCRIPTION, Metabolism, Pathway) %>% unique()
+  mutate(genome=str_remove(gene, "_[0-9]+$"))
+vibrant_genecluster_drep = merge(drep_clusters, vir_genecluster_annot, by.x="contig_id",  by.y="gene", all.y = T) %>% select(contig_id, gene_cluster, KO, primary_cluster, secondary_cluster, DESCRIPTION, Metabolism, Pathway) %>% unique()
 # add gene abundance for plotting
 # KOs can have multiple clusters therefore we can merge counts using  by gene cluster as a key
 # we can sum them to get KO abundances
@@ -160,7 +168,7 @@ vibrant_genecluster_drep_abund <- merge(vibrant_genecluster_drep, geneabund, by.
 #saveRDS(vibrant_genecluster_drep_abund, file ="vibrant_genecluster_drep_abund.RDS")
 #change to long format for convenient analysis with metadata
 #merge metadata so we are not analysis genomes without metadata
-vibrant_genecluster_drep_abund <- vibrant_genecluster_drep_abund %>% pivot_longer(!colnames(vibrant_genecluster_drep_abund)[1:9], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% merge(metadata, by="sampleid")
+vibrant_genecluster_drep_abund <- vibrant_genecluster_drep_abund %>% pivot_longer(!colnames(vibrant_genecluster_drep_abund)[1:9], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% unique() %>% merge(metadata, by="sampleid")
 vibrant_genecluster_drep_abund$Sample_date <- factor(vibrant_genecluster_drep_abund$Sample_date, levels= c("May-21", "Jul-21", "Feb-22", "Jun-22",  "May-22", "Nov-22"))
 saveRDS(vibrant_genecluster_drep_abund, file ="vibrant_genecluster_drep_abund.RDS")
 save.image("viruses_basic_analysis.RData")
@@ -191,9 +199,13 @@ pathways_date_plot
 dev.off()
 
 #fractions metabolism
-metabolism_date_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = round(vibrant_genecluster_drep_abund$Stromkilometer,0)) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.text.x = element_text(angle = 90, hjust = 1))   + theme_bw(base_size=20)   #hard to interpret - big variablity - check stations more variability in metat 
-tiff("metabolism_date_plot.tiff", unit="px", width = 1000, height = 1000)
-metabolism_date_plot
+metabolism_date_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = round(vibrant_genecluster_drep_abund$Stromkilometer,0)) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.text.x = element_text(angle = 90, hjust = 1))   + theme_bw(base_size=20)   #hard to interpret - big variablity - check 
+#salinity level metabolism
+vibrant_genecluster_drep_abund$Salinity_level <- factor(vibrant_genecluster_drep_abund$Salinity_level, level = c( "freshwater", "oligohaline",  "mesohaline", "polyhaline"))
+metabolism_Salinity_level_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Salinity_level, y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundance") + xlab("Salinity")  + theme_bw(base_size=20)  + theme(axis.text.x = element_text(angle = 45, hjust = 1))  #hard to interpret - big variability - check
+#stations more variability in metat 
+tiff("metabolism_Salinity_level_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_Salinity_level_plot
 dev.off()
 
 #lets check stations 
@@ -218,19 +230,109 @@ palette <- c(
   "darkturquoise", "green1", "yellow4", "yellow3",
   "darkorange4", "brown", "dodgerblue2"
 )
-vibrant_genecluster_drep_abund_pathway <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(Stromkilometer, Sample_date, data_type) %>% mutate(Percentage = counts / sum(counts) * 100) %>% group_by(Stromkilometer, Sample_date, data_type, Pathway) %>% mutate(Percentage = sum(Percentage)) %>% mutate(Pathway =  case_when(Percentage <= 2 ~  "Other", TRUE ~ Pathway )) %>% group_by(Stromkilometer, Sample_date, data_type, Pathway) %>% unique()
+palette_41 <- c(
+"#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666",
+"#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", "#fccde5",
+"#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f", "#7fc97f", "#beaed4", "#fdc086", "#ffff99",
+"#386cb0", "#f0027f", "#bf5b17", "#666666", "#1b7837", "#d73027", "#4575b4", "#91bfdb",
+"#e0f3f8", "#fee090", "#fc8d59", "#d73027", "#f46d43", "#abdda4", "#66c2a5", "#3288bd", "#fee08b"
+)
+palette_66_contrast <- c(
+  "#1b9e77", "#e41a1c", "#1f78b4", "#fdb462", "#984ea3", "#66a61e",
+  "#fb8072", "#7570b3", "#e6ab02", "#a6d854", "#d95f02", "#80b1d3",
+  "#e7298a", "#33a02c", "#beaed4", "#ff7f00", "#7fc97f", "#b3de69",
+  "#3288bd", "#f46d43", "#8dd3c7", "#bc80bd", "#4daf4a", "#fdae61",
+  "#41ae76", "#cab2d6", "#e31a1c", "#91bfdb", "#d9f0a3", "#810f7c",
+  "#74add1", "#fee08b", "#5ab4ac", "#f16913", "#bcbddc", "#54278f",
+  "#a6761d", "#b8e186", "#2171b5", "#ccebc5", "#f46d43", "#8c6bb1",
+  "#d9d9d9", "#fec44f", "#6baed6", "#9ecae1", "#ffed6f", "#08306b",
+  "#9e9ac8", "#6a51a3", "#969696", "#fdae6b", "#8c510a", "#cccccc",
+  "#bdbdbd", "#636363", "#31a354", "#c994c7", "#d8b365", "#f5f5f5",
+  "#abdda4", "#fc8d59", "#3288bd", "#fee090", "#4575b4", "#e0f3f8"
+)
 
-found_pathways<-sort(unique(vibrant_genecluster_drep_abund_pathway$Pathway))
-vibrant_genecluster_drep_abund_pathway$Pathway <- factor(vibrant_genecluster_drep_abund_pathway$Pathway, levels= c(found_pathways[which(found_pathways!="Other")], "Other"))
-vibrant_genecluster_drep_abund_pathway$Sample_date <- factor(vibrant_genecluster_drep_abund_pathway$Sample_date, levels= c("May-21", "Jul-21", "Feb-22", "Jun-22",  "May-22", "Nov-22"))
+vibrant_genecluster_drep_abund_pathway <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% select(!c(contig_id, length, primary_cluster, secondary_cluster)) %>% distinct() %>% group_by(Stromkilometer, Sample_date, data_type) %>% mutate(total = sum(counts)) %>% mutate(Percentage = counts / total * 100) %>% group_by(Stromkilometer, Sample_date, data_type, Pathway) %>% mutate(total_Percentage = sum(Percentage)) %>% mutate(Pathway =  case_when(total_Percentage <= 2 ~  "Other", TRUE ~ Pathway )) %>% select(Stromkilometer, Sample_date, data_type, Pathway, total_Percentage) %>% distinct()
 
-pathway_Station_plot <-  vibrant_genecluster_drep_abund_pathway %>% ggplot(aes(x=as.factor(round(Stromkilometer,0)), y = Percentage, fill = Pathway)) + geom_bar(stat='identity',  position = "fill") + facet_wrap(~data_type * factor(Sample_date), scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + theme_bw(base_size=18) + theme(axis.title.y = element_text(angle=90), legend.text = element_text(size=10)) + xlab("Elbe km") + ylab("Relative abundance") + scale_fill_manual(values = rep(palette,3)) + guides(fill=guide_legend(ncol=1)) 
 
+
+# vibrant_genecluster_drep_abund_pathway <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% select(c("data_type", "Pathway", "counts", "Sample_date", "Stromkilometer"))%>% group_by(Sample_date,  data_type, Stromkilometer, Pathway)  %>% reframe(counts = sum(counts), across()) %>%  group_by(Sample_date,  data_type, Stromkilometer) %>% reframe(total =  sum(counts), across()) %>% mutate(Percentage = counts / total * 100)  %>%  mutate(Pathway =  case_when(Percentage <= 2 ~  "Other", TRUE ~ Pathway)) %>% ungroup()  
+pathway_Station_plot <-  vibrant_genecluster_drep_abund_pathway %>% ggplot(aes(x=Stromkilometer, y = total_Percentage, fill = Pathway)) + geom_bar(stat='identity',  position = "fill") + facet_wrap(~data_type * factor(Sample_date), scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + theme_bw(base_size=18) + theme(axis.title.y = element_text(angle=90), legend.text = element_text(size=10)) + xlab("Elbe km") + ylab("Relative abundance") + scale_fill_manual(values = rep(palette,3)) + guides(fill=guide_legend(ncol=1)) 
 
 tiff("pathway_station_plot.tiff", unit="px", width = 1010, height = 1000)
 pathway_Station_plot
 dev.off()
-vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(Stromkilometer, Sample_date, data_type, Pathway) %>% mutate(Percentage = counts / sum(counts) * 100) %>% select(c("DESCRIPTION", "Metabolism",  "Pathway",  "length", "counts", "Percentage")) %>% head()
+
+
+
+pathway_salinity_plot <-  vibrant_genecluster_drep_abund_pathway_salinity_level %>% ggplot(aes(x=Salinity_level, y = Percentage, fill = Pathway)) + geom_bar(stat='identity',  position = "fill") + facet_wrap(~data_type, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + theme_bw(base_size=18) + theme(axis.title.y = element_text(angle=90), legend.text = element_text(size=10)) + xlab("Elbe km") + ylab("Relative abundance") + scale_fill_manual(values = rep(palette,3)) + scale_x_discrete(labels= ) + guides(fill=guide_legend(ncol=1)) 
+
+tiff("pathway_salinity_plot.tiff", unit="px", width = 1010, height = 1000)
+pathway_salinity_plot
+dev.off()
+#per salinity
+library(ggh4x)
+
+# vibrant_genecluster_drep_abund_pathway_salinity_level <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Salinity_level)) %>% select(c("sampleid", "data_type", "Pathway", "counts", "Salinity_level"))%>% group_by(Salinity_level,  data_type, Pathway, sampleid)  %>% reframe(counts = sum(counts), across()) %>%  group_by(Salinity_level,  data_type, sampleid) %>% reframe(total =  sum(counts), across()) %>% mutate(Percentage = counts / total * 100)  %>%  mutate(Pathway =  case_when(Percentage <= 1 ~  "Other", TRUE ~ Pathway)) %>% ungroup()  
+
+vibrant_genecluster_drep_abund_pathway_salinity_level <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Salinity_level)) %>% select(!c(contig_id, length, primary_cluster, secondary_cluster)) %>% distinct() %>% group_by(Salinity_level, data_type, Sample_date, Stromkilometer) %>% mutate(total = sum(counts)) %>% mutate(Percentage = counts / total * 100) %>% group_by(Salinity_level, data_type, Pathway) %>% mutate(total_Percentage = sum(Percentage)) %>% mutate(Pathway =  case_when(total_Percentage <= 3 ~  "Other", TRUE ~ Pathway )) %>% select(sampleid, Salinity_level, data_type, Pathway, total_Percentage, Sample_date, Stromkilometer) %>% distinct()  
+
+#order
+vibrant_genecluster_drep_abund$Salinity_level <- factor(vibrant_genecluster_drep_abund$Salinity_level, level = c( "freshwater", "oligohaline",  "mesohaline", "polyhaline"))
+
+vibrant_genecluster_drep_abund_pathway_salinity_level$sample_spatio_temp <- paste(factor(vibrant_genecluster_drep_abund_pathway_salinity_level$Sample_date), vibrant_genecluster_drep_abund_pathway_salinity_level$Stromkilometer, sep=" " )
+
+vibrant_genecluster_drep_abund_pathway_salinity_level$sample_spatio_temp <-factor(vibrant_genecluster_drep_abund_pathway_salinity_level$sample_spatio_temp, levels=c("May-21 608", "May-21 633", "May-21 651", "May-21 665", "May-21 694", "May-21 712","Jul-21 633", "Jul-21 651", "Jul-21 665", "Jul-21 694", "Jul-21 712", "Feb-22 633", "Feb-22 651", "Feb-22 665", "Feb-22 694", "Feb-22 712", "May-22 633", "May-22 651", "May-22 665", "May-22 694", "May-22 712", "Jun-22 633", "Jun-22 651", "Jun-22 665", "Jun-22 694", "Jun-22 712", "Nov-22 633", "Nov-22 651", "Nov-22 665", "Nov-22 694", "Nov-22 712"))
+
+found_pathways<-sort(unique(vibrant_genecluster_drep_abund_pathway_salinity_level$Pathway))
+
+#pathways order in the legend 
+
+
+vibrant_genecluster_drep_abund_pathway_salinity_level$Pathway <- factor(vibrant_genecluster_drep_abund_pathway_salinity_level$Pathway, levels= c(found_pathways[which(found_pathways!="Other")], "Other")) 
+
+library(ggthemes)
+
+pathway_salinity_plot <-  vibrant_genecluster_drep_abund_pathway_salinity_level %>% ggplot(aes(x=sample_spatio_temp, y = total_Percentage, fill = Pathway)) + geom_bar(stat='identity',  position = "fill") + scale_y_continuous(labels=scales::percent_format())  + xlab("Elbe km") + ylab("Relative abundance") + scale_fill_manual(values = palette_66_contrast)+ facet_grid2(data_type ~ Salinity_level, render_empty=F, scales="free", independent = "x") + theme_clean(base_size=18) + theme(axis.title.y = element_text(angle=90), axis.text.x = element_text(angle=90), legend.position = "bottom", legend.background = element_rect(color = NA),  legend.key.size =  unit(0.5, "cm"))  + scale_x_discrete(name ="Sample") + guides(fill=guide_legend(ncol=4))
+
+tiff("pathway_salinity_level_plot.tiff", unit="px", width = 1700, height = 1200)
+pathway_salinity_plot
+dev.off()
+
+pathway_salinity_plot
+# #test spetio tem
+# vibrant_genecluster_drep_abund_pathway_salinity_level <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% select(c("Stromkilometer", "data_type", "Pathway", "counts", "Sample_date"))%>% group_by(Sample_date,  data_type, Pathway, Stromkilometer)  %>% reframe(counts = sum(counts), across()) %>%  group_by(Sample_date,  data_type, Stromkilometer) %>% reframe(total =  sum(counts), across()) %>% mutate(Percentage = counts / total * 100)  %>%  mutate(Pathway =  case_when(Percentage <= 1 ~  "Other", TRUE ~ Pathway)) %>% ungroup()  
+# 
+# pathway_salinity_plot <-  vibrant_genecluster_drep_abund_pathway_salinity_level %>% ggplot(aes(x=Stromkilometer, y = Percentage, fill = Pathway)) + geom_bar(stat='identity',  position = "fill") + scale_y_continuous(labels=scales::percent_format()) + xlab("Elbe km") + ylab("Relative abundance") + scale_fill_manual(values = palette_41) + guides(fill=guide_legend(legend.position = "bottom", legend.direction='horizontal', legend.box = "horizontal")) + facet_grid2(data_type ~ Sample_date, render_empty=F, scales="free",  drop=T, independent = "x") + theme_bw(base_size=18) + theme(axis.title.y = element_text(angle=90), legend.text = element_text(size=10)) 
+# 
+# 
+# 
+# 
+# found_pathways<-sort(unique(vibrant_genecluster_drep_abund_pathway$Pathway))
+# vibrant_genecluster_drep_abund_pathway$Pathway <- factor(vibrant_genecluster_drep_abund_pathway$Pathway, levels= c(found_pathways[which(found_pathways!="Other")], "Other"))
+# vibrant_genecluster_drep_abund_pathway$Sample_date <- factor(vibrant_genecluster_drep_abund_pathway$Sample_date, levels= c("May-21", "Jul-21", "Feb-22", "Jun-22",  "May-22", "Nov-22"))
+
+
+
+```
+```{r}
+
+#bubble plot version
+xx =  vibrant_genecluster_drep_abund_pathway_salinity_level %>% ggplot(aes(x = sample_spatio_temp, y=Pathway)) + 
+  geom_point(aes(size = total_Percentage, color=Pathway), alpha = 0.75) + 
+  scale_size_continuous(limits = c(0.000001, 100), breaks = c(1,10,50,75))+ facet_grid2(data_type ~ Salinity_level, render_empty=F, scales="free", space = "free", drop=T) + 
+  labs( x= "", y = "", size = "Relative Abundance (%)", color = "class") +  
+ # scale_fill_manual(values = colours, guide = FALSE) + 
+  scale_y_discrete(limits = rev(levels(vibrant_genecluster_drep_abund_pathway_salinity_level$Pathway))) +
+  theme_clean(base_size=15)  + 
+  theme(legend.key=element_blank(), 
+  axis.text.x = element_text(colour = "black", size = 12, face = "bold", angle = 90, vjust = 0.3, hjust = 1), 
+  axis.text.y = element_text(colour = "black", face = "bold", size = 11), 
+  legend.text = element_text(size = 10, face ="bold", colour ="black"), 
+  legend.title = element_text(size = 12, face = "bold"), 
+  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") + guides(color = "none")
+tiff("pathway_salinity_level_bubble_plot.tiff", unit="px", width = 2000, height = 1200)
+xx
+dev.off()
 ```
 
 ```{r}
@@ -271,7 +373,7 @@ tiff("salinity_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000
 salinity_niche_pathways_plot
 dev.off()
 
-salinity_niche_Metabolism_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+salinity_niche_Metabolism_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text( size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
 
 tiff("salinity_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
 salinity_niche_Metabolism_plot
@@ -375,24 +477,24 @@ dev.off()
 ```
 ##4. Isoelectric point
 ```{r}
-IP <- read.csv("Isolectric_proteom.csv")
+IP <- read.csv("Isolectric_proteom.csv", row.names = 1)
 #separate header column into multiple informative columns
-IP <- IP %>%  separate_wider_delim(header,"\t", names=c("genome", "range", "no", "VOG", "protein name"))
+IP <- IP %>%  separate_wider_delim(header,"\t", names=c("genome", "range", "no", "VOG", "protein name")) %>% select(c("genome", "VOG", "IP"))  %>% unique()
 #edit genome to marge with drep cluster
 #colnames(IP) <- c("x", "genome", "IP")
 IP$genome <- gsub("_[1-9]$", "", IP$genome)
-IP_drep <- merge(IP, drep_clusters)
+IP_drep <- IP %>% unique() %>% merge(drep_clusters, by.x="genome", by.y="contig_id")
 IP_drep <- merge(IP_drep, drep_clusters_fin_taxonomy_unified)
 IP_oligo <- IP_drep$IP[which(IP_drep$Salinity_niche=="oligohaline")]
 IP_fresh <- IP_drep$IP[which(IP_drep$Salinity_niche=="freshwater")]
 IP_meso <- IP_drep$IP[which(IP_drep$Salinity_niche=="mesohaline")]
 IP_poly <- IP_drep$IP[which(IP_drep$Salinity_niche=="polyhaline")]
-mean(IP_oligo)
-mean(IP_meso)
-mean(IP_poly)
-mean(IP_fresh)
-#select MCP
-MCP_list <- c("VOG00035", "VOG00461", "VOG01150", "VOG01000", "VOG01164", "VOG01920", "VOG02155", "VOG02220", "VOG02554", "VOG03097", "VOG03553", "VOG03780", "VOG03813", "VOG33139")
+# mean(IP_oligo)
+# mean(IP_meso)
+# mean(IP_poly)
+# mean(IP_fresh)
+# #select MCP
+# MCP_list <- c("VOG00035", "VOG00461", "VOG01150", "VOG01000", "VOG01164", "VOG01920", "VOG02155", "VOG02220", "VOG02554", "VOG03097", "VOG03553", "VOG03780", "VOG03813", "VOG33139")
 #MCP_list <- c("VOG4553, VOG4773")
 MCP_list <- c("PF03864.15", "PF04451.12", "PF05125.12", "VOG00633", "VOG01437", "VOG06289", "VOG06316", "VOG10260", "VOG10754")
 #look for major capsid proteins these are false
@@ -401,60 +503,83 @@ IP_oligo <- IP_drep_MCP$IP[which(IP_drep_MCP$Salinity_niche=="oligohaline")]
 IP_fresh <- IP_drep_MCP$IP[which(IP_drep_MCP$Salinity_niche=="freshwater")]
 IP_meso <- IP_drep_MCP$IP[which(IP_drep_MCP$Salinity_niche=="mesohaline")]
 IP_poly <- IP_drep_MCP$IP[which(IP_drep_MCP$Salinity_niche=="polyhaline")]
-mean(IP_fresh)
-mean(IP_oligo)
-mean(IP_meso)
-mean(IP_poly)
-wilcox.test(IP_fresh, IP_oligo, data=IP_drep)
-wilcox.test(IP_fresh, IP_meso, data=IP_drep)
-#wilcox.test(IP_fresh, IP_poly, data=IP_drep) #not enough observations
-wilcox.test(IP_oligo, IP_meso, data=IP_drep)
-#wilcox.test(IP_oligo, IP_poly, data=IP_drep) #not enough observations
-#wilcox.test(IP_meso, IP_poly, data=IP_drep) #not enough observations
-#not significant
-var(IP_fresh)
-var(IP_oligo)
-var(IP_meso)
-var(IP_poly)
-
-aov_sali <- aov(IP ~ Salinity_niche, data=IP_drep)
-summary(aov_sali)
+# mean(IP_fresh)
+# mean(IP_oligo)
+# mean(IP_meso)
+# mean(IP_poly)
+# wilcox.test(IP_fresh, IP_oligo, data=IP_drep)
+# wilcox.test(IP_fresh, IP_meso, data=IP_drep)
+# #wilcox.test(IP_fresh, IP_poly, data=IP_drep) #not enough observations
+# wilcox.test(IP_oligo, IP_meso, data=IP_drep)
+# #wilcox.test(IP_oligo, IP_poly, data=IP_drep) #not enough observations
+# #wilcox.test(IP_meso, IP_poly, data=IP_drep) #not enough observations
+# #not significant
+# var(IP_fresh)
+# var(IP_oligo)
+# var(IP_meso)
+# var(IP_poly)
+# 
+# aov_sali <- aov(IP ~ Salinity_niche, data=IP_drep)
+# summary(aov_sali)
 
 IP_FL <- IP_drep$IP[which(IP_drep_MCP$Fraction_niche=="Free_living")]
 IP_HF <- IP_drep$IP[which(IP_drep_MCP$Fraction_niche=="Heavy_fraction")]
 IP_LF <- IP_drep$IP[which(IP_drep_MCP$Fraction_niche=="Light_fraction")]
-mean(IP_FL)
-mean(IP_HF)
-mean(IP_LF)
-wilcox.test(IP_FL, IP_oligo, data=IP_drep)
-wilcox.test(IP_HF, IP_meso, data=IP_drep)
-#wilcox.test(IP_fresh, IP_poly, data=IP_drep) #not enough observations
-wilcox.test(IP_LF, IP_meso, data=IP_drep)
-#not significant
-var(IP_FL)
-var(IP_HF)
-var(IP_LF)
-aov_fraction <- aov(IP ~ Fraction_niche, data=IP_drep)
-anosim_salinity <- anosim(IP_drep[which(!is.na(IP_drep$Salinity_niche)), "IP" ], Salinity_niche, permutations = 999, distance = "euclidian", strata = NULL)
-
-summary(aov_fraction)
+# mean(IP_FL)
+# mean(IP_HF)
+# mean(IP_LF)
+# wilcox.test(IP_FL, IP_oligo, data=IP_drep)
+# wilcox.test(IP_HF, IP_meso, data=IP_drep)
+# #wilcox.test(IP_fresh, IP_poly, data=IP_drep) #not enough observations
+# wilcox.test(IP_LF, IP_meso, data=IP_drep)
+# #not significant
+# var(IP_FL)
+# var(IP_HF)
+# var(IP_LF)
+# aov_fraction <- aov(IP ~ Fraction_niche, data=IP_drep)
+# anosim_salinity <- anosim(IP_drep[which(!is.na(IP_drep$Salinity_niche)), "IP" ], Salinity_niche, permutations = 999, distance = "euclidian", strata = NULL)
+# 
+# summary(aov_fraction)
 
 ```
 ```{r}
-
+colors <- c("black", c(brewer.pal(n = 4, name = "Blues")[2:4]))
 IP_hist_MCP <-IP_drep_MCP %>% filter(Salinity_niche %in% c("freshwater", "oligohaline", "mesohaline", "polyhaline")) %>% ggplot(aes(x=IP, y = ..density.., color =Salinity_niche))  + #geom_histogram(bin=30, na.rm = T,  alpha=0.5, color=NA,  aes(fill =Salinity_niche))  + 
-  scale_x_continuous(name="pI [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent_format(scale = 1)) + scale_color_manual(values=c(brewer.pal(n = 4, name = "Blues")), name = "Salinity niche") + scale_fill_manual(values=c(brewer.pal(n = 4, name = "Blues")))  + 
- geom_density(size =1, adjust = 0.6) + theme_dark(base_size = 18) #+ facet_wrap(~Salinity_niche)
-tiff("Pi_hist_MCPs.tiff")
+  scale_x_continuous(name="Isoelectric point [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent_format(scale = 1)) + scale_color_manual(values=colors, name = "Salinity niche") + #scale_fill_manual(values=c(brewer.pal(n = 4, name = "Blues")))  + 
+ geom_density(size =1, adjust = 0.6, show.legend = FALSE) + ggtitle("Major Capsid Proteins") + theme_bw(base_size = 18) + 
+  theme(plot.title = element_text(hjust = 0.5))#+ facet_wrap(~Salinity_niche)
+tiff("Pi_hist_MCPs.tiff", unit="px")
 IP_hist_MCP
 dev.off()
 ```
 
 ```{r}
-IP_hist <-IP_drep %>% filter(Salinity_niche %in% c("freshwater", "oligohaline", "mesohaline", "polyhaline")) %>% ggplot(aes(x=IP, y = ..density.., color =Salinity_niche)) + 
-  scale_x_continuous(name="Isoelectric point [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent) + scale_color_manual(values=c(brewer.pal(n = 4, name = "Blues")), name = "Salinity niche") + geom_density(size =1, adjust = 0.3) + theme_dark(base_size = 18)
+
+IP_hist_all <-IP_drep %>% filter(Salinity_niche %in% c("freshwater", "oligohaline", "mesohaline", "polyhaline")) %>% ggplot(aes(x=IP, y = ..density.., color =Salinity_niche)) + 
+  scale_x_continuous(name="Isoelectric point [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent) + scale_color_manual(values=colors, name = "Salinity niche") + geom_density(size =1, adjust = 0.3) + theme_bw(base_size = 18) + ggtitle("Viral proteome") + 
+  theme(plot.title = element_text(hjust = 0.5))
 tiff("Pi_hist.tiff")
-IP_hist
+IP_hist_all
+dev.off()
+```
+```{r}
+library(cowplot)
+#fractions
+
+IP_hist_frac <-IP_drep %>% filter(Fraction_niche %in% c("Free_living", "Light_fraction", "Heavy_fraction")) %>% ggplot(aes(x=IP, y = ..density.., color =Fraction_niche)) + 
+  scale_x_continuous(name="Isoelectric point [pH]")  + scale_y_continuous(name="Relative Frequency", labels = scales::percent)  + geom_density(size =1, adjust = 0.3) + theme_dark(base_size = 18)
+IP_hist_frac
+```
+```{r}
+library(cowplot)
+tiff("Pi_hist_plot_grid.tiff", width = 800, height = 400)
+plot_grid( IP_hist_MCP, IP_hist_all, labels = c('A', 'B'), rel_widths = c(1,2))
+dev.off()
+svg("Pi_hist_plot_grid.svg", width = 10, height = 5)
+plot_grid( IP_hist_MCP, IP_hist_all, labels = c('A', 'B'), rel_widths = c(1,2))
+dev.off()
+pdf("Pi_hist_plot_grid.pdf", width = 10, height = 5)
+plot_grid( IP_hist_MCP, IP_hist_all, labels = c('A', 'B'), rel_widths = c(1,2))
 dev.off()
 ```
 
