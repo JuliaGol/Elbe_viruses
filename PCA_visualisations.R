@@ -8,20 +8,17 @@ library(dplyr)
 setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/PCA")
 path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata"
 #read new polished metadata file 
-metadata <- read.csv(paste0(path,"/PhysicochemicalParameters_mod2.txt"), sep="\t")
-#remove last empty column
-metadata <- metadata[,-c(ncol(metadata))]
-path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog"
-metadata_all <- read.csv(paste0(path,"/metadata_all.csv"))
-#connect by associated number those two - this way we have all values from final metadata with important linking columns from metadata_all
-metadata <- merge(metadata, metadata_all[, c( "sampleid", "AccessionNumber_TBDSven", "Associatednumber", "data_type")], by = "Associatednumber", all.x = T, all.y = F) 
-#save_it
 #write.csv(metadata, file= "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/PhysicochemicalParameters_mod3.csv")
 metadata <- read.csv(file= "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/PhysicochemicalParameters_mod3.csv")
 metadata$Salinity_PSU <- as.numeric(metadata$Salinity_PSU)
-
+metadata <- metadata %>% mutate(Salinity_level = case_when(Salinity_PSU <= .5  ~ 'freshwater',  Salinity_PSU > .5 & Salinity_PSU <= 5.5  ~ 'oligohaline', Salinity_PSU > 5.5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+metadata$Stromkilometer <- round(metadata$Stromkilometer)
+#unify
+metadata$Stromkilometer[which(metadata$Stromkilometer==715)] <- 712 
+metadata$Stromkilometer[which(metadata$Stromkilometer==692)] <- 694 
+metadata$Stromkilometer[which(metadata$Stromkilometer==666)] <- 665 
+metadata$Stromkilometer[which(metadata$Stromkilometer==652)] <- 651
 #read pathway annotation for PCA colouring
-pathways <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_AMG_pathways_Combined_viruses.tsv")
 #salinity to numeric 
 #read PCA results calculated on the server 
 #PCA_expression <- read.csv("PCA_expression.csv")
@@ -47,49 +44,33 @@ t_log_paired_vir_metat_paired <- t(log_paired_vir_metat_paired)
 t_log_vir_metag <- t(log_vir_metag)
 
 #PCA
-PCA_log_expression <- PCA(t_norm_expression_paired_vir, graph=F)
-PCA_log_transcript <- PCA(t_log_paired_vir_metat_paired, graph=F)
-#PCA_log_abund <- PCA(t_log_paired_vir_metag_paired, graph=F)
-PCA_log_abund_all <- PCA(t_log_vir_metag, graph=F)
+# PCA_log_expression <- PCA(t_norm_expression_paired_vir, graph=F)
+# PCA_log_transcript <- PCA(t_log_paired_vir_metat_paired, graph=F)
+# #PCA_log_abund <- PCA(t_log_paired_vir_metag_paired, graph=F)
+# PCA_log_abund_all <- PCA(t_log_vir_metag, graph=F)
 
-saveRDS(PCA_log_expression, file="PCA_outputs/PCA_log_expression.RDS")
-saveRDS(PCA_log_transcript, file="PCA_outputs/PCA_log_transcript.RDS")
-#saveRDS(PCA_log_abund, file="PCA_outputs/PCA_log_abund.RDS")
-saveRDS(PCA_log_abund_all, file="PCA_outputs/PCA_log_abund_all.RDS")
+# saveRDS(PCA_log_expression, file="PCA_outputs/PCA_log_expression.RDS")
+# saveRDS(PCA_log_transcript, file="PCA_outputs/PCA_log_transcript.RDS")
+# #saveRDS(PCA_log_abund, file="PCA_outputs/PCA_log_abund.RDS")
+# saveRDS(PCA_log_abund_all, file="PCA_outputs/PCA_log_abund_all.RDS")
+
+PCA_log_expression <- readRDS(file="PCA_outputs/PCA_log_expression.RDS")
+PCA_log_transcript <- readRDS(file="PCA_outputs/PCA_log_transcript.RDS")
+PCA_log_abund_all <- readRDS(file="PCA_outputs/PCA_log_abund_all.RDS")
 
 #take only numeric data 
-#metadata_num <-metadata[,c("Sat_O2_TBDHereon", "Temperature_TBDHereon", "Salinity_TBDHereon", "Turbidity_TBDHereon", "pH_TBDHereon", "O2_TBDHereon", "SPM_mgperL", "DOC_mg.L", "TN_mg.L",
-#                            "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrate_mg.L", "Total_DIN_µM", "TotalDissolvedPhosphate_mg.L", "Ammonium_µM",
-#                            "Nitrite_µM", "Nitrate_µM", "SRP_µM", "Phosphate_µM", "RespirationRate_O2ug.L.h", "POC_mgperL", "PTC_mgperL", "PTN_mgperL",
-#                            "PTH_mgperL", "dCH4_nM", "Chlorophyll", "dCO2_uM")]
-# #and ensure they have point instead of comma 
-#and there are set as numeric
-# metadata_num <- apply(apply(metadata_num, 2, gsub, patt=",", replace="."), 2, as.numeric)
-# metadata_num <- cbind(metadata_num, metadata$sampleid) 
-# colnames(metadata_num)[length(colnames(metadata_num))] <- "sampleid"   
-# 
-# #numerical data merged 
-# t_norm_expression_paired_vir <- merge(t_norm_expression_paired_vir, metadata_num, by.x = "row.names", by.y = "sampleid") #merge by rownames
-# t_log_paired_vir_metag_paired <- merge(t_log_paired_vir_metag_paired, metadata_num, by.x = "row.names", by.y = "sampleid") #merge by rownames
-# t_log_paired_vir_metat_paired <- merge(t_log_paired_vir_metat_paired, metadata_num, by.x = "row.names", by.y = "sampleid") #merge by rownames
 
 #PCA with metadata for plotting
-PCA_log_transcript_meta <- merge(PCA_log_transcript$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_TBDHereon", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
+PCA_log_transcript_meta <- merge(PCA_log_transcript$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Salinity_level", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
 #PCA_log_abund_meta <- merge(PCA_log_abund$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid")], by.x = "row.names", by.y = "sampleid") #merge by rownames
-PCA_log_abund_all_meta <- merge(PCA_log_abund_all$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
+PCA_log_abund_all_meta <- merge(PCA_log_abund_all$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Salinity_level", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames
 #PCA_log_abund_all_meta <- PCA_log_abund_all_meta[which(PCA_log_abund_all_meta$Station != "Seemanshöft" & PCA_log_abund_all_meta$Station != "Kollmar" & PCA_log_abund_all_meta$Station != "BunthausSpitze"),] 
-PCA_log_expression_meta <- merge(PCA_log_expression$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames 
+PCA_log_expression_meta <- merge(PCA_log_expression$ind$coord, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid", "Salinity_PSU", "Salinity_level", "Stromkilometer")], by.x = "row.names", by.y = "sampleid") #merge by rownames 
 #for right order in the legend
-PCA_log_expression_meta$Station <- factor(PCA_log_expression_meta$Station , levels = rev(c("Muhlenberger Loch", "Twielenfleth", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
-PCA_log_abund_all_meta$Station <- factor(PCA_log_abund_all_meta$Station , levels =  rev(c("BunthausSpitze", "Seemanshöft", "Muhlenberger Loch", "Twielenfleth", "Kollmar", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
-PCA_log_abund_all_meta <- PCA_log_abund_all_meta %>% mutate(Salinity_level = case_when(Salinity_PSU <= .5  ~ 'freshwater',  Salinity_PSU > .5 & Salinity_PSU <= 5.5  ~ 'oligohaline', Salinity_PSU > 5.5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+# PCA_log_expression_meta$Station <- factor(PCA_log_expression_meta$Station , levels = rev(c("Muhlenberger Loch", "Twielenfleth", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
+# PCA_log_abund_all_meta$Station <- factor(PCA_log_abund_all_meta$Station , levels =  rev(c("BunthausSpitze", "Seemanshöft", "Muhlenberger Loch", "Twielenfleth", "Kollmar", "Schwarztonnensand", "Brunsbuttel","Meedem Grund")))
+# #PCA_log_abund_all_meta <- PCA_log_abund_all_meta 
 PCA_log_abund_all_meta$Salinity_level <- factor(PCA_log_abund_all_meta$Salinity_level,  levels = c("freshwater", "oligohaline", "mesohaline", "polyhaline"))
-
-
-#get eigenvalues 
-PCA_log_expression.eig.val <- get_eigenvalue(PCA_log_expression)
-PCA_log_transcript.eig.val <- get_eigenvalue(PCA_log_transcript)
-PCA_log_abund_all.eig.val <- get_eigenvalue(PCA_log_abund_all)
 
 #visualise PCAs
 tiff(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Sample_type_Station.tiff")
@@ -113,6 +94,19 @@ ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Station, shape=Samp
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%"))
 dev.off()
+tiff(filename="PCA_outputs/PCA_plots/PCA_log_transcript_Station_Sample_type.tiff")
+ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shape=Stromkilometer)) + geom_point() + ggtitle("Viral log-transcription") +
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%"))
+dev.off()
+PCA_log_transcript_meta_salinity_km <- ggplot(PCA_log_transcript_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shape=as.factor(Stromkilometer))) +
+  geom_point(size = 5, stroke=2, aes(fill = factor(Salinity_level))) +
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_transcript.eig.val[1,c("variance.percent")],2))), "%")) +
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_transcript.eig.val[2,c("variance.percent")],2))), "%")) +
+  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")  +
+  scale_shape_manual(values =c(22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) +
+  guides(shape =guide_legend(title = "Elbe km", override.aes = list(color = "black"))) + guides(shape = FALSE, fill=FALSE, color=FALSE)
+
 # tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_Sample_date_Station.tiff")
 # ggplot(PCA_log_abund_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date, shape=Station)) + geom_point() + ggtitle("Viral log-gene counts")
 # dev.off()
@@ -148,16 +142,21 @@ dev.off()
 tiff(filename="PCA_outputs/PCA_plots/PCA_log_abund_all_Station_Sample_type_Salinity_level_Station_legend.tiff")
 library(RColorBrewer)
 colors <- brewer.pal(n = 4, name = "Blues")
-PCA_log_abund_all_meta$Stromkilometer <- round(PCA_log_abund_all_meta$Stromkilometer)
-#unify
-PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==715)] <- 712 
-PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==692)] <- 694 
-PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==666)] <- 665 
-PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==652)] <- 651
+# PCA_log_abund_all_meta$Stromkilometer <- round(PCA_log_abund_all_meta$Stromkilometer)
+# #unify
+# PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==715)] <- 712 
+# PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==692)] <- 694 
+# PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==666)] <- 665 
+# PCA_log_abund_all_meta$Stromkilometer[which(PCA_log_abund_all_meta$Stromkilometer==652)] <- 651
+color_colors<- c("black", colors[2:4])
 
-ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shape=as.factor(Stromkilometer))) + geom_point(size=3) + xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
-  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) + theme(axis.text=element_text(size=12), axis.title=element_text(size=20), plot.title=element_text(size=25, hjust = 0.5)) +
-  scale_color_manual(values=colors) + theme_dark(base_size=20) + guides(colour=guide_legend("Salinity"), shape =guide_legend("Elbe km"))
+PCA_log_abund_all_meta_salinity_km <- ggplot(PCA_log_abund_all_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shape=as.factor(Stromkilometer))) +
+  geom_point(size = 5, stroke=2, aes(fill = factor(Salinity_level))) +
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_abund_all.eig.val[1,c("variance.percent")],2))), "%")) +
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_abund_all.eig.val[2,c("variance.percent")],2))), "%")) +
+  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")  +
+  scale_shape_manual(values =c(21, 22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) +
+  guides(shape = guide_legend(title = "Elbe km", override.aes = list(color = "black"),  position="bottom"), color = guide_legend(override.aes = list(shape = 21), position="bottom"))
 dev.off()
 manova_salinity <- manova(data=PCA_log_abund_all_meta, formula = cbind(Dim.1, Dim.2) ~ Salinity_level)
 summary(manova_salinity)        # Pillai's trace, Wilks' Lambda, etc.
@@ -196,7 +195,13 @@ ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_PSU, shape
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) + ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%")) + 
   scale_color_continuous(trans='reverse', name = "Salinity [PSU]" )  + theme(axis.text=element_text(size=12), axis.title=element_text(size=20), plot.title= element_text(size=25, hjust=0.5))
 dev.off()
-
+PCA_log_expression_meta_salinity_km <- ggplot(PCA_log_expression_meta, aes(x=Dim.1, y=Dim.2, colour=Salinity_level, shape=as.factor(Stromkilometer))) +
+  geom_point(size = 5, stroke=2, aes(fill = factor(Salinity_level))) +
+  xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_expression.eig.val[1,c("variance.percent")],2))), "%")) +
+  ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_expression.eig.val[2,c("variance.percent")],2))), "%")) +
+  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")  +
+  scale_shape_manual(values =c(22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) +
+  guides(shape =guide_legend(title = "Elbe km", override.aes = list(color = "black")))
 #remove some objects to empty some space 
 rm(PCA_log_transcript)
 rm(PCA_log_transcript_meta)
@@ -206,6 +211,27 @@ rm(PCA_log_abund)
 rm(PCA_log_abund_meta)
 rm(PCA_log_abund_all)
 rm(PCA_log_abund_all_meta)
+#combine all and with vOTUs 
+path <-"C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/"
+beta_diver <- readRDS(file=paste0(path,"beta_diver.RDS"))
+beta_diver_metat <- readRDS(file=paste0(path,"beta_diver_metat.RDS"))
+beta_diver_expr <- readRDS(file=paste0(path,"beta_diver_expr.RDS"))
+library(cowplot)
+my_legend <- get_legend(PCA_log_abund_all_meta_salinity_km)
+PCA_log_abund_all_meta_salinity_km <- PCA_log_abund_all_meta_salinity_km + guides(shape = FALSE, fill=FALSE, color=FALSE)
+plots <- plot_grid(beta_diver, beta_diver_metat, beta_diver_expr, 
+                   PCA_log_abund_all_meta_salinity_km , PCA_log_transcript_meta_salinity_km, PCA_log_expression_meta_salinity_km,
+                   nrow=2, rel_widths = c(1, 1, 1, 1, 1, 1), labels="AUTO", ncol = 3, label_size =20)
+
+plots_and_legend <- plot_grid(plots, my_legend, ncol=1, rel_heights = c(4,1))
+
+tiff(filename="PCA_outputs/PCA_plots/PCA_OTU_all.tiff", unit = "cm", width=2*29.7, height=2*21.0, res=300)
+plots_and_legend 
+dev.off()
+pdf(file="PCA_outputs/PCA_plots/PCA_OTU_all.pdf", width=29.7/2, height=21.0/2)
+plots_and_legend 
+dev.off()
+
 ####Split into fractions
 t_norm_expression_paired_vir_meta <- merge(t_norm_expression_paired_vir, metadata[, c("Sample_type", "Station", "Sample_date", "data_type", "sampleid")], by.x = "row.names", by.y = "sampleid") #merge by rownames
 rownames(t_norm_expression_paired_vir_meta) <- t_norm_expression_paired_vir_meta$Row.names
@@ -385,3 +411,34 @@ ggplot(PCA_log_gene_abund_all_HF_meta, aes(x=Dim.1, y=Dim.2, colour=Sample_date,
   xlab(paste0(paste0("PC1 ", as.character(round(PCA_log_gene_abund_all_HF.eig.val[1,c("variance.percent")],2))), "%")) +
   ylab(paste0(paste0("PC2 ", as.character(round(PCA_log_gene_abund_all_HF.eig.val[2,c("variance.percent")],2))), "%"))
 dev.off()
+#run anosim for first two PC
+library("vegan")
+#transform deducting minimum to get non-negative values
+#metagenomes
+PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")] <-  PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")]- min(PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")])
+set.seed(42)
+PCA_log_abund_all_salinity_anosim <- anosim(PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")], PCA_log_abund_all_meta$Salinity_level, permutations = 9999 )
+set.seed(42)
+PCA_log_abund_all_Elbekm_anosim <- anosim(PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")], PCA_log_abund_all_meta$Stromkilometer, permutations = 9999 )
+set.seed(42)
+PCA_log_abund_all_Sample_type_anosim <- anosim(PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")], PCA_log_abund_all_meta$Sample_type, permutations = 9999 )
+set.seed(42)
+PCA_log_abund_all_Sample_date_anosim <- anosim(PCA_log_abund_all_meta[, c("Dim.1", "Dim.2")], PCA_log_abund_all_meta$Sample_date, permutations = 9999 )
+
+#metatranscriptomes
+PCA_log_transcript_meta[, c("Dim.1", "Dim.2")] <-  PCA_log_transcript_meta[, c("Dim.1", "Dim.2")]- min(PCA_log_transcript_meta[, c("Dim.1", "Dim.2")])
+set.seed(42)
+PCA_log_transcript_salinity_anosim <- anosim(PCA_log_transcript_meta[, c("Dim.1", "Dim.2")] ,PCA_log_transcript_meta$Salinity_level, permutations = 9999 )
+set.seed(42)
+PCA_log_transcript_Elbekm_anosim <- anosim(PCA_log_transcript_meta[, c("Dim.1", "Dim.2")] ,PCA_log_transcript_meta$Stromkilometer, permutations = 9999 )
+#expression
+PCA_log_expression_meta[, c("Dim.1", "Dim.2")] <-  PCA_log_expression_meta[, c("Dim.1", "Dim.2")]- min(PCA_log_expression_meta[, c("Dim.1", "Dim.2")])
+set.seed(42)
+PCA_log_expression_salinity_anosim <- anosim(PCA_log_expression_meta[, c("Dim.1", "Dim.2")] ,PCA_log_expression_meta$Salinity_level, permutations = 9999 )
+set.seed(42)
+PCA_log_expression_Elbekm_anosim <- anosim(PCA_log_expression_meta[, c("Dim.1", "Dim.2")] ,PCA_log_expression_meta$Stromkilometer, permutations = 9999 )
+
+#get eigenvalues 
+PCA_log_expression.eig.val <- get_eigenvalue(PCA_log_expression)
+PCA_log_transcript.eig.val <- get_eigenvalue(PCA_log_transcript)
+PCA_log_abund_all.eig.val <- get_eigenvalue(PCA_log_abund_all)
