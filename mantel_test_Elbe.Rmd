@@ -135,10 +135,11 @@ motus_df_METAT_paired <- motus_df_METAT[, paired_METAT]
 #normalise to expression by dividing 
 motus_expression <- log((motus_df_METAT_paired + pseudocount) /(motus_df_METAG_paired + pseudocount))
 #recover mOTUs columns
-motus_expression <-cbind(motus_df_METAT$mOTU, motus_expression)
+motus_expression <-as.data.frame(cbind(motus_df_METAT$mOTU, motus_expression))
 #unify name
 colnames(motus_expression)[1]<-"mOTU"
-
+#deduct min to remove negative values
+motus_expression[, -c(1)] <- motus_expression[, -c(1)] - min(motus_expression[, -c(1)])
 #METAG FL
 motus_df_METAG_FL <- motus_final_taxa_metadata %>%
   filter(data_type == "METAG") %>%
@@ -189,6 +190,8 @@ motus_df_METAG_HF <- motus_df_METAG_HF[,sort(colnames(motus_df_METAG_HF))]
 colnames(motus_expression) <- sub("_METAT", "", colnames(motus_expression))
 #order columns samples 
 motus_expression <- motus_expression[,sort(colnames(motus_expression))]
+
+
 #expression FL
 motus_expression_FL <- motus_expression %>% select(contains(c("mOTU", FL_accnum )))
 #expression LF
@@ -262,7 +265,8 @@ viral_activity_paired <- viral_activity %>% select(contains(paired_sampleid))
 pseudocount <- 0.00000001
 #use counts and round to int - log values and double cannot be used for distance matrix for bray cutis method in avrdist
 viral_expression <- log((viral_activity_paired + pseudocount)/(viral_diversity_paired + pseudocount))
-
+#deduct minimum to remove non negative values
+viral_expression <- viral_expression - min(viral_expression)
 
 #FL
 viral_expression_FL <- viral_expression %>% select(contains(FL_accnum)) #select by the accession number of the fl samples
@@ -327,16 +331,16 @@ saveRDS(metadata_METAT_HF, file="metadata_METAT_HF.RDS")
 #we have to transpose matrixes as vegdist calculates distances between columns 
 
 host_motus_METAG_FL.dist <- avgdist(t(host_motus_METAG_FL[,-1]), dmethod = "bray", sample = 500, iterations = 100)
-host_motus_expression_FL.dist <- vegdist(t(host_motus_expression_FL[,-1]), method = "euclidean", na.rm = T)
+host_motus_expression_FL.dist <- vegdist(t(host_motus_expression_FL[,-1]), method = "bray", na.rm = T)
 #we can take only those into account for parameter distances calculations for each dataset (METAG and METAT) separately
 keep_samples_metag <-labels(host_motus_METAG_FL.dist)[which(labels(host_motus_METAG_FL.dist) %in% colnames(motus_df_METAG_FL))]
-motus_df_METAG_FL <- motus_df_METAG_FL[, keep_samples_metag]
+motus_df_METAG_FL <- motus_df_METAG_FL[, keep_samples_metag] 
 motus_df_METAG_FL.dist <- avgdist(t(motus_df_METAG_FL), dmethod = "bray", sample = 500, iterations = 100)
-motus_expression_FL.dist <- vegdist(t(motus_expression_FL[, -c(1)]), method = "euclidean", na.rm = T)
+motus_expression_FL.dist <- vegdist(t(motus_expression_FL[, -c(1)]), method = "bray", na.rm = T)
 #keep the same samples for viral data
 viral_diversity_FL <- viral_diversity_FL[, keep_samples_metag]
 viral_diversity_FL.dist <- vegdist(t(viral_diversity_FL), method = "bray", na.rm = T)
-viral_expression_FL.dist <- vegdist(t(viral_expression_FL), method = "euclidean", na.rm = T)
+viral_expression_FL.dist <- vegdist(t(viral_expression_FL), method = "bray", na.rm = T)
 #param distances
 #store in a list of distances 
 
@@ -560,16 +564,16 @@ dev.off()
 ```{r distances LF}
 #calculate distances for microbial communities
 host_motus_METAG_LF.dist <- avgdist(t(host_motus_METAG_LF[,-1]), dmethod = "bray", sample = 500, iterations = 100)
-host_motus_expression_LF.dist <- vegdist(t(host_motus_expression_LF[,-1]), method = "euclidean", na.rm = T)
+host_motus_expression_LF.dist <- vegdist(t(host_motus_expression_LF[,-1]), method = "bray", na.rm = T)
 #we can take only those into account for parameter distances calculations for each dataset (METAG and METAT) separately
 keep_samples_metag <-labels(host_motus_METAG_LF.dist)[which(labels(host_motus_METAG_LF.dist) %in% colnames(motus_df_METAG_LF))]
 motus_df_METAG_LF <- motus_df_METAG_LF[, keep_samples_metag]
 motus_df_METAG_LF.dist <- avgdist(t(motus_df_METAG_LF), dmethod = "bray", sample = 500, iterations = 100)
-motus_expression_LF.dist <- vegdist(t(motus_expression_LF[, -c(1)]), method = "euclidean", na.rm = T)
+motus_expression_LF.dist <- vegdist(t(motus_expression_LF[, -c(1)]), method = "bray", na.rm = T)
 #keep the same samples for viral data
 viral_diversity_LF <- viral_diversity_LF[, keep_samples_metag]
 viral_diversity_LF.dist <- vegdist(t(viral_diversity_LF), method = "bray", na.rm = T)
-viral_expression_LF.dist <- vegdist(t(viral_expression_LF), method = "euclidean", na.rm = T)
+viral_expression_LF.dist <- vegdist(t(viral_expression_LF), method = "bray", na.rm = T)
 list.param.df.dist.METAG_LF <- list()
 list.param.df.dist.METAT_LF <- list()
 #calculate distance matrixes for all samples
@@ -801,11 +805,11 @@ host_motus_expression_HF.dist <- vegdist(t(host_motus_expression_HF[,-c(1)]), me
 keep_samples_metag <-labels(host_motus_METAG_HF.dist)[which(labels(host_motus_METAG_HF.dist) %in% colnames(motus_df_METAG_HF))]
 motus_df_METAG_HF <- motus_df_METAG_HF[, keep_samples_metag]
 motus_df_METAG_HF.dist <- avgdist(t(motus_df_METAG_HF), dmethod = "bray", sample = 500, iterations = 100)
-motus_expression_HF.dist <- vegdist(t(motus_expression_HF[, -c(1)]), method = "euclidean", na.rm = T)
+motus_expression_HF.dist <- vegdist(t(motus_expression_HF[, -c(1)]), method = "bray", na.rm = T)
 #keep the same samples for viral data
 viral_diversity_HF <- viral_diversity_HF[, keep_samples_metag]
 viral_diversity_HF.dist <- vegdist(t(viral_diversity_HF), method = "bray", na.rm = T)
-viral_expression_HF.dist <- vegdist(t(viral_expression_HF), method = "euclidean", na.rm = T)
+viral_expression_HF.dist <- vegdist(t(viral_expression_HF), method = "bray", na.rm = T)
 #param distances
 #store in a list of distances 
 
@@ -1037,10 +1041,10 @@ library(ggpubr)
 
 grid_METAG <- ggarrange(mantel_test_METAG_FL_plot, mantel_test_METAG_LF_plot, mantel_test_METAG_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto", align = "v") 
 grid_METAT <- ggarrange(mantel_test_METAT_FL_plot, mantel_test_METAT_LF_plot,  mantel_test_METAT_HF_plot, ncol = 1, nrow=3, legend="right", common.legend = TRUE, labels="auto", align = "v") 
-tiff("mantel_test/mantel_plots/grid_METAG.tiff", unit="px", width = 750, height = 650)
+tiff("mantel_test/mantel_plots/grid_METAG.tiff", unit="px", width = 750, height = 650,)
 grid_METAG  + theme(axis.text.x = element_text(size = 50))
 dev.off()
-tiff("mantel_plots/grid_METAT.tiff", unit="px", width = 750, height = 650)
+tiff("mantel_test/mantel_plots/grid_METAT.tiff", unit="px", width = 750, height = 650, res=300)
 grid_METAT  + theme(base_size = 22)
 dev.off()
 ```
@@ -1080,10 +1084,12 @@ matrix_res_stat_all_mantel_plot <- rbind(matrix_res_stat_FL_mantel_plot, matrix_
         axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), 
          base_size = 20, 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])), color="black") + facet_grid(row="Fraction", scale="free")
-tiff("mantel_plots/facet_grid_METAG.tiff", unit="px", width = 750, height = 650)
+tiff("mantel_plots/facet_grid_METAG.tiff", unit="cm", height=21.0, width=29.7, res=300)
 mantel_test_METAG_plot 
 dev.off()
-
+pdf("mantel_plots/facet_grid_METAG.pdf", height=21.0/2, width=29.7/2)
+mantel_test_METAG_plot 
+dev.off()
 # plot for METAT - use normal p -values as significant 
   mantel_test_METAT_plot <- matrix_res_stat_all_mantel_plot %>%
   filter(R_statistic != "NA") %>% 
@@ -1112,136 +1118,12 @@ dev.off()
         axis.text.x = element_text(angle = 90, hjust=0.95, vjust=0.2), 
          base_size = 20, 
         legend.position = "right") +  geom_text(vjust=0.76,hjust=0.49, aes(label = paste0(c("","*")[(abs(p_value.adj) <= .05)+1], c("","*")[(abs(p_value.adj) <= .001)+1], c("","*")[(abs(p_value.adj) <= .001)+1])), color="black") + facet_grid(row="Fraction", scale="free")
-tiff("mantel_plots/facet_grid_METAT.tiff", unit="px", width = 750, height = 650)
+tiff("mantel_plots/facet_grid_METAT.tiff", unit="cm", height=21.0, width=29.7, res=300)
+mantel_test_METAT_plot 
+dev.off()
+pdf("mantel_plots/facet_grid_METAT.pdf", height=21.0/2, width=29.7/2)
 mantel_test_METAT_plot 
 dev.off()
 
-
 ```
 
-#6. Run Anosim
-
-```{r}
-geneabund_drep_marker_taxa <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/vibrant_annot_drep_marker_abund.RDS")
-#keep only unique rows 
-# geneabund_drep_marker_taxa <- distinct(geneabund_drep_marker_taxa[,c(ncol(geneabund_drep_marker_taxa)-9:ncol(geneabund_drep_marker_taxa))])
-viral_diversity <- geneabund_drep_marker_taxa %>%
-  select(contains("METAG")) %>% select(contains(sampleid_MOTUs)) 
-colnames(viral_diversity) <- sub("GROS22.[1-2]_", "", colnames(viral_diversity))
-colnames(viral_diversity) <- sub("_METAG.genecount.profile", "", colnames(viral_diversity))
-metadata <- metadata %>% mutate(Salinity_level = case_when(Salinity_PSU <= .5  ~ 'freshwater',  Salinity_PSU > .5 & Salinity_PSU <= 5.5  ~ 'oligohaline', Salinity_PSU > 5.5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
-metadata_diversity <- metadata %>% filter(data_type =="METAG") %>% arrange(AccessionNumber_TBDSven)
-diversity_acc <- metadata_diversity$AccessionNumber_TBDSven
-viral_activity <- viral_activity %>% ungroup() %>% select(contains("SAMEA"))
-diversity_acc <-  diversity_acc[which(diversity_acc %in% colnames(viral_diversity) )]
-viral_diversity <- viral_diversity %>% ungroup() %>% select(diversity_acc)
-dist_activity <-  vegdist(t(viral_activity), "bray", na.rm = T)
-dist_diversity <-  vegdist(t(viral_diversity), "bray", na.rm = T)
-#prepare grouping factors in right order
-activity_acc <- rownames(as.matrix(dist_activity))
-#diversity_acc <- rownames(as.matrix(dist_diversity))
-#add salinity level to metadata
-
-metadata_activity <- metadata %>% filter(AccessionNumber_TBDSven %in% activity_acc) %>% filter(data_type =="METAT") %>% arrange(AccessionNumber_TBDSven)
-metadata_diversity <- metadata %>% filter(AccessionNumber_TBDSven %in% diversity_acc) %>% filter(data_type =="METAG") %>% arrange(AccessionNumber_TBDSven)
- 
-
-#check if the order is the same crucial!
-metadata_activity$AccessionNumber_TBDSven == activity_acc #good
-anosim_activity_StationNumber <- anosim(dist_activity, metadata_activity$StationNumber, permutation = 9999)
-anosim_activity_Salinity_level <- anosim(dist_activity, metadata_activity$Salinity_level, permutations = 9999)
-metadata_diversity$AccessionNumber_TBDSven == rownames(as.matrix(dist_diversity)) #good
-anosim_diversity_StationNumber <- anosim(dist_diversity, metadata_diversity$StationNumber, permutation = 9999)
-anosim_diversity_Salinity_level <- anosim(dist_diversity, metadata_diversity$Salinity_level, permutations = 9999)
-#expression
-viral_expression <- viral_expression %>% ungroup() %>% select(contains("SAMEA"))
-dist_expression <-  vegdist(t(viral_expression) - min(t(viral_expression) ), "bray", na.rm = T)
-expression_acc <- rownames(as.matrix(dist_expression))
-metadata_expression <- metadata %>% filter(AccessionNumber_TBDSven %in% expression_acc) %>% filter(data_type =="METAG") %>% arrange(AccessionNumber_TBDSven)
-metadata_expression$AccessionNumber_TBDSven == rownames(as.matrix(dist_expression)) #good
-anosim_expression_StationNumber <- anosim(dist_expression, metadata_expression$StationNumber, permutation = 9999)
-anosim_expression_Salinity_level <- anosim(dist_expression, metadata_expression$Salinity_level, permutations = 9999)
-
-```
-
-#7.Venn diagram of MOTUs and hosts
-
-```{r}
-#define a function
-find_niche <-function(x, threshold){
-  #calculate rel frequencies
-  tab = prop.table(table(x))
-  #check id=f there are values >= 0.8
-  #then take this value
-  if(any(tab>=threshold)){
-    names(tab[which(tab>=threshold)])
-  }
-  #else concatenate values which are higher the 0.2
-  else {
-    paste0(names(tab[which(tab>= 1-threshold)]), collapse = ";")
-  }}
-```
-
-```{r}
-#label salinity niches
-motus_final_taxa_metadata <- motus_final_taxa_metadata %>% mutate(Salinity_level = case_when(salinity <= .5  ~ 'freshwater',  salinity > .5 & salinity <= 5.5  ~ 'oligohaline', salinity > 5.5 & salinity <= 18  ~ 'mesohaline', salinity > 18  ~ 'polyhaline'))
-motus_final_taxa_metadata <- motus_final_taxa_metadata  %>% filter(!is.na(Salinity_level))%>% group_by(species) %>%  mutate(Salinity_niche = find_niche(Salinity_level, 1)) %>% ungroup()
-host_motus_final_taxa_metadata <- motus_final_taxa_metadata[which(motus_final_taxa_metadata$mOTU %in% host_motus),]
-```
-
-
-
-```{r}
-library(VennDiagram)
-library(RColorBrewer)
-#for whole  microbial communities
-# Generate 3 sets of 200 words
-#debug
-#make cut off for 10 counts per sample as treshhold for surly detected OTUs
-motus_final_taxa_metadata_venn <- motus_final_taxa_metadata %>% filter(counts>10)
-A_freshwater <- motus_final_taxa_metadata_venn$mOTU[which(grepl("fresh", motus_final_taxa_metadata_venn$Salinity_niche))]
-B_oligohaline <- motus_final_taxa_metadata_venn$mOTU[which(grepl("oligo", motus_final_taxa_metadata_venn$Salinity_niche))]
-C_mesohaline <- motus_final_taxa_metadata_venn$mOTU[which(grepl("meso", motus_final_taxa_metadata_venn$Salinity_niche))]
-D_polyhaline <- motus_final_taxa_metadata_venn$mOTU[which(grepl("poly", motus_final_taxa_metadata_venn$Salinity_niche))]
-
-A_freshwater <- motus_final_taxa_metadata_venn$species[which(grepl("fresh", motus_final_taxa_metadata_venn$Salinity_niche))]
-B_oligohaline <- motus_final_taxa_metadata_venn$species[which(grepl("oligo", motus_final_taxa_metadata_venn$Salinity_niche))]
-C_mesohaline <- motus_final_taxa_metadata_venn$species[which(grepl("meso", motus_final_taxa_metadata_venn$Salinity_niche))]
-D_polyhaline <- motus_final_taxa_metadata_venn$species[which(grepl("poly", motus_final_taxa_metadata_venn$Salinity_niche))]
-library(ggvenn)
-colors <- brewer.pal(n = 4, name = "Blues") 
-# Chart
-tiff("microbial_", unit="px", width = 1000, height = 1000)
-ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors)
-dev.off()
-```
-
-```{r}
-
-#for whole  hosts communities
-# Generate 3 sets of 200 words
-#debug
-A_freshwater <- host_motus_final_taxa_metadata$mOTU[which(grepl("fresh", host_motus_final_taxa_metadata$Salinity_niche))]
-B_oligohaline <- host_motus_final_taxa_metadata$mOTU[which(grepl("oligo", host_motus_final_taxa_metadata$Salinity_niche))]
-C_mesohaline <- host_motus_final_taxa_metadata$mOTU[which(grepl("meso", host_motus_final_taxa_metadata$Salinity_niche))]
-D_polyhaline <- host_motus_final_taxa_metadata$mOTU[which(grepl("poly", host_motus_final_taxa_metadata$Salinity_niche))]
-library(ggvenn)
-colors <- brewer.pal(n = 4, name = "Blues") 
-# Chart
-ggvenn(list(Freshwater=A_freshwater, Oligohaline=B_oligohaline, Mesohaline=C_mesohaline, Polyhaline=D_polyhaline), fill_color = colors, size=10)
-
-```
-
-```{r}
-bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>10) %>% group_by(genus, Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Salinity_level, y=counts, fill = genus), show.legend = FALSE)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche") 
-bac_rel_abund_plot
-```
-```{r}
-bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>0) %>% group_by(genus, Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Salinity_level, y=counts, fill = genus), show.legend = FALSE)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche")
-bac_rel_abund_plot
-```
-
-```{r}
-bac_rel_abund_plot <- motus_final_taxa_metadata  %>% filter(counts>10) %>% group_by(class, station_km, data_type, date,  Salinity_level) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x= station_km, y=counts, fill = class), show.legend = T)  + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Salinity niche") + facet_grid(~date)
-bac_rel_abund_plot
-```
