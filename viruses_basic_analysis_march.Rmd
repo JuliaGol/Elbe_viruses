@@ -1,0 +1,278 @@
+---
+title: "Viruses_basic_analysis"
+author: "Julia Golebiowska"
+date: "2024-08-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Viruses distribution analysis
+
+In this Rmarkdown we are going to explore viral length, and metabolism and pathways distribution according to they niches and occurence.
+
+```{r setup and loading}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+
+setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances")
+#should be in vir_genecluster_annot
+##lets load the viral data 
+vir_genecluster_annot <- readRDS(file = "vir_genecluster_annot.RDS")
+colnames(vir_genecluster_annot)[1] <- "gene"
+#dereplication data
+drep_clusters <- read.csv("Cdb.csv", header = TRUE, sep = ",")
+drep_clusters[,"genome"] = sub(".fna", "", drep_clusters[,"genome"])
+#hosts assignment  data - iphop
+host_prediction_genome = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/Host_prediction_to_genome_m90.csv")
+host_prediction_genus = read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/Host_prediction_to_genus_m90.csv")
+host_prediction_genome <- host_prediction_genome %>% 
+  separate(Host.taxonomy, c("domain", "phylum", "class", "order", "family",  "genus", "species"), ";")
+path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/"
+metadata <- read.csv(paste0(path,"PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) 
+#$ Tidal freshwater (0-0.5)/oligohaline (0.5–5.5 psu), (B) mesohaline (5.5–15 psu), and (C) polyhaline (15–25 psu).
+#table with cluster salinity niche characterisation
+drep_clusters_fin_taxonomy_unified <- readRDS(file ="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/drep_clusters_fin_taxonomy_unified.RDS")
+Combined_quality_summary <- read.csv(file="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/Combined_quality_summary.tsv", sep="\t")
+```
+
+## 1. Length distribution analysis 
+
+You can also embed plots, for example:
+
+```{r statistic, echo=FALSE}
+
+#METAG only 
+Combined_quality_summary$contig_length <- as.numeric(Combined_quality_summary$contig_length)
+Combined_quality_summary$completeness <- as.numeric(Combined_quality_summary$completeness)
+Combined_quality_summary_METAG <- Combined_quality_summary %>% filter(grepl("METAG" , contig_id)) %>% 
+  mutate(estimated_contig_length=(contig_length/completeness)*100)
+
+#how many contigs
+contigs_counts_METAG <- Combined_quality_summary_METAG %>% select("contig_id") %>% unique() %>% nrow()
+#960924
+contigs_counts_METAG_filtered <- Combined_quality_summary_METAG %>% filter(checkv_quality!="Low-quality" & checkv_quality!="Not-determined") %>% unique() %>% nrow()
+#11496 
+
+
+drep_clusters <-  Combined_quality_summary_METAG[,c("contig_id", "contig_length", "estimated_contig_length", "checkv_quality")] %>%  merge(drep_clusters, by.y="genome", by.x="contig_id") #%>% filter(checkv_quality!="Low-quality" & checkv_quality!="Not-determined")
+
+drep_clusters <-  drep_clusters %>% mutate(AccessionNumber_TBDSven = str_extract(contig_id, "SAMEA[0-9]+"))
+#add salinity categories
+metadata <- metadata %>% mutate(Salinity_level =  case_when(Salinity_PSU <= .5  ~ 'freshwater',  Salinity_PSU > .5 & Salinity_PSU <= 5.5  ~ 'oligohaline', Salinity_PSU > 5.5 & Salinity_PSU <= 18  ~ 'mesohaline', Salinity_PSU > 18  ~ 'polyhaline'))
+drep_clusters <- merge(drep_clusters, metadata[, c("AccessionNumber_TBDSven", "Sample_type", "Salinity_level")], all.x = T, all.y = F, by="AccessionNumber_TBDSven") 
+drep_clusters$data_type <- rep(c("METAG"), each=nrow(drep_clusters))
+drep_clusters[grep("METAT", drep_clusters$genome),"data_type"] <-"METAT"
+drep_clusters$estimated_contig_length <- drep_clusters$estimated_contig_length/1000
+tiff("hist_viral_contigs_length_METAG.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAG")], breaks=100, ylim=c(0,1500), xlim=c(0,400), main = "Good quality contigs length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
+tiff("hist_viral_contigs_length_METAT.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAT")], breaks=100, ylim=c(0,100), xlim=c(0,50), main = "Good quality transcripts length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
+#make histograms for salinity categories
+tiff("hist_viral_contigs_length_METAG_oligo.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAG" & drep_clusters$Salinity_level=="oligohaline")], breaks=100, ylim=c(0,2500), xlim=c(0,400), main = "Good quality contigs length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
+tiff("hist_viral_contigs_length_METAG_meso.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAG" & drep_clusters$Salinity_level=="mesohaline")], breaks=100, ylim=c(0,1000), xlim=c(0,400), main = "Good quality contigs length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
+tiff("hist_viral_contigs_length_METAG_poly.tiff")
+hist(drep_clusters$length[which(drep_clusters$data_type=="METAG" & drep_clusters$Salinity_level=="polyhaline")], breaks=100, ylim=c(0,500), xlim=c(0,400), main = "Good quality contigs length distribution", xlab = "Length [kb]", cex.axis=1, cex.lab=1.5, cex.main=1.5)
+dev.off()
+#lets visualise together 
+drep_clusters$Salinity_level <- factor(drep_clusters$Salinity_level, level = c( "freshwater", "oligohaline",  "mesohaline", "polyhaline", NA))
+salinity_hist <- na.omit(drep_clusters) %>% ggplot()  + geom_histogram(aes(x=estimated_contig_length, y = ..density.., fill = Salinity_level), position = 'identity', bins = 100, na.rm = T, alpha=1) +
+scale_fill_manual(values=c(brewer.pal(n = 4, name = "Blues")), breaks =  c("freshwater", "oligohaline",  "mesohaline", "polyhaline")) +  scale_colour_manual(values=c(brewer.pal(n = 4, name = "Blues")), breaks =  c("freshwater", "oligohaline",  "mesohaline", "polyhaline")) + scale_y_continuous(name="Relative Frequency", labels = scales::percent) + 
+  scale_x_continuous(name="Length [kb]", breaks = seq(0, 100, 20), limits= c(0, 100)) + 
+  # geom_vline(aes(xintercept = 38), color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 20), color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = 29), color = "red", linetype = "dashed", size = 1) + 
+  # geom_vline(aes(xintercept = 62), color = "red", linetype = "dashed", size = 1) + theme_minimal(base_size = 18) +
+  geom_step(aes(x=estimated_contig_length, y = ..density.., fill = Salinity_level),
+    stat = "bin", bins = 100,
+    direction = "mid"
+  ) + facet_grid(vars(Salinity_level)) + guides(fill="none") # + labs(color='Salinity') 
+tiff("length_salinity_level.tiff")
+salinity_hist
+dev.off()
+drep_clusters$Sample_type <- factor(drep_clusters$Sample_type, level = c("Light_fraction", "Heavy_fraction", "Free_living"))
+fraction_hist <- na.omit(drep_clusters) %>% ggplot(aes(length, fill = Sample_type, na.rm = TRUE)) + geom_histogram(position = 'identity', bins = 100, na.rm = T)
+tiff("length_fraction_level.tiff")
+fraction_hist
+dev.off()
+#to find a maximum manualy
+# stuff <- ggplot_build(salinity_hist)
+# stuff$data[[1]]$density
+```
+
+```{r}
+#size distribution METAT
+Combined_quality_summary_METAT <- Combined_quality_summary %>% filter(grepl("METAT" , contig_id)) %>% 
+  mutate(estimated_contig_length=(contig_length/completeness)*100)
+
+Combined_quality_summary_METAT$estimated_contig_length <- as.numeric(Combined_quality_summary_METAT$estimated_contig_length)
+hist(Combined_quality_summary_METAT$estimated_contig_length, breaks=100)
+
+```
+
+## 2. Metabolism and pathways analysis
+```{r plot metabolism}
+#Prepare data
+pathways <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/Elbe_viruses_distribution/VIBRANT_results_Combined_viruses/VIBRANT_AMG_pathways_Combined_viruses.tsv", sep='\t')
+#put all different Glycosphingolipids biosynthesis into one category 
+pathways[ which(grepl("Glycosphingolipid", pathways$Pathway)), "Pathway"] <- "Glycosphingolipid biosynthesis"
+geneabund <- read.csv("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/workshop_gene_catalog/BICEST_cellabund.tsv", sep="\t", skip=1, header = TRUE, row.names = 1)
+
+# geneabund$gene_cluster <- rownames(geneabund)
+colnames(vir_genecluster_annot)[1] <- "genome"
+#merge with pathways to include mtabolism information related to gene
+vir_genecluster_annot <- vir_genecluster_annot[, c("genome", "KO", "DESCRIPTION", "gene_cluster")] %>% merge(pathways, by.x="KO", by.y="Present.AMG.KOs") # find more pathways 
+#add drep clusters 
+#but first unify genome names
+vir_genecluster_annot <- vir_genecluster_annot %>% 
+  mutate(genome=str_remove(genome, "_[0-9]+$"))
+vibrant_genecluster_drep = merge(drep_clusters, vir_genecluster_annot, by.x="contig_id",  by.y="genome", all.y = T)  %>%
+  select(contig_id, gene_cluster, KO, primary_cluster, secondary_cluster, DESCRIPTION, Metabolism, Pathway)
+# add gene abundance for plotting
+# 
+vibrant_genecluster_drep_abund <- merge(vibrant_genecluster_drep, geneabund, by.x="gene_cluster", by.y=0, all.x = T)
+#saveRDS(vibrant_genecluster_drep_abund, file ="vibrant_genecluster_drep_abund.RDS")
+#change to long format for convenient analysis with metadata
+#merge metadata so we are not analysis genomes without metadata
+vibrant_genecluster_drep_abund <- vibrant_genecluster_drep_abund %>% pivot_longer(!colnames(vibrant_genecluster_drep_abund)[1:9], names_to = "sampleid", values_to = "counts", values_drop_na = 0) %>% merge(metadata, by="sampleid")
+saveRDS(vibrant_genecluster_drep_abund, file ="vibrant_genecluster_drep_abund.RDS")
+save.image("viruses_basic_analysis.RData")
+
+```
+## 
+
+
+
+```{r}
+#visualisations
+#fractions
+pathways_fractions_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_type)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_type, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) +xlab("")
+tiff("Pathways_fractions_plot.tiff", unit="px", width = 1000, height = 1000)
+pathways_fractions_plot
+dev.off()
+
+#fractions metabolsim
+metabolism_fractions_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_type)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_type, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) +xlab("")
+#hard to interpret - big variablity - probably fraction is not the most important factor
+#differences between fl and PA for pathways for metabolism in metag quite similar but for both inmetat quite the difference even between heavy and light fraction
+tiff("Metabolism_fractions_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_fractions_plot
+dev.off()
+#sampling date
+
+pathways_date_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12))
+tiff("Pathways_date_plot.tiff", unit="px", width = 1000, height = 1000)
+pathways_date_plot
+dev.off()
+
+#fractions metabolism
+metabolism_date_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = round(vibrant_genecluster_drep_abund$Stromkilometer,0)) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), axis.text.x = element_text(angle = 90, hjust = 1)) #hard to interpret - big variablity - check stations more variability in metat 
+tiff("metabolism_date_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_date_plot
+dev.off()
+#lets check stations 
+metabolism_Station_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km")
+
+tiff("metabolism_station_plot.tiff", unit="px", width = 1000, height = 1000)
+metabolism_Station_plot
+dev.off()
+#nice!
+palette <- c(
+  "dodgerblue2", "#E31A1C", # red
+  "green4",
+  "#6A3D9A", # purple
+  "#FF7F00", # orange
+  "black", "gold1",
+  "skyblue2", "#FB9A99", # lt pink
+  "palegreen2",
+  "#CAB2D6", # lt purple
+  "#FDBF6F", # lt orange
+  "gray70", "khaki2",
+  "maroon", "orchid1", "deeppink1", "blue1", "steelblue4",
+  "darkturquoise", "green1", "yellow4", "yellow3",
+  "darkorange4", "brown", "dodgerblue2"
+)
+pathway_Station_plot <- vibrant_genecluster_drep_abund %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Sample_date, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + ylab("Relative abundance") + scale_fill_manual(values = palette) + guides(fill=guide_legend(ncol=1))
+
+tiff("pathway_station_plot.tiff", unit="px", width = 1000, height = 1000)
+pathway_Station_plot
+dev.off()
+
+```
+
+```{r}
+#check if viruses of different niches have different functions - exhibit different pathways 
+drep_clusters_fin_taxonomy_unified <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/drep_clusters_fin_taxonomy_unified.RDS")
+#keep only clusters with salinity data - some scaffolds form cruises without salinity
+drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy_unified %>% filter(!is.na(Salinity_niche))
+vibrant_genecluster_drep_abund_niche <- merge(vibrant_genecluster_drep_abund, drep_clusters_fin_taxonomy_unified, by="primary_cluster")
+salinity_niche_pathways_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Pathway)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+#weird - very different specialize functions ... many NA for alinity niche - correct it 
+tiff("salinity_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000)
+salinity_niche_pathways_plot
+dev.off()
+
+salinity_niche_Metabolism_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+tiff("salinity_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
+salinity_niche_Metabolism_plot
+dev.off()
+#fraction niche
+
+Fraction_niche_pathways_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Fraction_niche, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, Stromkilometer), y=counts, fill = Pathway)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+Fraction_niche_pathways_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Fraction_niche, y=counts, fill = Pathway)) + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+#weird - very different specialize functions ... many NA for alinity niche - correct it 
+tiff("Fraction_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000)
+Fraction_niche_pathways_plot
+dev.off()
+
+Fraction_niche_Metabolism_plot <- vibrant_genecluster_drep_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Fraction_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
+
+tiff("Fraction_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
+Fraction_niche_Metabolism_plot
+dev.off()
+
+
+```
+#3. Hosts analysis specialist and generalist
+```{r , echo=FALSE}
+#check hosts 
+drep_clusters <- merge(drep_clusters, host_prediction_genome, by.x ="contig_id", by.y = "Virus", all.x = T, all.y = F)
+drep_clusters_hosts_sum <-aggregate(phylum ~ primary_cluster , data = drep_clusters, FUN = function(x) length(unique(x)))
+# Sort the pirates dataframe by height in decreasing order
+drep_clusters_hosts_sum <- drep_clusters_hosts_sum[order(drep_clusters_hosts_sum$phylum, decreasing = TRUE),]
+sum(drep_clusters_hosts_sum$phylum > 1 ) #126 clusters with host of multiple phylum - generalists
+sum(drep_clusters_hosts_sum$phylum == 1 ) #558
+length(unique(drep_clusters$primary_cluster)) - nrow(drep_clusters_hosts_sum) #1688
+
+#no associeted host
+length(unique(drep_clusters$secondary_cluster)) - nrow(drep_sec_clusters_hosts_sum) #1720
+drep_sec_clusters_hosts_sum <-aggregate(phylum ~ secondary_cluster , data = drep_clusters, FUN = function(x) length(unique(x)))
+#more then one host - generalists
+sum(drep_sec_clusters_hosts_sum$phylum > 1 ) #126
+sum(drep_sec_clusters_hosts_sum$phylum == 1 ) #570
+#no associated host
+length(unique(drep_clusters$secondary_cluster)) - nrow(drep_sec_clusters_hosts_sum) #1720
+```
+
+```{r nature of the data, echo=FALSE}
+
+#lytic and lysogenic 
+#viruses associated with fraction - lower taxonomic groups - typical diatoms viruses?
+#alpha diversity 
+#PERMANOVA
+
+```
+
+
