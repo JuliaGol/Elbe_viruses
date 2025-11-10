@@ -142,12 +142,11 @@ pathways <-  pathways %>% separate_rows(Present.AMG.KOs) %>% unique()
 
 #merge with pathways to include metabolism information related to found axuliary genes by vibrant - selecting auxiliary genes
 #to save computations remove uneccessery columns
-vir_genecluster_annot <- vir_genecluster_annot %>% select(-c("range", "DESCRIPTION", "mem",  "length", "pos")) %>% merge(pathways[,c("Metabolism", "Pathway", "Present.AMG.KOs")], by.x="KO", by.y="Present.AMG.KOs") # find more pathways 
-#add drep clusters 
-vibrant_genecluster_drep = merge(drep_clusters, vir_genecluster_annot, by.x="contig_id",  by.y="gene", all.y = T) %>% select(contig_id, gene_cluster, KO, primary_cluster, secondary_cluster, DESCRIPTION, Metabolism, Pathway) %>% unique()
+#remove gene - contig id - so be not popuplate genecluster counts
+vir_genecluster_annot <- vir_genecluster_annot %>% select(-c("gene", "range", "DESCRIPTION", "mem",  "length", "pos")) %>% distinct() %>% merge(pathways[,c("Metabolism", "Pathway", "Present.AMG.KOs")], by.x="KO", by.y="Present.AMG.KOs") # find more pathways 
+
 #but first unify genome names
-vir_genecluster_annot <- vir_genecluster_annot %>% 
-  mutate(genome=str_remove(gene, "_[0-9]+$")) %>% group_by(Metabolism, Pathway) %>% summarise(across(where(is.numeric), sum))
+vir_genecluster_annot <- vir_genecluster_annot %>% group_by(Metabolism, Pathway) %>% summarise(across(where(is.numeric), sum))
 
 vir_genecluster_annot <- vir_genecluster_annot  %>% ungroup() %>% unique()
 #change zero to NA to reduce calculations (less rows in resulting long table)
@@ -233,7 +232,7 @@ tiff("pathway_station_plot.tiff", unit="px", width = 1010, height = 1000)
 pathway_Station_plot
 dev.off()
 
-vir_genecluster_annot_pathway_salinity_level <- vir_genecluster_annot %>% group_by(Stromkilometer, Salinity_level, Sample_date, data_type) %>% mutate(total = sum(counts)) %>% mutate(Percentage = counts / total * 100) %>% group_by(Stromkilometer, Salinity_level, Sample_date, data_type, Metabolism, Pathway) %>% mutate(total_Percentage = sum(Percentage)) %>% select(Stromkilometer, Salinity_level, Sample_date, data_type, Metabolism,  Pathway, total_Percentage)  %>%  distinct() %>% mutate(Pathway =  case_when(total_Percentage <= 0.5 ~  "Other", TRUE ~ Pathway )) 
+vir_genecluster_annot_pathway_salinity_level <- vir_genecluster_annot %>% group_by(Stromkilometer, Salinity_level, Sample_date, data_type) %>% mutate(total = sum(counts)) %>% mutate(Percentage = counts / total * 100) %>% group_by(Stromkilometer, Salinity_level, Sample_date, data_type, Metabolism, Pathway) %>% mutate(total_Percentage = sum(Percentage)) %>% select(Stromkilometer, Salinity_level, Sample_date, data_type, Metabolism,  Pathway, total_Percentage)  %>%  distinct() %>% mutate(Pathway =  case_when(total_Percentage <= 1 ~  "Other", TRUE ~ Pathway )) 
 #order
 vir_genecluster_annot_pathway_salinity_level$Salinity_level <- factor(vir_genecluster_annot_pathway_salinity_level$Salinity_level, level = c( "freshwater", "oligohaline",  "mesohaline", "polyhaline"))
 
@@ -276,12 +275,12 @@ dev.off()
 ```{r}
 
 #bubble plot version
-xx =  vir_genecluster_annot_pathway_salinity_level %>% ggplot(aes(x = sample_spatio_temp, y=Pathway)) + 
-  geom_point(aes(size = total_Percentage, color=Pathway), alpha = 0.75) + 
+xx =  vir_genecluster_annot_pathway_salinity_level %>% ggplot(aes(x = sample_spatio_temp, y=as.factor(Pathway))) + 
+  geom_point(aes(size = total_Percentage, color=Pathway), alpha = 0.75) +   #scale_y_discrete(limits = rev(levels(vir_genecluster_annot_pathway_salinity_level$Pathway))) +
   scale_size_continuous(limits = c(0.000001, 100), breaks = c(1,10,50,75))+ facet_grid2(data_type ~ Salinity_level, render_empty=F, scales="free", space = "free", drop=T) + 
   labs( x= "", y = "", size = "Relative Abundance (%)", color = "class") +  
  # scale_fill_manual(values = colours, guide = FALSE) + 
-  scale_y_discrete(limits = rev(levels(vir_genecluster_annot_pathway_salinity_level$Pathway))) +
+
   theme_clean(base_size=15)  + 
   theme(legend.key=element_blank(), 
   axis.text.x = element_text(colour = "black", size = 12, face = "bold", angle = 90, vjust = 0.3, hjust = 1), 
