@@ -275,16 +275,27 @@ vir_genecluster_annot_pathway_fractions$Pathway <- factor(vir_genecluster_annot_
 
 new_labels <- c("Light_fraction" = "Suspended particles", "Heavy_fraction" = "Sinking particles", "Free_living" = "Free-living", "METAT" = "METAT", "METAG" = "METAG")
 
-pathways_fractions_plot <- vir_genecluster_annot_pathway_fractions %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sample_spatio_temp, y=total_Percentage, fill = Pathway)) + facet_wrap(~data_type *Sample_type, scales= "free_x",labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL)  + 
-  # ggtitle("Relative abundace of pathways across different fractions")  +
-  ylab("Relative abundace") + xlab("") + theme(axis.title.y = element_text(angle=90, size=12)) +  theme_bw(base_size=20) + theme(legend.position='bottom')
-tiff("Pathways_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
+pathways_fractions_plot <- vir_genecluster_annot_pathway_fractions %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sample_spatio_temp, y=total_Percentage, fill = Pathway)) + facet_wrap(~data_type *Sample_type, scales= "free_x", labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL)  + 
+  # ggtitle("Relative abundace of pathways across different fractions")  + 
+  ylab("Relative abundace") + xlab("") + 
+  ylab("Relative abundace") + xlab("") +   theme(legend.key=element_blank(), 
+  axis.text.x = element_text(colour = "black", size = 12, face = "bold", angle = 90, vjust = 0.3, hjust = 1), 
+  axis.text.y = element_text(colour = "black", face = "bold", size = 11), 
+  legend.text = element_text(size = 10, face ="bold", colour ="black"), 
+  legend.title = element_text(size = 12, face = "bold"), strip.text.x = element_text(size = 10),
+  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") +  theme_bw(base_size=20) + theme(legend.position='bottom') + guides(fill=guide_legend(title.position = "top", ncol=3))
+tiff("Pathways_fractions_plot.tiff", unit="cm", height=45, width=40, res =300)
 pathways_fractions_plot 
 dev.off()
 Metabolism_fractions_plot <- vir_genecluster_annot_pathway_fractions %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sample_spatio_temp, y=total_Percentage, fill = Metabolism)) + facet_wrap(~data_type *Sample_type, scales= "free_x",labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL)  + 
   # ggtitle("Relative abundance of metabolism across different fractions")  +
-  ylab("Relative abundace") + xlab("") + theme(axis.title.y = element_text(angle=90, size=12)) +  theme_bw(base_size=20) + theme(legend.position='bottom')
-tiff("Metabolisms_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
+  ylab("Relative abundace") + xlab("") +   theme(legend.key=element_blank(), 
+  axis.text.x = element_text(colour = "black", size = 12, face = "bold", angle = 90, vjust = 0.3, hjust = 1), 
+  axis.text.y = element_text(colour = "black", face = "bold", size = 11), 
+  legend.text = element_text(size = 10, face ="bold", colour ="black"), 
+  legend.title = element_text(size = 12, face = "bold"), strip.text.x = element_text(size = 10),
+  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") +  theme_bw(base_size=20) + theme(legend.position='bottom') + guides(fill=guide_legend(title.position = "top", ncol=3))
+tiff("Metabolism_fractions_plot.tiff", unit="cm", height=45, width=40, res =300)
 Metabolism_fractions_plot 
 dev.off()
 ```
