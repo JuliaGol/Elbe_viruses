@@ -162,24 +162,11 @@ saveRDS(vir_genecluster_annot, file="vir_genecluster_annot_pathways.RData")
 ```
 
 ```{r}
-#visualisations
-#fractions
-new_labels <- c("Light_fraction" = "Suspended particles", "Heavy_fraction" = "Sinking particles", "Free_living" = "Free-living", "METAT" = "METAT", "METAG" = "METAG")
+#visualizations
 
-pathways_fractions_plot <- vir_genecluster_annot %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_type, scales= "free_x",labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + xlab("") + theme(axis.title.y = element_text(angle=90, size=12)) +  theme_bw(base_size=20)
-tiff("Pathways_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
-pathways_fractions_plot
-dev.off()
-#fractions metabolism
-metabolism_fractions_plot <- vir_genecluster_annot %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, StationNumber), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Sample_type, scales= "free_x",labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of metabolism across different fractions") + ylab("Relative abundace") +xlab("")+ theme( legend.position="bottom", axis.title.y = element_text(angle=90))  +  theme_bw(base_size=15)
-#hard to interpret - big variability - probably fraction is not the most important factor
-#differences between fl and PA for pathways for metabolism in metag quite similar but for both inmetat quite the difference even between heavy and light fraction
-tiff("Metabolism_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
-metabolism_fractions_plot
-dev.off()
-pdf("Metabolism_fractions_plot.pdf", height=29.7, width=21.0)
-metabolism_fractions_plot
-dev.off()
+# pdf("Metabolism_fractions_plot.pdf", height=29.7, width=21.0)
+# metabolism_fractions_plot
+# dev.off()
 #sampling date
 pathways_date_plot <- vir_genecluster_annot %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.text = element_text(size=10)) + theme_bw(base_size=20)
 tiff("Pathways_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
@@ -271,6 +258,35 @@ dev.off()
 pdf("metabolism_salinity_plot.pdf", width=29.7, height=21.0)
 metabolism_salinity_plot
 dev.off()
+#fractions
+vir_genecluster_annot_pathway_fractions <- vir_genecluster_annot %>% group_by(Stromkilometer, Sample_type, Sample_date, data_type) %>% mutate(total = sum(counts)) %>% mutate(Percentage = counts / total * 100) %>% group_by(Stromkilometer, Sample_type, Sample_date, data_type, Metabolism, Pathway) %>% mutate(total_Percentage = sum(Percentage)) %>% select(Stromkilometer, Sample_type, Sample_date, data_type, Metabolism,  Pathway, total_Percentage)  %>%  distinct() %>% mutate(Pathway =  case_when(total_Percentage <= 1 ~  "Other", TRUE ~ Pathway )) 
+#order
+vir_genecluster_annot_pathway_fractions$Sample_type <- factor(vir_genecluster_annot_pathway_fractions$Sample_type, level = c( "Free_living", "Light_fraction",  "Heavy_fraction"))
+
+vir_genecluster_annot_pathway_fractions$sample_spatio_temp <- paste(factor(vir_genecluster_annot_pathway_fractions$Sample_date), vir_genecluster_annot_pathway_fractions$Stromkilometer, sep=" " )
+
+vir_genecluster_annot_pathway_fractions$sample_spatio_temp <-factor(vir_genecluster_annot_pathway_fractions$sample_spatio_temp, levels=c("May-21 608", "May-21 633", "May-21 651", "May-21 665", "May-21 694", "May-21 712","Jul-21 633", "Jul-21 651", "Jul-21 665", "Jul-21 694", "Jul-21 712", "Feb-22 633", "Feb-22 651", "Feb-22 665", "Feb-22 694", "Feb-22 712", "May-22 633", "May-22 651", "May-22 665", "May-22 694", "May-22 712", "Jun-22 633", "Jun-22 651", "Jun-22 665", "Jun-22 694", "Jun-22 712", "Nov-22 633", "Nov-22 651", "Nov-22 665", "Nov-22 694", "Nov-22 712"))
+
+found_pathways<-sort(unique(vir_genecluster_annot_pathway_fractions$Pathway))
+
+#pathways order in the legend 
+vir_genecluster_annot_pathway_fractions$Pathway <- factor(vir_genecluster_annot_pathway_fractions$Pathway, levels= c(found_pathways[which(found_pathways!="Other")], "Other")) 
+
+
+new_labels <- c("Light_fraction" = "Suspended particles", "Heavy_fraction" = "Sinking particles", "Free_living" = "Free-living", "METAT" = "METAT", "METAG" = "METAG")
+
+pathways_fractions_plot <- vir_genecluster_annot_pathway_fractions %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sample_spatio_temp, y=total_Percentage, fill = Pathway)) + facet_wrap(~data_type *Sample_type, scales= "free_x",labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL)  + 
+  # ggtitle("Relative abundace of pathways across different fractions")  +
+  ylab("Relative abundace") + xlab("") + theme(axis.title.y = element_text(angle=90, size=12)) +  theme_bw(base_size=20) + theme(legend.position='bottom')
+tiff("Pathways_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
+pathways_fractions_plot 
+dev.off()
+Metabolism_fractions_plot <- vir_genecluster_annot_pathway_fractions %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sample_spatio_temp, y=total_Percentage, fill = Metabolism)) + facet_wrap(~data_type *Sample_type, scales= "free_x",labeller = as_labeller(new_labels)) + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL)  + 
+  # ggtitle("Relative abundance of metabolism across different fractions")  +
+  ylab("Relative abundace") + xlab("") + theme(axis.title.y = element_text(angle=90, size=12)) +  theme_bw(base_size=20) + theme(legend.position='bottom')
+tiff("Metabolisms_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
+Metabolism_fractions_plot 
+dev.off()
 ```
 ```{r}
 
@@ -295,10 +311,34 @@ pdf("pathway_salinity_level_bubble_plot.pdf", height=21.0, width=29.7)
 xx
 dev.off()
 ```
-```{r}
 
+
+```{r}
 #bubble plot version
-mm =  vir_genecluster_annot_pathway_salinity_level %>% ggplot(aes(x = sample_spatio_temp, y=Metabolism)) + 
+xx =  vir_genecluster_annot_pathway_salinity_level %>% ggplot(aes(x = sample_spatio_temp, y=as.factor(Pathway))) + 
+  geom_point(aes(size = total_Percentage, color=Pathway), alpha = 0.75) +   #scale_y_discrete(limits = rev(levels(vir_genecluster_annot_pathway_salinity_level$Pathway))) +
+  scale_size_continuous(limits = c(0.000001, 100), breaks = c(1,10,50,75)) + facet_grid2(data_type ~ Salinity_level, render_empty=F, scales="free", space = "free", drop=T) + 
+  labs( x= "", y = "", size = "Relative Abundance (%)", color = "class") +
+ # scale_fill_manual(values = colours, guide = FALSE) + 
+  theme_clean(base_size=15)  + 
+  theme(legend.key=element_blank(), 
+  axis.text.x = element_text(colour = "black", size = 12, face = "bold", angle = 90, vjust = 0.3, hjust = 1), 
+  axis.text.y = element_text(colour = "black", face = "bold", size = 11), 
+  legend.text = element_text(size = 10, face ="bold", colour ="black"), 
+  legend.title = element_text(size = 12, face = "bold"), strip.text.x = element_text(size = 10),
+  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") + guides(color = "none") + scale_size(range = c(0, 15))  
+tiff("pathway_salinity_level_bubble_plot_scaled.tiff", unit="cm", height=35, width=60, res =300)
+xx
+dev.off()
+pdf("pathway_salinity_level_bubble_plot_scales.pdf", height=21.0, width=29.7)
+xx
+dev.off()
+```
+
+
+```{r}
+#bubble plot version
+mm =  vir_genecluster_annot_pathway_salinity_level %>% ggplot(aes(x = sample_spatio_temp, y=as.factor(Metabolism))) + 
   geom_point(aes(size = total_Percentage, color=Metabolism), alpha = 0.75) + 
   scale_size_continuous(limits = c(0.000001, 100), breaks = c(1,10,50,75))+ facet_grid2(data_type ~ Salinity_level, render_empty=F, scales="free", space = "free", drop=T) + 
   labs( x= "", y = "", size = "Relative Abundance (%)", color = "class") +  
@@ -310,11 +350,11 @@ mm =  vir_genecluster_annot_pathway_salinity_level %>% ggplot(aes(x = sample_spa
   axis.text.y = element_text(colour = "black", face = "bold", size = 11), 
   legend.text = element_text(size = 10, face ="bold", colour ="black"), 
   legend.title = element_text(size = 12, face = "bold"), strip.text.x = element_text(size = 10),
-  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") + guides(color = "none")
-tiff("metabolism_salinity_level_bubble_plot.tiff", unit="cm", height=35, width=60, res =300)
+  panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") + guides(color = "none")  + scale_size(range = c(0, 15))
+tiff("metabolism_salinity_level_bubble_plot_scaled.tiff", unit="cm", height=35, width=60, res =300)
 mm
 dev.off()
-pdf("metabolism_salinity_level_bubble_plot.pdf", height=21.0, width=29.7)
+pdf("metabolism_salinity_level_bubble_plot_scaled.pdf", height=21.0, width=29.7)
 mm
 dev.off()
 ```
