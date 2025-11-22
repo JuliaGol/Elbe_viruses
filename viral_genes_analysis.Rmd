@@ -78,7 +78,7 @@ metadata <- metadata %>% merge(metadata_more[, c("Sample_date", "Station", "Chlo
 metadata <- metadata[,!(colnames(metadata) %in% c("RespirationRate_O2ug.L.h", "DIC_uM.L", "DOC_uM.L", "Total_DIN_uM", "Ammonium_uM", "Nitrite_uM", "Nitrate_uM", "dCH4_uM", "dCO2_nM", "Silicate_uM", "SRP_uM"))]
 #ids for expression normalisation - transcription/gene counts
 #to numeric
-numeric_values <- c("DNA_concentration_ng.uL", "StationNumber", "Stromkilometer", "Sat_O2_Perc", "Temperature_TBDHereon", "Salinity_PSU", "Turbidity_NTU", "pH", "O2_uM","SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Phosphate_uM", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "TEP_um2perL", "CSP_um2perL", "ParticleArea_um2perL", "dCH4_uM", "dCO2_uM", "Chlorophyll_Fluoresence",  "Chla_ug/l")
+numeric_values <- c("DNA_concentration_ng.uL", "StationNumber", "Stromkilometer", "Sat_O2_Perc", "Temperature_TBDHereon", "Salinity_PSU", "Turbidity_NTU", "pH", "O2_uM","SPM_mgperL", "DOC_mg.L", "TN_mg.L", "DIC_mg.L", "Silicate_mg.L", "Ammonium_mg.L", "Nitrite_mg.L", "Nitrate_mg.L", "SRP_mgperL", "TotalDissolvedPhosphate_mg.L", "Phosphate_uM", "POC_mgperL", "PTC_mgperL", "PTN_mgperL", "PTH_mgperL", "TEP_um2perL", "CSP_um2perL", "ParticleArea_um2perL", "dCH4_nM", "dCO2_uM", "Chlorophyll_Fluoresence",  "Chla_ug/l")
 metadata <- mutate_at(metadata, vars(numeric_values), as.numeric)
 
 write.csv(metadata, paste0(path,"/metadata_all.csv"), row.names = FALSE)
@@ -199,6 +199,8 @@ md_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00024")) #388
 mcrA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K00399")) #0
 #K10944
 pmoA_vir <- vir_genecluster_annot %>% filter(KO %in% c("K10944")) #0
+#K10945
+pmoB_vir <- vir_genecluster_annot %>% filter(KO %in% c("K10945")) #0
 #K10946
 pmoC_vir <- vir_genecluster_annot %>% filter(KO %in% c("K10946")) #5 !
 #Shemin pathway
@@ -755,10 +757,26 @@ pmoC_vir_plot %>%
   filter(Sample_date != "Nov 21") %>%
   filter(!is.na(counts)) %>%
   mutate(counts=counts/1000) %>%
-    group_by(sampleid, dCH4_uM, data_type, Sample_type) %>% 
+    group_by(sampleid, dCH4_nM, data_type) %>% 
   summarise(counts=sum(counts)) %>%
-  ggplot(aes(x=dCH4_uM, y=counts)) + ggtitle("viral pmoC counts across different CH4 values for different data sets") + geom_point() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth(method = "lm") 
+  ggplot(aes(x=dCH4_nM, y=counts)) + ggtitle("viral pmoC counts across different CH4 values for different data sets") + geom_point() + geom_tile() + facet_wrap(~data_type , scale = "free_y") + geom_smooth(method = "lm") + scale_y_log10()
 
+pmoC_vir_plot %>% 
+  filter(Sample_date != "Nov 21") %>%
+  filter(!is.na(counts)) %>%
+  mutate(counts=counts/1000) %>%
+    group_by(sampleid, O2_uM, data_type, Sample_type) %>% 
+  summarise(counts=sum(counts)) %>%
+  ggplot(aes(x=O2_uM, y=counts)) + ggtitle("viral pmoC counts across different O2 values for different data sets") + geom_point() + geom_tile() + facet_wrap(~data_type *Sample_type, scale = "free_y") + geom_smooth(method = "lm") 
+
+
+pmoC_vir_plot %>%  
+  #filter(Station != 'BunthausSpitze') %>% 
+  filter(Sample_date != "Nov 21") %>%
+    group_by(Stromkilometer, Sample_date, Sample_type, data_type) %>% 
+  summarise(counts=sum(as.numeric(counts), na.rm = TRUE)) %>%
+  ggplot(aes(x=as.numeric(Stromkilometer), y=counts)) + geom_point(aes(colour=as.factor(origin))) + geom_smooth() + 
+  ggtitle("Viral and prokaryotic pmoC counts across different seasons and river sites") + scale_y_log10() + xlab("Kilometer") + geom_tile() + facet_wrap(~data_type *Sample_date, scale = "free_y") + labs(fill="Origin")
 
 ```
 ```
