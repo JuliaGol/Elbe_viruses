@@ -118,7 +118,7 @@ geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% m
 #think about finding metadata for them 
 geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% filter(!is.na(Station))
 #change NA to unknown label for plotting
-geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% mutate(level_5 = replace_na(level_5, "aunknown")) %>% distinct()
+geneabund_drep_marker_taxonomy_long <- geneabund_drep_marker_taxonomy_long %>% mutate(level_5 = replace_na(level_5, "unknown")) %>% distinct()
 saveRDS(geneabund_drep_marker_taxonomy_long, file ="geneabund_drep_marker_taxonomy_long.RDS")
 #box plot
 #simplified lineages for plotting
@@ -304,7 +304,7 @@ xx =  geneabund_drep_marker_taxonomy_long_percent %>% ggplot(aes(x = Salinity_le
   legend.text = element_text(size = 10, face ="bold", colour ="black"), 
   legend.title = element_text(size = 12, face = "bold"), 
   panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),  legend.position = "bottom") + guides(color = "none")  + scale_size(range = c(0, 10)) 
-tiff("salinity_level_taxa_bubble_plot.tiff", unit="cm", width = 20, height = 14, res=300)
+tiff("salinity_level_taxa_bubble_plot.tiff", unit="cm", width = 21, height = 14, res=300)
 xx
 dev.off()
 svg("salinity_level_taxa_bubble_plot.svg", width = 10, height = 7)
@@ -912,7 +912,7 @@ phyloseq_metag@sam_data$Stromkilometer[which(phyloseq_metag@sam_data$Stromkilome
 phyloseq_metag@sam_data$Stromkilometer[which(phyloseq_metag@sam_data$Stromkilometer==652)] <- 651
 phyloseq_metag@sam_data$Stromkilometer <- as.factor(phyloseq_metag@sam_data$Stromkilometer)  
 color_colors<- c("black", colors[2:4])
-beta_diver <- plot_ordination(phyloseq_metag, pcoa, color = "Salinity_level",  shape="Stromkilometer") +   geom_point(size = 5, stroke=2, aes(fill = Salinity_level)) + scale_color_manual(values = color_colors, name = "Salinity") +  scale_fill_manual(values = colors, name = "Salinity") +  scale_shape_manual(values = c(21,22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) + guides(shape = guide_legend(title = "Elbe km", override.aes = list(color = "black"),  position="left"), color = guide_legend(override.aes = list(shape = 21), position="left")) + xlab("Axis.1 11.7%") + xlab("Axis.2 10.7%") #+  guides(shape = FALSE))
+beta_diver <- plot_ordination(phyloseq_metag, pcoa, color = "Salinity_level",  shape="Stromkilometer") +   geom_point(size = 5, stroke=2, aes(fill = Salinity_level)) + scale_color_manual(values = color_colors, name = "Salinity") +  scale_fill_manual(values = colors, name = "Salinity") +  scale_shape_manual(values = c(21,22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) + guides(shape = guide_legend(title = "Elbe km", override.aes = list(color = "black"),  position="left"), color = guide_legend(override.aes = list(shape = 21), position="left")) + xlab("Axis.1 11.7%") + ylab("Axis.2 10.7%") #+  guides(shape = FALSE))
 
 #calculate distance
 phyloseq_metag_bray <- phyloseq::distance(phyloseq_metag, method = "bray")
@@ -939,14 +939,19 @@ otu_paired_metag <- geneabund_drep_marker_taxonomy_wide_METAG[which(geneabund_dr
 #keep paired metat
 otu_metat <- geneabund_drep_marker_taxonomy_wide_METAT[which(geneabund_drep_marker_taxonomy_wide_METAT$AccessionNumber_TBDSven%in%paired_acc), grepl("cluster", colnames(geneabund_drep_marker_taxonomy_wide_METAT))]
 #find pseudo counts
-ps <- 0.00000001
-otu_expression <- as.data.frame(log((otu_metat+ps)/(otu_paired_metag+ps)))
+# ps <- 0.00000001
+#
+ps <- 0
+#otu_expression <- as.data.frame(log((otu_metat+ps)/(otu_paired_metag+ps)))
+otu_expression <- as.data.frame(otu_metat/otu_paired_metag)
+#inf values to 0 
+otu_expression[otu_expression==Inf] <- 0
+otu_expression[otu_expression==-Inf] <- 0
+otu_expression  <- otu_expression %>% mutate_all(~ifelse(is.nan(.), 0, .))
+
 #to remove negative values deduct minimum
-otu_expression <- otu_expression - min(otu_expression)
-# #replace NA, NaN, inf 
-# otu_expression[is.na(otu_expression)] <- 0
-# otu_expression[otu_expression == -Inf] <- 0
-# otu_expression[otu_expression == Inf] <- 0
+#otu_expression <- otu_expression - min(otu_expression)
+
 otu_expr <- otu_table(otu_expression, taxa_are_rows = F)
 
 phyloseq_expr <- phyloseq(otu_expr, my_sample_data=sample_data(geneabund_drep_marker_taxonomy_wide_METAT[which(geneabund_drep_marker_taxonomy_wide_METAT$AccessionNumber_TBDSven%in%paired_acc),]))
@@ -959,7 +964,7 @@ phyloseq_expr@sam_data$Stromkilometer[which(phyloseq_expr@sam_data$Stromkilomete
 phyloseq_expr@sam_data$Stromkilometer[which(phyloseq_expr@sam_data$Stromkilometer==652)] <- 651
 phyloseq_expr@sam_data$Stromkilometer <- as.factor(phyloseq_expr@sam_data$Stromkilometer)  
 color_colors<- c("black", colors[2:4])
-beta_diver_expr <- plot_ordination(phyloseq_expr, pcoa, color = "Salinity_level",  shape="Stromkilometer") +   geom_point(size = 5, stroke=2, aes(fill = factor(Salinity_level))) +  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")  +  scale_shape_manual(values =c(22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) + guides(shape =guide_legend(title = "Elbe km", override.aes = list(color = "black"))) + guides(shape = FALSE, fill=FALSE, color=FALSE) + xlab("Axis.1 11.7%") + xlab("Axis.2 10.7%")
+beta_diver_expr_without_ps <- plot_ordination(phyloseq_expr, pcoa, color = "Salinity_level",  shape="Stromkilometer") +   geom_point(size = 5, stroke=2, aes(fill = factor(Salinity_level))) +  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")  +  scale_shape_manual(values =c(22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) + guides(shape =guide_legend(title = "Elbe km", override.aes = list(color = "black"))) + guides(shape = FALSE, fill=FALSE, color=FALSE) + xlab("Axis.1 11.7%") + ylab("Axis.2 10.7%")
 
 #calculate distance
 phyloseq_expr_bray <- phyloseq::distance(phyloseq_expr, method = "bray")
@@ -972,6 +977,39 @@ set.seed(42)
 anosim_station_otus_expr <- anosim(phyloseq_expr_bray, sampledf$Stromkilometer, permutation = 9999)
 set.seed(42)
 anosim_salinity_otus_expr <- anosim(phyloseq_expr_bray, sampledf$Salinity_level, permutations = 9999)
+#check again when ps 
+#find pseudo counts
+# ps <- 0.00000001
+# 
+# otu_expression <- as.data.frame(log((otu_metat+ps)/(otu_paired_metag+ps)))
+# #to remove negative values deduct minimum
+# otu_expression <- otu_expression - min(otu_expression)
+# 
+# otu_expr <- otu_table(otu_expression, taxa_are_rows = F)
+# 
+# phyloseq_expr <- phyloseq(otu_expr, my_sample_data=sample_data(geneabund_drep_marker_taxonomy_wide_METAT[which(geneabund_drep_marker_taxonomy_wide_METAT$AccessionNumber_TBDSven%in%paired_acc),]))
+# 
+# #unify
+# phyloseq_expr@sam_data$Stromkilometer <- round(phyloseq_expr@sam_data$Stromkilometer)
+# phyloseq_expr@sam_data$Stromkilometer[which(phyloseq_expr@sam_data$Stromkilometer==715)] <- 712 
+# phyloseq_expr@sam_data$Stromkilometer[which(phyloseq_expr@sam_data$Stromkilometer==692)] <- 694 
+# phyloseq_expr@sam_data$Stromkilometer[which(phyloseq_expr@sam_data$Stromkilometer==666)] <- 665 
+# phyloseq_expr@sam_data$Stromkilometer[which(phyloseq_expr@sam_data$Stromkilometer==652)] <- 651
+# phyloseq_expr@sam_data$Stromkilometer <- as.factor(phyloseq_expr@sam_data$Stromkilometer)  
+# color_colors<- c("black", colors[2:4])
+# beta_diver_expr <- plot_ordination(phyloseq_expr, pcoa, color = "Salinity_level",  shape="Stromkilometer") +   geom_point(size = 5, stroke=2, aes(fill = factor(Salinity_level))) +  scale_color_manual(values = color_colors, name = "Salinity")+  scale_fill_manual(values = colors, name = "Salinity")  +  scale_shape_manual(values =c(22,23,2,3,4), name= "Elbe km") +  theme_bw(base_size=20) + guides(shape =guide_legend(title = "Elbe km", override.aes = list(color = "black"))) + guides(shape = FALSE, fill=FALSE, color=FALSE) + xlab("Axis.1 11.7%") + xlab("Axis.2 10.7%")
+# 
+# #calculate distance
+# phyloseq_expr_bray <- phyloseq::distance(phyloseq_expr, method = "bray")
+# 
+# # make a data frame from the sample_data
+# sampledf <- data.frame(sample_data(phyloseq_expr))
+# 
+# # ANOSIM test
+# set.seed(42)
+# anosim_station_otus_expr <- anosim(phyloseq_expr_bray, sampledf$Stromkilometer, permutation = 9999)
+# set.seed(42)
+# anosim_salinity_otus_expr <- anosim(phyloseq_expr_bray, sampledf$Salinity_level, permutations = 9999)
 
 #cowplot
 library(cowplot)
@@ -998,6 +1036,7 @@ dev.off()
 saveRDS(beta_diver  + guides(shape = FALSE, fill=FALSE, color=FALSE), file="beta_diver.RDS")
 saveRDS(beta_diver_metat, file="beta_diver_metat.RDS")
 saveRDS(beta_diver_expr, file="beta_diver_expr.RDS")
+saveRDS(beta_diver_expr_without_ps, file="beta_diver_expr_without_ps.RDS")
 
 ```
 

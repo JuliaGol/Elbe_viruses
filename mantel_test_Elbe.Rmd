@@ -126,7 +126,9 @@ paired_METAT <- sort(gsub("METAG", "METAT", paired_METAG))
 paired_sampleid <- gsub("_METAG", "", paired_METAG) 
 #normalise - log(transcriptions/gene counts)
 #first add pseudocounts
-pseudocount <- 0.00000001 
+#pseudocount <- 0.00000001 
+#get rid of pseudo cout 
+pseudocount <- 0
 motus_df_METAG_paired <- motus_df_METAG[, paired_METAG] 
 motus_df_METAT_paired <- motus_df_METAT[, paired_METAT]
 #rarefy separtely metat and metag
@@ -134,6 +136,11 @@ motus_df_METAT_paired <- motus_df_METAT[, paired_METAT]
 #(raremax <- min(rowSums(BCI)))
 #normalise to expression by dividing 
 motus_expression <- log((motus_df_METAT_paired + pseudocount) /(motus_df_METAG_paired + pseudocount))
+#inf values to 0 
+motus_expression[motus_expression==Inf] <- 0
+motus_expression[motus_expression==-Inf] <- 0
+motus_expression  <- motus_expression %>% mutate_all(~ifelse(is.nan(.), 0, .))
+
 #recover mOTUs columns
 motus_expression <-as.data.frame(cbind(motus_df_METAT$mOTU, motus_expression))
 #unify name
@@ -263,8 +270,13 @@ viral_activity_paired <- viral_activity %>% select(contains(paired_sampleid))
 
 #normalisation with pseudocounts
 pseudocount <- 0.00000001
+pseudocount <- 0
 #use counts and round to int - log values and double cannot be used for distance matrix for bray cutis method in avrdist
 viral_expression <- log((viral_activity_paired + pseudocount)/(viral_diversity_paired + pseudocount))
+#inf values to 0 
+viral_expression[viral_expression==Inf] <- 0
+viral_expression[viral_expression==-Inf] <- 0
+viral_expression  <- viral_expression %>% mutate_all(~ifelse(is.nan(.), 0, .))
 #deduct minimum to remove non negative values
 viral_expression <- viral_expression - min(viral_expression)
 
@@ -1051,11 +1063,11 @@ dev.off()
 
 ```{r combine plots common x axis}
 matrix_res_stat_FL_mantel_plot$Fraction <- rep(c("Free-living"), each = nrow(matrix_res_stat_FL_mantel_plot))
-matrix_res_stat_LF_mantel_plot$Fraction <- rep(c("Suspended fraction"), each = nrow(matrix_res_stat_LF_mantel_plot))
-matrix_res_stat_HF_mantel_plot$Fraction <- rep(c("Sinking fraction"), each = nrow(matrix_res_stat_HF_mantel_plot))
+matrix_res_stat_LF_mantel_plot$Fraction <- rep(c("Suspended particles"), each = nrow(matrix_res_stat_LF_mantel_plot))
+matrix_res_stat_HF_mantel_plot$Fraction <- rep(c("Sinking particles"), each = nrow(matrix_res_stat_HF_mantel_plot))
 
 matrix_res_stat_all_mantel_plot <- rbind(matrix_res_stat_FL_mantel_plot, matrix_res_stat_LF_mantel_plot, matrix_res_stat_HF_mantel_plot)
-
+matrix_res_stat_all_mantel_plot$Fraction <- factor(matrix_res_stat_all_mantel_plot$Fraction, levels= c("Free-living", "Suspended particles", "Sinking particles"))
 # plot for METAG - use normal p -values as significant 
   mantel_test_METAG_plot <- matrix_res_stat_all_mantel_plot %>%
   filter(R_statistic != "NA") %>% 
@@ -1065,7 +1077,10 @@ matrix_res_stat_all_mantel_plot <- rbind(matrix_res_stat_FL_mantel_plot, matrix_
  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
  mutate(Var1=str_replace(Var1, "_", " "))  %>%
   mutate(Var2=str_replace(Var2, "_", " "))  %>%
-  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbe km"))  %>%
+  mutate(Var1=str_replace(Var1, "bacteria counts", "Bacteria Counts"))  %>%
+  mutate(Var1=str_replace(Var1, "TotalDissolvedPhosphate", "TDP"))  %>%
+  mutate(Var1=str_replace(Var1, "ParticleArea", "Particle Area"))  %>%
   ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral diversity", "hosts MOTUs")))) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5, color="black") + 
@@ -1099,7 +1114,10 @@ dev.off()
  mutate(Var1=str_remove(Var1, "_TBDHereon|_mh.L|_mgperL|_mg.L|_O2ug.L.h|_nM|_ug/l|_um2perL|_NTU|_PSU|_Perc|uM")) %>%
  mutate(Var1=str_replace(Var1, "_", " "))  %>%
   mutate(Var2=str_replace(Var2, "_", " "))  %>%
-  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbekm"))  %>%
+  mutate(Var1=str_replace(Var1, "Stromkilometer", "Elbe km"))  %>%
+  mutate(Var1=str_replace(Var1, "bacteria counts", "Bacteria Counts"))  %>%
+  mutate(Var1=str_replace(Var1, "TotalDissolvedPhosphate", "TDP"))  %>%
+  mutate(Var1=str_replace(Var1, "ParticleArea", "Particle Area"))  %>%
   ggplot(aes(x=Var1, y=factor(Var2, levels=c("MOTUs", "viral expression", "hosts MOTUs")))) +
   geom_point(aes(colour=R_statistic, ), shape=15, size=7) +
   geom_point(aes(), shape=0, size = 8.5, color="black") + 
