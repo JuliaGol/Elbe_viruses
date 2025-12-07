@@ -77,20 +77,7 @@ df <- data.frame(Salinity_level = factor(metadata$Salinity_level,
 rownames(df) <- tree_MCP_E@phylo$tip.label
 colours_named <- setNames(colours, levels(df$Salinity_level))
 
-# # Add heatmap
-# p1 <- gheatmap(plot_tree_MCP_E, df,
-#                offset = offset_heatmap,
-#                width = width_heatmap,
-#                colnames = FALSE,
-#                aes(fill = factor(Salinity_level))) +
-#   scale_fill_manual(values = colours_named,
-#                     name = "Salinity level",
-#                     breaks = levels(df$Salinity_level)) +
-#   new_scale_colour()
 
-# ---- Key improvement ----
-# Use the maximum x position *from the heatmap data*,
-# not from the ggtree data (they differ)
 edge_x <- max(layer_data(p1, 2)$x)   # layer 2 = heatmap tiles
 
 # Define your clade data
@@ -119,25 +106,6 @@ p3 <- plot_tree_MCP_E +
 plot_tree_MCP_E_annot <- p3 +
    geom_hilight(data=cladeda, aes(node=id, fill=type),type = "roundrect", fill="#C8BFBF") + geom_tree(linewidth=0.5)  + 
   geom_tippoint(fill = tip_fill, color = tip_colors, shape = 21, size = 2)  + coord_cartesian(clip="off")
-# p2 <- p1 +
-#   geom_cladelab(
-#     data = cladeda,
-#     mapping = aes(node = id, label = id),
-#     textcolour = "black",
-#     offset = offset_clade,#edge_x + 
-#     barsize = 1,
-#     color = "black",
-#     extend = 0.2
-#   ) +
-#   theme_void() +
-#   theme(
-#     legend.position = "bottom",
-#     legend.title = element_text(face = "bold", size = 12),
-#     legend.text = element_text(size = 10),
-#     plot.margin = margin(5, 5, 5, 5)
-#   )
-# 
-# 
 
 tiff("tree_MCP_E_annot.tiff" )
 plot_tree_MCP_E_annot
@@ -155,7 +123,6 @@ for (i in 1:length(new_dup_tip)){
   vec=new_dup_tip[[i]]
   tree_MCP_REFSEQ <- drop.tip(tree_MCP_REFSEQ, vec[2:length(vec)])}
 
-# read.iqtree(file)
 tree_MCP_REFSEQ@phylo$tip.label <-  gsub("_fragment.*$", "", tree_MCP_REFSEQ@phylo$tip.label)
 
 metadata <- as.data.frame(tree_MCP_REFSEQ@phylo$tip.label)
@@ -177,75 +144,7 @@ metadata$Salinity_level <-factor(metadata$Salinity_level, levels=c( "freshwater"
 colours <- brewer.pal(n = 4, name = "Blues") 
 tip_colors <- colours[as.factor(metadata$Salinity_level)]
 
-
-# plot_tree_MCP_REFSEQ <- ggtree(tree_MCP_REFSEQ, ladderize = FALSE ) + geom_tippoint(fill=tip_colors, color=tip_colors, shape=21, size=2) #+ geom_tiplab(fill = tip_colors,
-# tree_MCP_REFSEQ_sep_nodes <- plot_tree_MCP_REFSEQ + coord_cartesian(clip="off") + ggtitle("REFSEQ major capsid protein") + theme(plot.title = element_text(hjust = 0.5)) + geom_nodelab(aes(label = node, subset = as.numeric(node)>300 ), size = 1) + theme(panel.background = element_rect(fill="lightgrey", size =1.5))
-# tiff("tree_MCP_REFSEQ_sep.tiff" )
-# tree_MCP_REFSEQ_sep <- plot_tree_MCP_REFSEQ + coord_cartesian(clip="off") + ggtitle("REFSEQ major capsid protein") + theme(plot.title = element_text(hjust = 0.5)) + geom_nodelab(aes(subset = node %in% c()), size = 5) + theme(panel.background = element_rect(fill="lightgrey", size =1.5))
-# dev.off()
-
 library(ggnewscale)
-
-# # Parameters
-# offset_heatmap <- 1
-# width_heatmap  <- 1.5
-# offset_clade   <- 0.2   # distance between heatmap and clade bars
-# 
-# # Build base tree
-# plot_tree_MCP_REFSEQ <- ggtree(tree_MCP_REFSEQ,
-#                                 ladderize = TRUE,
-#                                 size = 0.3,
-#                                 branch.length = "none") +
-#   geom_tippoint(fill = tip_colors, color = tip_colors, shape = 21, size = 3) +
-#   geom_tiplab2(align = TRUE, aes(label=NA), linesize = 0.4)  + ggtitle("REFSEQ major capsid protein") 
-# 
-# # Create df with named rownames
-# df <- data.frame(Salinity_level = factor(metadata$Salinity_level,
-#                                          levels = c("freshwater", "oligohaline", "mesohaline", "polyhaline")))
-# rownames(df) <- tree_MCP_euk_DNA@phylo$tip.label
-# colours_named <- setNames(colours, levels(df$Salinity_level))
-# 
-# # Add heatmap
-# p1 <- gheatmap(plot_tree_MCP_euk_DNA, df,
-#                offset = offset_heatmap,
-#                width = width_heatmap,
-#                colnames = FALSE,
-#                aes(fill = factor(Salinity_level))) +
-#   scale_fill_manual(values = colours_named,
-#                     name = "Salinity level",
-#                     breaks = levels(df$Salinity_level)) +
-#   new_scale_colour()
-# 
-# # ---- Key improvement ----
-# # Use the maximum x position *from the heatmap data*,
-# # not from the ggtree data (they differ)
-# edge_x <- max(layer_data(p1, 2)$x)   # layer 2 = heatmap tiles
-# 
-# # Define your clade data
-# cladeda <- data.frame(id = c(124, 214, 170, 166, 141))
-# 
-# # Add clade labels positioned exactly outside heatmap
-# p1 <- p1 +
-#   geom_cladelab(
-#     data = cladeda,
-#     mapping = aes(node = id, label = id),
-#     textcolour = "black",
-#     offset = offset_clade,#edge_x + 
-#     barsize = 1,
-#     color = "black",
-#     extend = 0.2
-#   ) +
-#   theme_void() +
-#   theme(
-#     legend.position = "bottom",
-#     legend.title = element_text(face = "bold", size = 12),
-#     legend.text = element_text(size = 10),
-#     plot.margin = margin(5, 5, 5, 5)
-#   )
-# 
-# p1
-# Build base tree
-
 
 #"sp|O64210|CAPSD_BPMD2 Probable major capsid protein gp17"
 #read duplicated sequences
@@ -283,10 +182,6 @@ metadata$Salinity_level <-factor(metadata$Salinity_level, levels=c( "freshwater"
 colours <- brewer.pal(n = 4, name = "Blues") 
 tip_colors <- colours[as.factor(metadata$Salinity_level)]
 
-# plot_tree_MCP_gp17 <- ggtree(tree_MCP_gp17, ladderize = FALSE ) + geom_tippoint(fill=tip_colors, color=tip_colors, shape=21, size=2) # + geom_tiplab(fill = tip_colors,
-# tiff("tree_MCP_gp17_sep.tiff" )
-# tree_MCP_gp17_sep <- plot_tree_MCP_gp17 + coord_cartesian(clip="off") + ggtitle("Probable major capsid protein gp17") + theme(plot.title = element_text(hjust = 0.5)) + theme(panel.background = element_rect(fill="lightgrey", size =1.5))
-# dev.off()
 plot_tree_MCP_gp17 <- ggtree(tree_MCP_gp17, ladderize = T, size = 0.3 , branch.length="none") + 
   geom_tippoint(fill=tip_colors, color=tip_colors, shape=21, size=3) + 
   geom_tiplab2(align = TRUE, aes(label=NA), linesize = 0.4) +
@@ -345,7 +240,7 @@ plot_tree_MCP_euk_DNA <- ggtree(tree_MCP_euk_DNA,
                                 #branch.length = "none"
 ) +
   geom_tippoint(fill = tip_fill, color = tip_colors, shape = 21, size = 2) +
-  ggtitle("Large eukaryotic DNA virus major capsid protein") #  + geom_nodelab(aes(label = node, label.size = 1), color="red") + geom_tiplab2(align = TRUE, aes(label=NA), linesize = 0.4) 
+  ggtitle("Large eukaryotic DNA virus major capsid protein") #+ geom_nodelab(aes(label = node, label.size = 1), color="red") + geom_tiplab2(align = TRUE, aes(label=NA), linesize = 0.4) 
 
 plot_tree_MCP_euk_DNA
 # Create df with named rownames
@@ -354,24 +249,8 @@ df <- data.frame(Salinity_level = factor(metadata$Salinity_level,
 rownames(df) <- tree_MCP_euk_DNA@phylo$tip.label
 colours_named <- setNames(colours, levels(df$Salinity_level))
 
-# # Add heatmap
-# p1 <- gheatmap(plot_tree_MCP_euk_DNA, df,
-#                offset = offset_heatmap,
-#                width = width_heatmap,
-#                colnames = FALSE,
-#                aes(fill = factor(Salinity_level))) +
-#   scale_fill_manual(values = colours_named,
-#                     name = "Salinity level",
-#                     breaks = levels(df$Salinity_level)) +
-#   new_scale_colour()
-# 
-# # ---- Key improvement ----
-# # Use the maximum x position *from the heatmap data*,
-# # not from the ggtree data (they differ)
-# edge_x <- max(layer_data(p1, 2)$x)   # layer 2 = heatmap tiles
-# 
 # # Define your clade data
-cladeda <- data.frame(id = c(124,   214, 207, 170, 165, 141), type =c("lower salinity", "higher salinity", "lower salinity", "higher salinity","higher salinity","lower salinity"))
+cladeda <- data.frame(id = c(123,   212, 207, 170, 165, 140), type =c("lower salinity", "higher salinity", "lower salinity", "higher salinity","higher salinity","lower salinity"))
 # 
 p3 <- plot_tree_MCP_euk_DNA +
   geom_cladelab(
@@ -399,115 +278,6 @@ tiff("tree_MCP_euk_DNA_annot.tiff" )
 plot_tree_MCP_euk_DNA_annot
 dev.off()
 
-#####new
-#check primary cluster
-# plot_tree_MCP_euk_DNA <- ggtree(tree_MCP_euk_DNA, layout = 'circular', ladderize = FALSE ) +
-#   geom_tippoint(fill=metadata$Salinity_level, color=tip_colors, shape=21, size=3) +   geom_tiplab(fill = tip_colors)
-#  geom_tile(aes(fill=metadata$Salinity_level)) #+ geom_nodelab(aes(label = node, label.size = 1)
-
-# plot_tree_MCP_euk_DNA <- ggtree(tree_MCP_euk_DNA, ladderize = T, size = 0.3 , branch.length="none") + 
-#   geom_tippoint(fill=tip_colors, color=tip_colors, shape=21, size=3) + 
-#   geom_tiplab2(align = TRUE, aes(label=NA), linesize = 0.4) +
-#   geom_nodelab(aes(label = node), size = 5)
-# plot_tree_MCP_euk_DNA
-# 
-# df <- data.frame(Salinity_level=factor(metadata$Salinity_level, levels=c( "freshwater", "oligohaline", "mesohaline",  "polyhaline" )))
-# #df <- data.frame(metadata$Salinity_level)
-# rownames(df) <- tree_MCP_euk_DNA@phylo$tip.label 
-# df$Salinity_level <-factor(df$Salinity_level, levels=c( "freshwater", "oligohaline", "mesohaline",  "polyhaline" ))
-# 
-# colours_named <- setNames(colours,   # <- your 4 colours in desired mapping order
-#   levels(df$Salinity_level)
-# )
-# 
-# #define clades
-# clades <- c(124, 214, 170, 166, 141)
-# #clades <- c(214)
-# cladeda <- data.frame(id=clades)
-# 
-# offset_heatmap <- 1
-# width_heatmap  <- 1.5
-# offset_clade <- 25
-# # Compute dynamic edge for clade bar positioning
-# edge_x <- max(p1$data$x, na.rm = TRUE)
-# p1 <- gheatmap(plot_tree_MCP_euk_DNA, df, offset = offset_heatmap, width = width_heatmap, colnames=F, aes(fill=factor(Salinity_level))) +
-#   scale_fill_manual(values = colours_named, name = "Salinity level", breaks = levels(df$Salinity_level)) +
-#   geom_cladelab(data=cladeda, mapping=aes(node=id, label=id), textcolour="black", offset = edge_x +offset_heatmap+width_heatmap+ offset_clade, barsize = 1, color="black")
-# 
-# p1
-
-# ###  Large eukaryotic DNA virus major capsid protein with suggestions 
-# library(ggnewscale)
-# 
-# # Parameters
-# offset_heatmap <- 1
-# width_heatmap  <- 1.5
-# offset_clade   <- 0.2   # distance between heatmap and clade bars
-# 
-# # Build base tree
-# plot_tree_MCP_euk_DNA <- ggtree(tree_MCP_euk_DNA,
-#                                 ladderize = TRUE,
-#                                 size = 0.3,
-#                                 branch.length = "none") +
-#   geom_tippoint(fill = tip_colors, color = tip_colors, shape = 21, size = 3) +
-#   geom_tiplab2(align = TRUE, aes(label=NA), linesize = 0.4)  + ggtitle("Large eukaryotic DNA virus major capsid protein") 
-# 
-# # Create df with named rownames
-# df <- data.frame(Salinity_level = factor(metadata$Salinity_level,
-#                                          levels = c("freshwater", "oligohaline", "mesohaline", "polyhaline")))
-# rownames(df) <- tree_MCP_euk_DNA@phylo$tip.label
-# colours_named <- setNames(colours, levels(df$Salinity_level))
-# 
-# # Add heatmap
-# p1 <- gheatmap(plot_tree_MCP_euk_DNA, df,
-#                offset = offset_heatmap,
-#                width = width_heatmap,
-#                colnames = FALSE,
-#                aes(fill = factor(Salinity_level))) +
-#   scale_fill_manual(values = colours_named,
-#                     name = "Salinity level",
-#                     breaks = levels(df$Salinity_level)) +
-#   new_scale_colour()
-# 
-# # ---- Key improvement ----
-# # Use the maximum x position *from the heatmap data*,
-# # not from the ggtree data (they differ)
-# edge_x <- max(layer_data(p1, 2)$x)   # layer 2 = heatmap tiles
-# 
-# # Define your clade data
-# cladeda <- data.frame(id = c(124, 214, 170, 166, 141))
-# 
-# # Add clade labels positioned exactly outside heatmap
-# p1 <- p1 +
-#   geom_cladelab(
-#     data = cladeda,
-#     mapping = aes(node = id, label = id),
-#     textcolour = "black",
-#     offset = offset_clade,#edge_x + 
-#     barsize = 1,
-#     color = "black",
-#     extend = 0.2
-#   ) +
-#   theme_void() +
-#   theme(
-#     legend.position = "bottom",
-#     legend.title = element_text(face = "bold", size = 12),
-#     legend.text = element_text(size = 10),
-#     plot.margin = margin(5, 5, 5, 5)
-#   )
-# 
-# p1
-# 
-# tiff("tree_MCP_euk_DNA_heatmap.tiff" )
-# p1
-# dev.off()
-# 
-#clear  oligohaline, mesohaline clusters
-#put all together 
-# all_MPC_trees <- plot_grid(tree_MCP_E_sep, tree_MCP_euk_DNA_sep, tree_MCP_REFSEQ_sep, tree_MCP_gp17_sep,  ncol=2, align="none", rel_heights = c(1,2))
-# tiff("MPC_phylogeny_grid_tippoint.tiff", width = 1000, height=1000)
-# all_MPC_trees
-# dev.off()
 #combine together with IP 
 IP_hist_all <- readRDS(file="~/IGB_phd/BICEST/virus/viral_abundances/IP_hist_all.rds")
 IP_hist_MCP <- readRDS(file="~/IGB_phd/BICEST/virus/viral_abundances/IP_hist_MCP.rds")
