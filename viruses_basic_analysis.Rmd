@@ -164,9 +164,6 @@ saveRDS(vir_genecluster_annot, file="vir_genecluster_annot_pathways.RData")
 ```{r}
 #visualizations
 
-# pdf("Metabolism_fractions_plot.pdf", height=29.7, width=21.0)
-# metabolism_fractions_plot
-# dev.off()
 #sampling date
 pathways_date_plot <- vir_genecluster_annot %>%  ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=sampleid, y=counts, fill = Pathway)) + facet_wrap(~data_type *Sample_date, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_x_discrete(labels = NULL, breaks = NULL) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.text = element_text(size=10)) + theme_bw(base_size=20)
 tiff("Pathways_fractions_plot.tiff", unit="cm", height=29.7, width=21.0, res =300)
@@ -369,71 +366,11 @@ pdf("metabolism_salinity_level_bubble_plot_scaled.pdf", height=21.0, width=29.7)
 mm
 dev.off()
 ```
-```{r}
-#check if viruses of different niches have different functions - exhibit different pathways 
-drep_clusters_fin_taxonomy_unified <- readRDS(file = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/drep_clusters_fin_taxonomy_unified.RDS")
-#keep only clusters with salinity data - some scaffolds form cruises without salinity
-vibrant_genecluster_abund_quality <- vibrant_genecluster_abund %>% merge(Combined_quality_summary) %>% merge(drep_clusters_fin_taxonomy_unified, by="primary_cluster")
-#analyse complete
-vibrant_genecluster_abund_quality_complete <- vibrant_genecluster_abund_quality[which(vibrant_genecluster_abund_quality$checkv_quality=="Complete"),]
-#check the taxonomy
-unique(vibrant_genecluster_abund_quality_complete$level_5)
-# "Caudoviricetes" only
-vibrant_genecluster_abund_quality_hq <- vibrant_genecluster_abund_quality[which(vibrant_genecluster_abund_quality$checkv_quality=="High-quality"),]
-#check the taxonomy complete
-unique(vibrant_genecluster_abund_quality_complete$level_5)
-# "Caudoviricetes" only
-#check the taxonomy high quality 
-unique(vibrant_genecluster_abund_quality_hq$level_5)
-# "Caudoviricetes" only
-#pathways 
-#check the taxonomy complete
-unique(vibrant_genecluster_abund_quality_complete$Pathway)
-# "Caudoviricetes" only
-#check the taxonomy high quality 
-unique(vibrant_genecluster_abund_quality_hq$Pathway)
-#check carbon fixation pathway in potosyyntetic organisms - are those
-#cyanophages?
-vibrant_genecluster_abund_quality_photo <- vibrant_genecluster_abund_quality[which((vibrant_genecluster_abund_quality$checkv_quality=="High-quality" | vibrant_genecluster_abund_quality$checkv_quality=="Complete") & vibrant_genecluster_abund_quality$Pathway=="Carbon fixation in photosynthetic organisms"),] %>% merge(host_prediction_genome)
 
-# "Caudoviricetes" only
-drep_clusters_fin_taxonomy_unified <- drep_clusters_fin_taxonomy_unified %>% filter(!is.na(Salinity_niche))
-vibrant_genecluster_abund_niche <- merge(vibrant_genecluster_abund, drep_clusters_fin_taxonomy_unified, by="primary_cluster")
-
-#add quality 
-salinity_niche_pathways_plot <- vibrant_genecluster_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Pathway)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.text = element_text(size=10)) + xlab("Elbe km") + scale_fill_manual(values = palette)
-#weird - very different specialize functions ... many NA for salinity niche - correct it 
-tiff("salinity_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000)
-salinity_niche_pathways_plot
-dev.off()
-
-salinity_niche_Metabolism_plot <- vibrant_genecluster_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Salinity_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Salinity_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text( size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
-
-tiff("salinity_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
-salinity_niche_Metabolism_plot
-dev.off()
-#fraction niche
-
-Fraction_niche_pathways_plot <- vibrant_genecluster_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Fraction_niche, data_type, Pathway) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=reorder(sampleid, Stromkilometer), y=counts, fill = Pathway)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ggtitle("Relative abundace of pathways across different fractions") + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.text = element_text(size=10)) + xlab("Elbe km") + scale_fill_manual(values = palette)
-
-Fraction_niche_pathways_plot <- vibrant_genecluster_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=Fraction_niche, y=counts, fill = Pathway)) + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12), legend.text = element_text(size=10)) + xlab("Elbe km") + scale_fill_manual(values = palette)
-#weird - very different specialize functions ... many NA for alinity niche - correct it 
-tiff("Fraction_niche_pathways_plot.tiff", unit="px", width = 1000, height = 1000)
-Fraction_niche_pathways_plot
-dev.off()
-
-Fraction_niche_Metabolism_plot <- vibrant_genecluster_abund_niche  %>% filter(counts>0 & !is.na(Sample_date)) %>% group_by(sampleid, Stromkilometer, Fraction_niche, data_type, Metabolism) %>% summarise(counts=sum(counts)) %>% ggplot() + geom_bar(position ="fill", stat = "identity", aes(x=as.factor(round(Stromkilometer,0)), y=counts, fill = Metabolism)) + facet_wrap(~data_type *Fraction_niche, scales= "free_x") + scale_y_continuous(labels=scales::percent_format()) + scale_y_continuous(labels=scales::percent_format()) + ylab("Relative abundace") + theme(axis.title.y = element_text(angle=90, size=12)) + xlab("Elbe km") + scale_fill_manual(values = palette)
-
-tiff("Fraction_niche_Metabolism_plot.tiff", unit="px", width = 1000, height = 1000)
-Fraction_niche_Metabolism_plot
-dev.off()
-
-
-```
 #3. Hosts analysis specialist and generalist
 ```{r , echo=FALSE}
 #check hosts 
-drep_clusters <- merge(drep_clusters, host_prediction_genome, by.x ="genome", by.y = "Virus", all.x = T, all.y = F)
+drep_clusters <- merge(drep_clusters, host_prediction_genome, by.x ="contig_id", by.y = "Virus", all.x = T, all.y = F)
 drep_clusters_hosts_sum <-aggregate(phylum ~ primary_cluster , data = drep_clusters, FUN = function(x) length(unique(x)))
 # Sort the pirates dataframe by height in decreasing order
 drep_clusters_hosts_sum <- drep_clusters_hosts_sum[order(drep_clusters_hosts_sum$phylum, decreasing = TRUE),]
