@@ -7,7 +7,6 @@ library(foreach)
 options(future.availablecores.methods = "mc.cores")
 # SLURM_CPUS_PER_TASK is the amount of cores specified in the job environment
 options(mc.cores = Sys.getenv("SLURM_CPUS_PER_TASK"))
-#mc.cores <- detectCores()
 cluster <- makeCluster(mc.cores)
 registerDoParallel(cluster)
 #setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_genes")
@@ -18,19 +17,12 @@ IP <- c()
 results <- foreach(prot=iter(myProts), .combine='rbind') %dopar% {
   # Store the results
   IP <- seqinr::computePI(prot)
-  # IP <-c(IP,res)
   header <- attr(prot,"name")
-  # headers <- c(headers, header)
   x <- c(header, IP)
 }
 # Don't fotget to stop the cluster
 stopCluster(cl = cluster)
-# for (prot in myProts){
-# res <- computePI(prot)
-# IP <-c(IP,res)
-# header <- attr(prot,"name")
-# headers <- c(headers, header)
-# }
+
 df <- data.frame(results)
 colnames(df) <- c("header", "IP")
 rownames(df) <- NULL
