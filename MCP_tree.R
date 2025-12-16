@@ -8,7 +8,6 @@ library("cowplot")
 library("phytools")
 library("treeio")
 library("ggrepel")
-#detach("package:phyloseq", unload=TRUE) #conflict with ape
 setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_genes/MPC_tree")
 MCP_annot <- read.csv(file="C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_genes/MPC_tree/headers_MCP.txt", sep="\t", header=F)
 MCP_annot$V1 = gsub("_[1-9]$", "", MCP_annot$V1)
@@ -41,6 +40,7 @@ tree_MCP_E@phylo$tip.label <-  gsub("_fragment.*$", "", tree_MCP_E@phylo$tip.lab
 metadata <- as.data.frame(tree_MCP_E@phylo$tip.label)
 colnames(metadata) <- c("genome")
 path = "C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/metadata/"
+metadata_params <- read.csv(paste0(path,"/PhysicochemicalParameters_mod3.csv"), header=TRUE, sep=",", row.names=1) %>% select(!c("data_type", "sampleid")) %>% distinct()
 metadata <- metadata %>% mutate(AccessionNumber_TBDSven = str_extract(genome, "SAMEA[0-9]+"))
 metadata <- left_join(metadata, metadata_params, by="AccessionNumber_TBDSven") 
 metadata <- left_join(metadata, MCP_annot, by=c("genome"="V1")) 
@@ -78,17 +78,13 @@ rownames(df) <- tree_MCP_E@phylo$tip.label
 colours_named <- setNames(colours, levels(df$Salinity_level))
 
 
-edge_x <- max(layer_data(p1, 2)$x)   # layer 2 = heatmap tiles
-
 # Define your clade data
-#cladeda <- data.frame(id = c(601,, 996, 1028, 1040, 1074, 1147))
 cladeda <- data.frame(id = c(601, 852, 989), type =c("lower salinity", "higher salinity", "lower salinity") )
 p3 <- plot_tree_MCP_E +
   geom_cladelab(
     data = cladeda,
     mapping = aes(node = id, label = type),
     textcolour = "black",
-#    offset = offset_clade,#edge_x +
     barsize = 1,
     color = "black",
     extend = 0.2,
@@ -249,7 +245,7 @@ df <- data.frame(Salinity_level = factor(metadata$Salinity_level,
 rownames(df) <- tree_MCP_euk_DNA@phylo$tip.label
 colours_named <- setNames(colours, levels(df$Salinity_level))
 
-# # Define your clade data
+# Define your clade data
 cladeda <- data.frame(id = c(123,   212, 207, 170, 165, 140), type =c("lower salinity", "higher salinity", "lower salinity", "higher salinity","higher salinity","lower salinity"))
 # 
 p3 <- plot_tree_MCP_euk_DNA +
@@ -257,7 +253,6 @@ p3 <- plot_tree_MCP_euk_DNA +
     data = cladeda,
     mapping = aes(node = id, label = type),
     textcolour = "black",
-    offset = offset_clade,#edge_x +
     barsize = 1,
     color = "black",
     extend = 0.2,
@@ -295,6 +290,4 @@ pdf(file="plot_MCP_all.pdf", width = 16, height=22)
 plot_MCP_all
 dev.off()
 
-tiff("MCP_salinity_annot.tiff")
-plot_MCP_salinity_annot
-dev.off()
+
