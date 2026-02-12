@@ -1,0 +1,11 @@
+{
+    "module": "annotate",
+    "input": "Combined_viruses.fna",
+    "input_md5": "cb48e381aa7c3fa53be7a0bca1825555",
+    "start_time": "2024-11-20T12:13:12.782340+01:00",
+    "parameters": {
+        "use_minimal_db": false,
+        "sensitivity": 4.2,
+        "evalue": 0.001
+    }
+}

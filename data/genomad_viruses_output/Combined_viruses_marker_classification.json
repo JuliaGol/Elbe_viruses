@@ -1,0 +1,7 @@
+{
+    "module": "marker_classification",
+    "input": "Combined_viruses.fna",
+    "input_md5": "cb48e381aa7c3fa53be7a0bca1825555",
+    "start_time": "2024-11-20T14:22:17.830893+01:00",
+    "parameters": {}
+}

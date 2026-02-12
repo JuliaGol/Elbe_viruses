@@ -1,0 +1,41 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad find-proviruses (v1.8.1). This will find putative         │
+│  proviral regions within the input sequences.                                │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /scratch/jgolebiowska/viruses_BICEST/genomad_proviruses_output/Combined_  │
+│    proviruses_find_proviruses                                                │
+│    ├── Combined_proviruses_find_proviruses.json (execution parameters)       │
+│    ├── Combined_proviruses_provirus.tsv (provirus data)                      │
+│    ├── Combined_proviruses_provirus.fna (provirus nucleotide sequences)      │
+│    ├── Combined_proviruses_provirus_proteins.faa (provirus protein           │
+│    │   sequences)                                                            │
+│    ├── Combined_proviruses_provirus_genes.tsv (provirus gene annotation      │
+│    │   data)                                                                 │
+│    ├── Combined_proviruses_provirus_taxonomy.tsv (provirus taxonomic         │
+│    │   assignment)                                                           │
+│    ├── Combined_proviruses_provirus_mmseqs2.tsv (MMseqs2 output file)        │
+│    └── Combined_proviruses_provirus_aragorn.tsv (Aragorn output file)        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[13:12:40] Executing genomad find-proviruses.                                   
+[13:12:40] Creating the                                                         
+           /scratch/jgolebiowska/viruses_BICEST/genomad_proviruses_output/Combin
+           ed_proviruses_find_proviruses directory.                             
+[13:12:59] Integrases identified with MMseqs2 and geNomad database (v1.7) were  
+           written to Combined_proviruses_provirus_mmseqs2.tsv.                 
+[13:12:59] Deleting Combined_proviruses_provirus_mmseqs2.                       
+[13:12:59] Deleting Combined_proviruses_provirus_mmseqs2_input.faa.             
+[13:13:00] tRNAs identified with Aragorn were written to                        
+           Combined_proviruses_provirus_aragorn.tsv.                            
+[13:13:00] Deleting Combined_proviruses_provirus_aragorn_input.fna.             
+[13:13:02] Provirus regions identified.                                         
+[13:13:02] Provirus data was written to Combined_proviruses_provirus.tsv.       
+[13:13:02] Provirus nucleotide sequences were written to                        
+           Combined_proviruses_provirus.fna.                                    
+[13:13:03] Provirus protein sequences were written to                           
+           Combined_proviruses_provirus_proteins.faa.                           
+[13:13:03] Provirus gene data was written to                                    
+           Combined_proviruses_provirus_genes.tsv.                              
+[13:13:03] Taxonomic assignment data was written to                             
+           Combined_proviruses_provirus_taxonomy.tsv.                           
+[13:13:03] geNomad find-proviruses finished!                                    

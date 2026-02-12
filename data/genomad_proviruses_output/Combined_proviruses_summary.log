@@ -1,0 +1,36 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad summary (v1.8.1). This will summarize the results across  │
+│  modules into a classification report.                                       │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /scratch/jgolebiowska/viruses_BICEST/genomad_proviruses_output/Combined_  │
+│    proviruses_summary                                                        │
+│    ├── Combined_proviruses_summary.json (execution parameters)               │
+│    ├── Combined_proviruses_virus_summary.tsv (virus classification summary)  │
+│    ├── Combined_proviruses_plasmid_summary.tsv (plasmid classification       │
+│    │   summary)                                                              │
+│    ├── Combined_proviruses_virus.fna (virus nucleotide FASTA file)           │
+│    ├── Combined_proviruses_plasmid.fna (plasmid nucleotide FASTA file)       │
+│    ├── Combined_proviruses_virus_proteins.faa (virus protein FASTA file)     │
+│    ├── Combined_proviruses_plasmid_proteins.faa (plasmid protein FASTA       │
+│    │   file)                                                                 │
+│    ├── Combined_proviruses_virus_genes.tsv (virus gene annotation data)      │
+│    └── Combined_proviruses_plasmid_genes.tsv (plasmid gene annotation data)  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[13:19:12] Executing genomad summary.                                           
+[13:19:12] Creating the                                                         
+           /scratch/jgolebiowska/viruses_BICEST/genomad_proviruses_output/Combin
+           ed_proviruses_summary directory.                                     
+[13:19:12] Using scores from aggregated-classification.                         
+[13:19:13] 5 plasmid(s) and 11,869 virus(es) were identified.                   
+[13:19:17] Nucleotide sequences were written to Combined_proviruses_plasmid.fna 
+           and Combined_proviruses_virus.fna.                                   
+[13:19:19] Protein sequences were written to                                    
+           Combined_proviruses_plasmid_proteins.faa and                         
+           Combined_proviruses_virus_proteins.faa.                              
+[13:19:19] Gene annotation data was written to                                  
+           Combined_proviruses_plasmid_genes.tsv and                            
+           Combined_proviruses_virus_genes.tsv.                                 
+[13:19:19] Summary files were written to Combined_proviruses_plasmid_summary.tsv
+           and Combined_proviruses_virus_summary.tsv.                           
+[13:19:19] geNomad summary finished!                                            

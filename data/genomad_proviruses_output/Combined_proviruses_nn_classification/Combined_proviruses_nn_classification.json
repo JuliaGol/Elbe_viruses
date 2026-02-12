@@ -1,0 +1,9 @@
+{
+    "module": "nn_classification",
+    "input": "Combined_proviruses.fna",
+    "input_md5": "a568918ef3a9e093f4351dc0b05ce6e8",
+    "start_time": "2024-11-20T13:13:44.325835+01:00",
+    "parameters": {
+        "single_window": false
+    }
+}

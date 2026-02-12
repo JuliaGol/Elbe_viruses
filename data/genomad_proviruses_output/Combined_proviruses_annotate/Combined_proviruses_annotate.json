@@ -1,0 +1,11 @@
+{
+    "module": "annotate",
+    "input": "Combined_proviruses.fna",
+    "input_md5": "a568918ef3a9e093f4351dc0b05ce6e8",
+    "start_time": "2024-11-20T13:05:28.070414+01:00",
+    "parameters": {
+        "use_minimal_db": false,
+        "sensitivity": 4.2,
+        "evalue": 0.001
+    }
+}
