@@ -1,0 +1,91 @@
+---
+title: "genomad_vs_vibrant"
+author: "Julia Golebiowska"
+output: pdf_document
+---
+
+```{r setup}
+#set up
+library(vegan)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(RColorBrewer)
+setwd("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/Elbe_viruses")
+# path='/your/path' #useful if you have splitted data
+#read original files the you have to split it again - it takes time 
+genomad_contigs_taxa <- read.csv("data/genomad_taxonomy_all.tsv", sep ="\t")
+vibrant_annotated_contigs_taxa <- read.csv("data/genomad_viruses_output/Combined_viruses_taxonomy.tsv", sep = "\t")
+#read splitted file 
+# compare_contigs_taxa <- readRDS(file="path/compare_contigs_taxa_splitted.RDS")
+# compare_contigs_taxa_newly_discovered <- readRDS(file="path/compare_contigs_taxa_newly_discovered.RDS")
+drep_clusters_fin_taxonomy_unified <- readRDS("path/drep_clusters_fin_taxonomy_unified.RDS") 
+geneabund_drep_marker_taxonomy_long <- readRDS("C:/Users/jgolebiowska/Documents/IGB_phd/BICEST/virus/viral_abundances/CCA_marker_gene/geneabund_drep_marker_taxonomy_long.RDS") 
+vibrant_all_contigs_taxa <- read.csv("data/VIBRANT/Combined_quality_summary.tsv", sep = "\t") 
+```
+
+
+```{r}
+#how many new giant viruses are recovered
+#this is merged file lets remove replicated headers
+genomad_contigs_taxa <- genomad_contigs_taxa[which(genomad_contigs_taxa$seq_name!="seq_name"),]
+#lets merge both taxonomies 
+# first unify seq name 
+vibrant_annotated_contigs_taxa$seq_name <- sub("_length.*", "", vibrant_annotated_contigs_taxa$seq_name )
+#change names of lineage 
+colnames(genomad_contigs_taxa)[which(colnames(genomad_contigs_taxa)=="lineage")] <-"genomad.lineage"
+
+colnames(vibrant_annotated_contigs_taxa)[which(colnames(vibrant_annotated_contigs_taxa)=="lineage")] <-"vibrant.lineage"
+#uncomment if you read raw file instead of
+#separate before merge
+# genomad_contigs_taxa <- genomad_contigs_taxa %>%
+#   separate(genomad.lineage, c("genomad.level_1", "genomad.level_2", "genomad.level_3", "genomad.level_4", "genomad.level_5",  "genomad.level_6", "genomad.level_7"), ";", remove = F)
+# vibrant_annotated_contigs_taxa <- vibrant_annotated_contigs_taxa  %>%
+#   separate(vibrant.lineage, c("vibrant.level_1", "vibrant.level_2", "vibrant.level_3", "vibrant.level_4", "vibrant.level_5",  "vibrant.level_6", "vibrant.level_7"), ";", remove=F)
+
+# #now we can merge
+# compare_contigs_taxa <- merge(vibrant_annotated_contigs_taxa[,c("seq_name", "vibrant.lineage", "vibrant.level_1", "vibrant.level_2", "vibrant.level_3", "vibrant.level_4", "vibrant.level_5",  "vibrant.level_6", "vibrant.level_7")], genomad_contigs_taxa[,c("seq_name", "genomad.lineage", "genomad.level_2", "genomad.level_3", "genomad.level_4", "genomad.level_5",  "genomad.level_6", "genomad.level_7")], all=T)
+# saveRDS(compare_contigs_taxa, file=paste0(path,"/compare_contigs_taxa_splitted.RDS"))
+
+#check how many of the contigs from vibrant with taxonomy annotated by genomad (which we have less an also selected) was are  detected in the genomad run 
+ncontigs_both <- sum(vibrant_annotated_contigs_taxa$seq_name %in% genomad_contigs_taxa$seq_name)
+#calculate percent 
+ncontigs_both/length(vibrant_annotated_contigs_taxa$seq_name) #almost all were discovered again -  0.9686976
+#then lets check if the distribution of found phages and dna viruses is different
+#check first how many "Megaviricetes" and  "Maveriviricetes" are in new discovered viruses - giant viruses and theirs satellites
+compare_contigs_taxa_newly_discovered <- genomad_contigs_taxa[which(!(genomad_contigs_taxa$seq_name %in% vibrant_annotated_contigs_taxa$seq_name)),]
+new_giant_viruses_satelites <- nrow(compare_contigs_taxa_newly_discovered[which(compare_contigs_taxa_newly_discovered$genomad.level_5 %in% c("Megaviricetes","Maveriviricetes" )),]) #504444
+#percent
+new_giant_viruses_satelites/nrow(genomad_contigs_taxa) #0.02347736 compare  with vibrant 
+#giant viruses only 
+new_giant_viruses <- nrow(compare_contigs_taxa_newly_discovered[which(compare_contigs_taxa_newly_discovered$genomad.level_5 %in% c("Megaviricetes")),]) #493775
+new_giant_viruses/nrow(compare_contigs_taxa_newly_discovered) # compare  with vibrant 0.02391653
+#check old fraction g
+old_giant_viruses_satelites <- nrow(vibrant_annotated_contigs_taxa[which(vibrant_annotated_contigs_taxa$vibrant.level_5 %in% c("Megaviricetes","Maveriviricetes" )),]) #27605
+#percent
+old_giant_viruses_satelites/nrow(vibrant_annotated_contigs_taxa) # 0.03180589  compare  with vibrant  0.03180589 (more then in the newly discovered fraction)
+#check giant viruses only 
+old_giant_viruses <- nrow(vibrant_annotated_contigs_taxa[which(vibrant_annotated_contigs_taxa$vibrant.level_5 %in% c("Megaviricetes")),]) #25794
+#percent
+old_giant_viruses/nrow(vibrant_annotated_contigs_taxa) #0.02971929
+```
+check quality of newly discovered fraction vs old one
+```{r}
+#load quality overview
+genomad_virus_summary <- read.csv("data/genomad_virus_summary_all.tsv", sep ="\t")
+vibrant_virus_summary <- read.csv("data/genomad_viruses_output/Combined_viruses_virus_summary.tsv", sep ="\t")
+#extract each fraction
+vibrant_all_contigs_taxa$contig_id <- sub("_length.*", "", vibrant_all_contigs_taxa$contig_id)
+old_fraction<-vibrant_all_contigs_taxa$contig_id
+new_fraction<-compare_contigs_taxa_newly_discovered$seq_name
+#how much overlap
+nrow(genomad_virus_summary[which(genomad_virus_summary$seq_name %in% old_fraction),])/length(old_fraction) #0.6405591
+#extract quality scores for each fraction
+old_fraction_scores <- as.double(vibrant_virus_summary[, "virus_score"])
+new_fraction_scores <- as.double(genomad_virus_summary[which(genomad_virus_summary$seq_name %in% new_fraction), "virus_score"])
+#basic statistics
+mean(old_fraction_scores)
+mean(new_fraction_scores)
+median(old_fraction_scores)
+median(new_fraction_scores)
+```
